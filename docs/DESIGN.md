@@ -18,7 +18,7 @@
 
 ## Provenance 与结果设计
 
-后续结果每个 instance 独立一行：method、problem、size、instance_id；官方 URL/commit/dirty；主仓库 commit/dirty（尚无 commit 时明确 null）；checkpoint path/source/hash；dataset realpath/hash/index；adapter/source hash；环境 timestamp/host/Python/Torch/CUDA/GPU；seed、完整 decode 参数、batch size、augmentation、multistart、search iterations、width/alpha 的实际含义；实际 solution；reported/independent/Kit objective；independent/Kit feasibility 与各约束细节；wall-clock runtime。
+结果每个 instance 独立一行：method、problem、size、instance_id；官方 URL/commit/dirty；主仓库 commit/dirty；checkpoint path/source/hash；dataset realpath/hash/index；adapter/source hash；环境 timestamp/host/Python/Torch/CUDA/GPU；seed、完整 decode 参数、batch size、augmentation、multistart、search iterations、width/alpha 的实际含义；实际 solution；reported/independent/Kit objective；independent/Kit feasibility 与各约束细节；wall-clock runtime。薄层实现位于 `common/result_schema.py` 与 `common/provenance.py`，严格拒绝 NaN/Inf 及伪造validation成功，不引入solver抽象。
 
 Checkpoint 部件用列表记录（例如 GLOP partitioner + 多 reviser，UDC partition + conquer），不能只记一个总路径。主文件和 `args.json` 等构造配置均需 hash。完整 `state_dict` key/shape 保存在忽略的 audit JSON；manifest 只放来源、固定版本、预期布局与紧凑事实。manifest 使用 JSON 语法（YAML 1.2 的子集），基础审计无需 PyYAML。
 

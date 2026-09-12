@@ -1,20 +1,20 @@
 # Phase 0 / Phase 1 checkpoint report
 
-本轮按修正后的 local development + user-executed server validation 收口；已完成本地基础层与明确接口，停在审查点，不开始全部26 rows实现。以下“事实”均指本轮实际证据；“推断”仅指代码支持的候选；服务器没有返回执行证据。
+这是 Phase 0 / Phase 1 snapshot `38f794fc19c3aaa988bfa78db0ae51143aab93ef` 的审计报告。其后 MVMoE/4E + CVRP50 已完成首个本地真实 integration；对应现状见 [method README](../methods/mvmoe/cvrp/README.md)、[STATUS](STATUS.md) 和 [integration manifest](../manifests/mvmoe_cvrp50.json)。其它技术结论维持本报告的证据边界。
 
 ## A. git diff / 新增文件
 
-独立仓库 `/home/xihe/projects/neural-routing-baselines` 保留已有工作。当前为unborn分支、文件尚未tracked，因此`git diff --stat`为空；`git status --short`显示自有文件为untracked，不是工作丢失。本轮没有git add/commit/push，七个official checkout最后审计dirty=false。
+独立仓库已发布为 `https://github.com/xihe-820/neural-routing-baselines`；Phase 0/1 snapshot 是 `38f794fc19c3aaa988bfa78db0ae51143aab93ef`。本轮 integration 修改尚未自动 commit/push；七个 official checkout 在该报告及本轮 MVMoE smoke 后均保持 clean。
 
 新增/完善：五个audit/download脚本；SHA与数值输入检查；TSP/CVRP/CVRPTW各自objective/validator；三个测试模块；六组dataset清单；组件式checkpoint/完整strict-load记录；26行细粒度status；13个method/problem接口README；源码/环境/数据/尺寸/runbook文档。实际文件树见B。下载数据与外部源码/权重/原始artifact保持gitignored。
 
 ## B. repository tree
 
-见 [REPOSITORY_TREE.md](REPOSITORY_TREE.md)，只展示主仓库自有文件与ignored目录摘要，不展开official monorepo。共享数学真值在problems/，method输入、decoder和runner的接口在methods/；后三者尚未实现，不放成功stub。
+见 [REPOSITORY_TREE.md](REPOSITORY_TREE.md)，只展示主仓库自有文件与ignored目录摘要，不展开official monorepo。共享数学真值在problems/；MVMoE/CVRP50 的输入、decoder和runner现已实现，其它method接口仍保持独立。
 
 ## C. 26-row status
 
-完整19列×26行见 [STATUS.md](STATUS.md)，机器可读为 [status.json](../manifests/status.json)。全部row：source audit LOCAL_VERIFIED；asset官方来源SOURCE_CONFIRMED；本地dataset与problem validator LOCAL_VERIFIED；adapter/decoder NOT_IMPLEMENTED；model forward、small inference、method-output Kit、所有server项NOT_RUN。以下列出逐size的资产/加载差异，不能将reference结果继承为method成功。
+完整19列×26行见 [STATUS.md](STATUS.md)，机器可读为 [status.json](../manifests/status.json)。MVMoE/CVRP50 已单独升级为本地 integration LOCAL_VERIFIED；其它 rows 仍保留原审计状态。所有 server 项仍为 NOT_RUN。
 
 | Method | Problem | N | Local binary/SHA | Official strict load | Configuration / current limit |
 |---|---|---:|---|---|---|
@@ -30,7 +30,7 @@
 | CaDA | CVRP | 100 | NOT_RUN | NOT_RUN | Checkpoint absent; legacy API risk |
 | CaDA | CVRPTW | 50 | NOT_RUN | NOT_RUN | Checkpoint absent; legacy API risk |
 | CaDA | CVRPTW | 100 | NOT_RUN | NOT_RUN | Checkpoint absent; legacy API risk |
-| MVMoE | CVRP | 50 | LOCAL_VERIFIED | LOCAL_VERIFIED | Tester missing scipy in gan; no forward |
+| MVMoE | CVRP | 50 | LOCAL_VERIFIED | LOCAL_VERIFIED | Direct MOEModel/CVRPEnv official-config first-5 integration LOCAL_VERIFIED |
 | MVMoE | CVRP | 100 | LOCAL_VERIFIED | LOCAL_VERIFIED | Tester missing scipy in gan; no forward |
 | MVMoE | CVRPTW | 50 | LOCAL_VERIFIED | LOCAL_VERIFIED | Tester missing scipy in gan; no forward; depot TW mapping required |
 | MVMoE | CVRPTW | 100 | LOCAL_VERIFIED | LOCAL_VERIFIED | Tester missing scipy in gan; no forward; depot TW mapping required |
@@ -95,11 +95,11 @@ CVRP50/100默认K_SPARSE键缺失。官方load_partitioner/infer允许显式k_sp
 - GLOP/UDC/CaDA/RF-TE所选components本地未落盘；公开来源已知，当前不是已证实的权限障碍。
 - gan缺PyG/random_insertion等阻碍相应导入；MoSES deserialize缺rl4co；CaDA/RF/MoSES的rl4co/TensorDict/TorchRL/Lightning API兼容仍有风险，未擅自改核心stack。
 - MVMoE Tester缺scipy、NeuOpt PPO缺tensorboard_logger只阻碍对应entrypoint，未阻塞source审计或已成功strict load。
-- MVMoE CVRPTW默认depot3.0与benchmark4.6需明确数据配置方案；不能静默修改benchmark。
+- MVMoE CVRPTW需沿用作者 `_solve_cvrptwlib` 已有的 per-instance `env.depot_end = data[0,5] / scaler` 配置路径；尚待实际CVRPTW验证。
 - Method adapter/decoder/runner尚未实现是本轮有意停止的位置，不能写成失败或integration complete。官方数据smoke/Kit不是绝对门槛。
 
 ## L. 下一步第一个 implementation
 
 推荐 **GLOP / TSP / 100**，保持既定优先级：先定向取得Reviser100/50/20与args.json，核对原始keys，运行最小forward，设计无歧义ID捕获，再接真实ML4CO少量实例和独立验证。随后GLOP/TSP50验证50/20组合。此建议是工程排序推断，不是已经执行的计划结果。
 
-若GLOP组件暂时拿不到，可考虑 **MVMoE/4E / CVRP / 50**：已有strict-load与dataset证据，CVRP没有TW映射差异。当前按要求停在此checkpoint，未自动启动两者的完整实现。
+后续排序建议属于该 snapshot 的历史结论；MVMoE/4E + CVRP50 已在下一轮完成。本轮明确不扩展 CVRP100 或其它方法。

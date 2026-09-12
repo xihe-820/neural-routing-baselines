@@ -1,0 +1,114 @@
+{
+  "integration": {
+    "method": "MVMoE",
+    "variant": "MOE/4E",
+    "problem": "CVRP",
+    "problem_size": 50,
+    "evidence": "LOCAL_VERIFIED",
+    "project_base_snapshot": "38f794fc19c3aaa988bfa78db0ae51143aab93ef",
+    "project_worktree_dirty_during_run": true,
+    "upstream_url": "https://github.com/RoyalSkye/Routing-MVMoE",
+    "upstream_commit": "af29e5af0595f94f3ecc3bc46d72df1089a62682",
+    "upstream_dirty_before_and_after": false,
+    "checkpoint": {
+      "path": "pretrained/mvmoe_4e_n50/epoch-5000.pt",
+      "sha256": "3417f302fbddf232fd19a2a886cd1c7f44290b6d8c7280fcb0ae3777eeed3192",
+      "epoch": 5000,
+      "problem": "Train_ALL",
+      "strict_load": true
+    },
+    "dataset": {
+      "filename": "cvrp50_hgs-1s_10.366.pkl",
+      "sha256": "eea12fbefe9c1bcc008d56ecfc1c50dadd64ac774f3547774c9fade8a7baa6c2",
+      "indices": [0, 1, 2, 3, 4],
+      "raw_capacity": 40
+    },
+    "model_config": {
+      "model_type": "MOE",
+      "embedding_dim": 128,
+      "sqrt_embedding_dim": 11.313708498984761,
+      "encoder_layer_num": 6,
+      "decoder_layer_num": 1,
+      "qkv_dim": 16,
+      "head_num": 8,
+      "logit_clipping": 10,
+      "ff_hidden_dim": 512,
+      "num_experts": 4,
+      "topk": 2,
+      "routing_level": "node",
+      "routing_method": "input_choice",
+      "eval_type": "argmax",
+      "norm": "instance",
+      "norm_loc": "norm_last",
+      "expert_loc": ["Enc0", "Enc1", "Enc2", "Enc3", "Enc4", "Enc5", "Dec"],
+      "problem": "Train_ALL",
+      "problem_size": 50,
+      "pomo_size": 50,
+      "seed": 2024,
+      "fine_tune_epochs": 0,
+      "loc_scaler": null
+    },
+    "execution": {
+      "model_environment": {
+        "python": "3.10.20",
+        "torch": "2.5.1",
+        "torch_cuda_build": "12.1",
+        "numpy": "1.24.3",
+        "device": "cuda:0",
+        "gpu": "NVIDIA GeForce RTX 4060 Laptop GPU"
+      },
+      "kit_environment": {
+        "python": "3.10.20",
+        "torch": "2.12.0+cpu",
+        "numpy": "2.2.6",
+        "ml4co_kit": "0.5.4"
+      },
+      "training": false,
+      "backward": false,
+      "optimizer_created": false,
+      "server_evidence": "NOT_RUN"
+    }
+  },
+  "smokes": {
+    "reduced_aug1_first2": {
+      "configuration_class": "reduced_debug",
+      "aug_factor": 1,
+      "count": 2,
+      "independent_feasible": 2,
+      "kit_feasible": 2,
+      "total_runtime_seconds": 0.8651130739963264,
+      "validated_artifact": "artifacts/mvmoe_cvrp50/reduced_aug1_first2_validated.json",
+      "artifact_sha256": "c3b47177f52c08c5a72f8041a01d1434dbd093215b2eac9a41d162ddb0870998"
+    },
+    "official_aug8_first2": {
+      "configuration_class": "official",
+      "aug_factor": 8,
+      "count": 2,
+      "independent_feasible": 2,
+      "kit_feasible": 2,
+      "total_runtime_seconds": 0.7153118749993155,
+      "validated_artifact": "artifacts/mvmoe_cvrp50/official_aug8_first2_validated.json",
+      "artifact_sha256": "2bc440d216f9c765b3d47d9d5f2c47dd32b62e06275d3ce707364da1ad37a8b1"
+    },
+    "official_aug8_first5": {
+      "configuration_class": "official",
+      "aug_factor": 8,
+      "count": 5,
+      "independent_feasible": 5,
+      "kit_feasible": 5,
+      "total_runtime_seconds": 0.8042861189969699,
+      "max_reported_independent_abs_error": 0.0000011662528365263825,
+      "max_kit_independent_abs_error": 0.0000013389322415235938,
+      "validated_artifact": "artifacts/mvmoe_cvrp50/official_aug8_first5_validated.json",
+      "artifact_sha256": "001abf3ae3b5ef25f6ddb684560742750ad79a01ad509e8869fbd4828d13ba79",
+      "results": [
+        {"index": 0, "reported": 11.156522750854492, "independent": 11.156523627419757, "kit": 11.156524658203125, "reference": 10.973381996154785, "gap_percent": 1.668962506993259, "best_aug_idx": 5, "best_pomo_idx": 5, "feasible": true},
+        {"index": 1, "reported": 9.705957412719727, "independent": 9.705957737490278, "kit": 9.70595645904541, "reference": 9.475135803222656, "gap_percent": 2.4360804854017566, "best_aug_idx": 5, "best_pomo_idx": 19, "feasible": true},
+        {"index": 2, "reported": 10.951583862304688, "independent": 10.951584170825218, "kit": 10.951584815979004, "reference": 10.940146446228027, "gap_percent": 0.10454818546906834, "best_aug_idx": 6, "best_pomo_idx": 30, "feasible": true},
+        {"index": 3, "reported": 10.604280471801758, "independent": 10.604281638054594, "kit": 10.604281425476074, "reference": 10.585029602050781, "gap_percent": 0.18187985038873325, "best_aug_idx": 1, "best_pomo_idx": 13, "feasible": true},
+        {"index": 4, "reported": 12.467794418334961, "independent": 12.46779384991857, "kit": 12.467792510986328, "reference": 12.329596519470215, "gap_percent": 1.1208584987361203, "best_aug_idx": 5, "best_pomo_idx": 48, "feasible": true}
+      ],
+      "canonical_solution_example_index_0": [0, 6, 50, 32, 20, 11, 33, 0, 28, 1, 42, 25, 16, 9, 2, 0, 38, 47, 44, 41, 7, 45, 22, 49, 0, 31, 13, 26, 29, 27, 36, 24, 39, 0, 5, 34, 14, 23, 30, 37, 0, 15, 12, 19, 48, 18, 43, 0, 3, 4, 8, 17, 21, 40, 0, 10, 35, 46, 0]
+    }
+  }
+}

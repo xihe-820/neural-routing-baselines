@@ -39,7 +39,7 @@
 - 正式模型 `models.MOEModel.MOEModel`，`model_type=MOE, num_experts=4, routing_level=node, routing_method=input_choice`；默认 `test.py` 的 MOE_LIGHT 不适用。`pretrained/mvmoe_4e_n50|n100/epoch-5000.pt` 已本地实际验证，payload `problem=Train_ALL`，epoch=5000。
 - 两个 checkpoint 各有 193 个 state tensor，depot embedding `[128,2]`，customer embedding `[128,5]`；本地 strict load 到官方 MOEModel 均无 missing/unexpected keys，参数数 3,682,176。仅 CPU construction/load，无 forward。
 - CVRP pickle loader 接 `(depot,loc,raw_demand,capacity)` 并 normalize；`load_problems` 接已 normalized 三元组，边界不同。VRPTW pickle 增加 `(service_time,tw_start,tw_end)`，loader 除 demand/capacity 后给六元组。不能把 normalized demand 再送 pickle loader。
-- `VRPTWEnv` speed=1、depot TW 固定 `[0,3]`；这是官方环境默认值；真实benchmark depot上界已确认约4.6，speed=1。adapter 必须比较 source depot TW/service 单位，无法表达时先报告，不静默换数据。
+- `VRPTWEnv` 初始化默认 depot TW `[0,3]`，但官方 `Tester._solve_cvrptwlib` 在 inference 前执行 `env.depot_end = data[0,5] / scaler`。因此按真实实例设置depot上界是作者已有evaluation mechanism；CVRPTW adapter/runner需复用该per-instance路径并验证约4.6的benchmark实例，尚未执行CVRPTW inference。
 - 官方 POMO/augmentation 搜索保存 `env.selected_node_list[B,P,T]`。需按相同 best POMO/augmentation 索引获取路线，不能只保存 rewards。`fine_tune_epochs` 必须维持 0。
 - README 最小版本 Python>=3.8/PyTorch>=1.12；实际 Tester→utils 还需要 SciPy、tqdm 等。本地模型可 strict load，但 Tester import 因缺 SciPy 失败。服务器不能据此判缺包。
 - 结论：本地 `MISSING_LEAF_DEPENDENCY`；模型与尺寸证据较强，仍不标记 READY。

@@ -4,16 +4,25 @@
 
 ## Step 1 — repository sync / setup
 
-主仓库尚无commit/remote；手动复制自有源码、docs、manifests、tests，保持目录层级。external/checkpoints/datasets均gitignored，可沿用服务器已有副本；缺失六组数据时也可复制本地对应文件。不要把本地绝对环境路径搬入源码。
+主仓库为 `https://github.com/xihe-820/neural-routing-baselines`；Phase 0/1 snapshot 是 `38f794fc19c3aaa988bfa78db0ae51143aab93ef`。服务器必须 clone/fetch 后 checkout 用户明确批准的项目 commit。当前 MVMoE/CVRP50 integration 尚未自动commit/push，因此实际服务器运行时请将下面变量设置为审查后包含本轮文件的commit；不能用旧snapshot冒充新runner。
 
 在同一终端粘贴并输入当前实际路径（不依赖shell history）：
 
 ```bash
-read -r -p 'New baseline repository absolute path: ' BASELINE_PROJECT_ROOT
+read -r -p 'New/existing baseline repository absolute path: ' BASELINE_PROJECT_ROOT
+read -r -p 'Approved project commit containing MVMoE/CVRP50 integration: ' BASELINE_PROJECT_COMMIT
 read -r -p 'Existing official checkout root: ' BASELINE_UPSTREAM_ROOT
 read -r -p 'ML4CO-Bench dataset root: ' ML4CO_DATA_ROOT
-export BASELINE_PROJECT_ROOT BASELINE_UPSTREAM_ROOT ML4CO_DATA_ROOT
+export BASELINE_PROJECT_ROOT BASELINE_PROJECT_COMMIT BASELINE_UPSTREAM_ROOT ML4CO_DATA_ROOT
 export PYTHONDONTWRITEBYTECODE=1
+if [ -d "$BASELINE_PROJECT_ROOT/.git" ]; then
+  git -C "$BASELINE_PROJECT_ROOT" checkout master
+  git -C "$BASELINE_PROJECT_ROOT" pull --ff-only origin master
+else
+  git clone https://github.com/xihe-820/neural-routing-baselines.git "$BASELINE_PROJECT_ROOT"
+fi
+git -C "$BASELINE_PROJECT_ROOT" checkout --detach "$BASELINE_PROJECT_COMMIT"
+test "$(git -C "$BASELINE_PROJECT_ROOT" rev-parse HEAD)" = "$BASELINE_PROJECT_COMMIT"
 cd "$BASELINE_PROJECT_ROOT"
 export BASELINE_ARTIFACT_ROOT="$BASELINE_PROJECT_ROOT/artifacts/server"
 mkdir -p "$BASELINE_ARTIFACT_ROOT"
@@ -122,32 +131,52 @@ python -B scripts/audit_model_load.py --repo "$BASELINE_UPSTREAM_ROOT/NeuOpt" \
 MVMoE/NeuOpt 包含官方模型 CPU strict load；其余方法目前只有 module import + Step 5 payload load，architecture construction/forward 要等依赖与资产信息回来再补。这些区别都在 JSON 中记录。NeuOpt 若复现历史 protobuf generated-code 错误，可额外设置 `PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python` 后写到另一份输出，以保留原错误证据；不要降级 protobuf。
 
 
-## Step 7 — later GPU / native-format smoke
+## Step 7 — MVMoE/4E CVRP50 official-config smoke
 
-NOT_IMPLEMENTED：待一个method/problem/size wrapper完成后补具体命令。可用已有小official data或合法tiny native-format实例验证入口；不是绝对benchmark gate。最少合法batch先跑，NeuOpt避免batch1。
-
-## Step 8 — later ML4CO small inference
-
-NOT_IMPLEMENTED：保留固定source SHA/index和实际search配置，运行最少合法实例，随后约5例sanity。our_2/our_5仅命名约定。
-
-## Step 9 — independent validation
-
-Problem validators与reference tests已可运行：
+以下命令只运行首5例、aug8/POMO50/argmax/seed2024，不训练。它直接使用官方MOEModel/CVRPEnv，不导入Tester或fine-tune路径。设置三个实际文件路径；checkpoint与dataset SHA不匹配时runner会拒绝。
 
 ```bash
-python -B -m unittest discover -s tests -v
+read -r -p 'Exact CVRP50 benchmark pickle: ' CVRP50_DATASET
+read -r -p 'Exact Routing-MVMoE checkout: ' MVMOE_UPSTREAM
+read -r -p 'Exact MVMoE 4E n50 checkpoint: ' MVMOE_CHECKPOINT
+export CVRP50_DATASET MVMOE_UPSTREAM MVMOE_CHECKPOINT
+
+python -B methods/mvmoe/cvrp/prepare_instances.py \
+  --dataset "$CVRP50_DATASET" --offset 0 --count 5 \
+  --output "$BASELINE_ARTIFACT_ROOT/mvmoe_cvrp50/input_first5.npz"
+
+python -B methods/mvmoe/cvrp/run.py \
+  --input "$BASELINE_ARTIFACT_ROOT/mvmoe_cvrp50/input_first5.npz" \
+  --upstream "$MVMOE_UPSTREAM" --checkpoint "$MVMOE_CHECKPOINT" \
+  --output "$BASELINE_ARTIFACT_ROOT/mvmoe_cvrp50/official_aug8_first5.json" \
+  --aug-factor 8 --seed 2024 --device auto
 ```
 
-模型产生的solution validation等decoder实现再补runner命令；reference成功不能替代actual solution。
+`prepare_instances.py`需要当前解释器已有ML4CO-Kit；若cp311_base没有Kit，使用服务器已有Kit环境只执行第一条，再切回cp311_base运行模型。不要为此更换模型环境核心依赖。`--device auto`有CUDA则用当前GPU，否则合法回退CPU并在JSON明确记录。
 
-## Step 10 — secondary ML4CO-Kit reference validation
+## Step 8 — independent validation
 
-当前解释器已有Kit且数据为本地manifest对应六文件时：
+`run.py`已对每个actual decoded solution调用共享 `problems.cvrp.validate.validate`，并保存官方reward对应成本、独立成本、误差、raw capacity检查及actual route。若任一`independent_feasible`不是true或成本误差明显偏离约1e-6量级，停止并回传原始JSON，不放宽容差。
+
+## Step 9 — secondary ML4CO-Kit validation
+
+在已有Kit的解释器中执行：
+
+```bash
+python -B methods/mvmoe/cvrp/validate_with_kit.py \
+  --input "$BASELINE_ARTIFACT_ROOT/mvmoe_cvrp50/official_aug8_first5.json" \
+  --dataset "$CVRP50_DATASET" \
+  --output "$BASELINE_ARTIFACT_ROOT/mvmoe_cvrp50/official_aug8_first5_validated.json"
+```
+
+必须检查5个row均为`evidence_status=LOCAL_VERIFIED`、`independent_feasible=true`、`kit_feasible=true`，并保留每个best augmentation/POMO和canonical solution。服务器验证通过后，证据等级才可升级SERVER_VERIFIED。
+
+## Step 10 — regression tests
 
 ```bash
 ML4CO_REFERENCE_TESTS=1 python -B -m unittest discover -s tests -v
 ```
 
-该测试要求ML4CO_DATA_ROOT下六个manifest文件直接可访问（若原目录有层级，请将变量设为包含这六文件的目录，或先回传布局）；不自动下载/安装。正式method输出Kit检查尚未实现。Kit是secondary，缺包/encoding错误单独记录。
+如果服务器环境不含全部六组reference数据，可先不设置`ML4CO_REFERENCE_TESTS`运行其余unit tests；这不会替代上面的MVMoE/CVRP50实际解与Kit验证。
 
-回传 `artifacts/server/environment/server_environment.json` 与 `artifacts/server/audit/` JSON及测试终端输出。exit0可能只是报告写成功，须读逐项error/strict_load/identity/coverage。无需密码、私钥、SSH权限。服务器运行完成后才将相应字段升级SERVER_VERIFIED。
+回传 `artifacts/server/environment/server_environment.json`、`artifacts/server/audit/` 和 `artifacts/server/mvmoe_cvrp50/official_aug8_first5_validated.json` 及测试终端输出。无需密码、私钥、SSH权限。

@@ -43,4 +43,4 @@ TSP 任意合法revision组合不是“随便换算法”：它使用官方暴�
 
 保持第一优先 **GLOP / TSP / 100**：代码已有明确小规模分支、尺寸条件最清晰，先取得三份reviser及args.json，再做最小forward和实际解捕获。随后TSP50验证code-supported 50/20配置。CVRP与UDC50需把参数调整/代码限制单独记录。
 
-若短期拿不到GLOP组件，已有模型与dataset均LOCAL_VERIFIED的 **MVMoE/4E / CVRP / 50** 是可提出的替代起点；本轮未因此擅自开始完整adapter/inference。MVMoE CVRPTW默认depotTW3.0与benchmark4.6不一致，不能作为第一个无障碍接入任务。
+该审计完成后，**MVMoE/4E / CVRP / 50** 已被选为首个并完成本地integration。CVRPTW仍不在本轮实现范围；作者官方 `_solve_cvrptwlib` 已提供按实例设置 `env.depot_end` 的路径，后续应复用并实际验证benchmark约4.6上界。

@@ -1,6 +1,6 @@
 # Repository tree
 
-Actual own files (untracked; no commit), plus ignored directory summary.
+Tracked Phase 0/1 snapshot: `38f794fc19c3aaa988bfa78db0ae51143aab93ef`. This tree also includes the current uncommitted MVMoE/CVRP50 integration. Ignored external/data/artifact directories are summarized only.
 
 ```text
 neural-routing-baselines/
@@ -9,6 +9,8 @@ neural-routing-baselines/
   common/
     README.md
     hashing.py
+    provenance.py
+    result_schema.py
     validation.py
   docs/
     AUDIT_REPORT.md
@@ -16,6 +18,7 @@ neural-routing-baselines/
     DATASET_AUDIT.md
     DESIGN.md
     ENVIRONMENT_AUDIT.md
+    MVMOE_CVRP50_REPORT.md
     NATIVE_IO_AUDIT.md
     REPOSITORY_TREE.md
     SCOPE.md
@@ -29,6 +32,7 @@ neural-routing-baselines/
     datasets.yaml
     environment.yaml
     local_verification.json
+    mvmoe_cvrp50.json
     public_datasets.json
     status.json
     upstreams.yaml
@@ -51,6 +55,11 @@ neural-routing-baselines/
     mvmoe/
       cvrp/
         README.md
+        adapter.py
+        decode.py
+        prepare_instances.py
+        run.py
+        validate_with_kit.py
       cvrptw/
         README.md
     neuopt/
@@ -88,6 +97,8 @@ neural-routing-baselines/
   tests/
     test_audits.py
     test_benchmark_references.py
+    test_mvmoe_cvrp.py
+    test_result_schema.py
     test_validators.py
   external/       # ignored; 7 official read-only checkouts
   datasets/       # ignored; 6 official benchmark files
