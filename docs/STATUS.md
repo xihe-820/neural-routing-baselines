@@ -19,7 +19,7 @@ Source of truth: [status.json](../manifests/status.json). LV=LOCAL_VERIFIED; SV=
 | MVMoE | CVRP | 50 | LV | SC | LV | LV | LV | LV | LV | LV | LV | LV | LV | SV | SV | SV | SV | SERVER_VERIFIED_INTEGRATION |
 | MVMoE | CVRP | 100 | LV | SC | LV | LV | LV | LV | LV | LV | LV | LV | LV | SV | SV | SV | SV | SERVER_VERIFIED_INTEGRATION |
 | MVMoE | CVRPTW | 50 | LV | SC | LV | LV | LV | LV | LV | LV | LV | LV | LV | SV | SV | SV | SV | SERVER_VERIFIED_INTEGRATION |
-| MVMoE | CVRPTW | 100 | LV | SC | LV | LV | LV | LV | LV | LV | LV | LV | LV | NR | NR | NR | NR | LOCAL_VERIFIED_INTEGRATION_SERVER_NOT_RUN |
+| MVMoE | CVRPTW | 100 | LV | SC | LV | LV | LV | LV | LV | LV | LV | LV | LV | SV | SV | SV | SV | SERVER_VERIFIED_INTEGRATION |
 | RF-TE | CVRP | 50 | LV | SC | NR | NR | NR | LV | NI | NI | LV | NR | NR | NR | NR | NR | NR | Foundation / NI |
 | RF-TE | CVRP | 100 | LV | SC | NR | NR | NR | LV | NI | NI | LV | NR | NR | NR | NR | NR | NR | Foundation / NI |
 | RF-TE | CVRPTW | 50 | LV | SC | NR | NR | NR | LV | NI | NI | LV | NR | NR | NR | NR | NR | NR | Foundation / NI |
@@ -28,5 +28,5 @@ Source of truth: [status.json](../manifests/status.json). LV=LOCAL_VERIFIED; SV=
 | MoSES(CaDA) | CVRP | 100 | LV | SC | LV | B | NR | LV | NI | NI | LV | NR | NR | NR | NR | NR | NR | Deserialize blocked |
 | MoSES(CaDA) | CVRPTW | 50 | LV | SC | LV | B | NR | LV | NI | NI | LV | NR | NR | NR | NR | NR | NR | Deserialize blocked |
 | MoSES(CaDA) | CVRPTW | 100 | LV | SC | LV | B | NR | LV | NI | NI | LV | NR | NR | NR | NR | NR | NR | Deserialize blocked |
-| NeuOpt | CVRP | 50 | LV | SC | LV | LV | NR | LV | NI | NI | LV | NR | NR | NR | NR | NR | NR | Foundation / NI |
-| NeuOpt | CVRP | 100 | LV | SC | LV | LV | NR | LV | NI | NI | LV | NR | NR | NR | NR | NR | NR | Foundation / NI |
+| NeuOpt | CVRP | 50 | LV | SC | LV | LV | LV | LV | LV | LV | LV | LV | LV | NR | NR | NR | NR | LOCAL_VERIFIED_INTEGRATION_SERVER_NOT_RUN |
+| NeuOpt | CVRP | 100 | LV | SC | LV | LV | LV | LV | LV | LV | LV | LV | LV | NR | NR | NR | NR | LOCAL_VERIFIED_INTEGRATION_SERVER_NOT_RUN |

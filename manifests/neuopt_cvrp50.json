@@ -1,0 +1,94 @@
+{
+  "evidence_class": "LOCAL_VERIFIED_INTEGRATION_SERVER_NOT_RUN",
+  "method": "NeuOpt",
+  "variant": "GIRE",
+  "problem": "CVRP",
+  "problem_size": 50,
+  "project_base_commit": "31156cf078bf55c85b414adb13bb6430908fcef9",
+  "project_dirty_during_development_run": true,
+  "upstream": {
+    "url": "https://github.com/yining043/NeuOpt",
+    "commit": "ccf6b5f0f6a8fda2792b4be11d4ec35390a8139b",
+    "read_only_and_clean": true
+  },
+  "dataset": {
+    "filename": "cvrp50_hgs-1s_10.366.pkl",
+    "sha256": "eea12fbefe9c1bcc008d56ecfc1c50dadd64ac774f3547774c9fade8a7baa6c2",
+    "count": 10000,
+    "capacity": 40
+  },
+  "checkpoint": {
+    "relative_path": "pre-trained/cvrp50.pt",
+    "sha256": "1cd201ca47888e51068a157389460641c81d71054f064d9c8ea1743312289e3a",
+    "official_actor_strict_load": "LOCAL_VERIFIED"
+  },
+  "size_config": {"dummy_rate": 0.4, "dummy_size": 20, "sequence_length": 70},
+  "official_inference": {
+    "evidence": "source-supported inference configuration derived from official generic inference defaults plus size-specific CVRP50 settings",
+    "eval_only": true,
+    "init_val_met": "random",
+    "seed": 6666,
+    "val_m": 1,
+    "stall_limit": 10,
+    "k": 4,
+    "T_max": 1000,
+    "with_bonus": true,
+    "with_regular": true,
+    "training": false,
+    "backward": false,
+    "optimizer_created": false
+  },
+  "source_audit": {
+    "construction": "PPO(problem, opts) with eval_only=True constructs the official Actor without critic, optimizer, or lr_scheduler",
+    "checkpoint_load": "PPO.load uses torch_load_cpu then strict Actor.load_state_dict",
+    "initial_solution": "CVRP.get_initial_solutions with init_val_met=random returns a feasible successor representation",
+    "rollout": "PPO.rollout with record=True; D2A transforms batch features while batch_aug_same anchors solution cost",
+    "stall": "per-instance counter triggers a new D2A coordinate augmentation after 10 steps without improvement",
+    "best_update": "solution_best is replaced exactly where rewards[:,0] > 0",
+    "solution_capture": "solution_best_history[-1] corresponds to out[0] and final obj_history best-feasible column for val_m=1",
+    "objective": "CVRP.get_costs sums Euclidean successor-edge lengths and checks full capacity feasibility",
+    "seed_side_effects": "python random, NumPy and torch seed 6666 before initialization/augmentation; cudnn deterministic=true and benchmark=false"
+  },
+  "native_mapping": {
+    "coordinates": "20 exact depot copies followed by 50 original-order customer coordinates; no coordinate scaling",
+    "demand": "20 zeros followed by raw demand divided by raw capacity exactly once",
+    "solution": "successor Hamiltonian cycle; internal ids 0..19 are depot copies; internal ids 20..69 map to benchmark customers 1..50"
+  },
+  "local_environment": {
+    "python": "3.10.21",
+    "torch": "1.13.1+cu117",
+    "numpy": "1.23.5",
+    "device": "cuda:0",
+    "gpu": "NVIDIA GeForce RTX 4060 Laptop GPU",
+    "protobuf_workaround": false,
+    "kit": {"ml4co_kit": "0.5.4", "torch": "2.12.0+cpu", "numpy": "2.2.6"}
+  },
+  "smokes": {
+    "official_first2": {
+      "count": 2,
+      "four_gate_passed": 2,
+      "total_runtime_seconds": 94.40175998100312,
+      "artifact": "artifacts/neuopt_cvrp50/first2_validated.json",
+      "artifact_sha256": "962d7753b3678931f1c036919b3fcfeecad1036286971b74fa027a4c968998ed"
+    },
+    "official_first5": {
+      "count": 5,
+      "four_gate_passed": 5,
+      "independent_feasible": 5,
+      "kit_feasible": 5,
+      "reported_objective_agrees": 5,
+      "kit_objective_agrees": 5,
+      "reported_objectives": [11.083185195922852, 9.509798049926758, 10.940145492553711, 10.585029602050781, 12.465576171875],
+      "independent_objectives": [11.083184754069062, 9.509798154741087, 10.940146345788662, 10.585030272705136, 12.465576541226142],
+      "kit_objectives": [11.083187103271484, 9.509796142578125, 10.94014835357666, 10.585029602050781, 12.465576171875],
+      "max_reported_independent_abs_error": 8.53234951136983e-7,
+      "max_kit_independent_abs_error": 2.349202421925156e-6,
+      "total_runtime_seconds": 96.76587600700441,
+      "runtime_class": "engineering smoke; NOT PAPER-COMPARABLE",
+      "artifact": "artifacts/neuopt_cvrp50/first5_validated.json",
+      "artifact_sha256": "b759a885ab2c3ec44598debee9de4e02f3380be44dfdab72e4026e9ed6485acc",
+      "canonical_solution_example_index_0": [0, 34, 14, 41, 7, 45, 22, 49, 5, 0, 15, 12, 19, 48, 18, 43, 0, 10, 35, 46, 0, 3, 4, 8, 17, 21, 40, 0, 24, 31, 26, 13, 29, 27, 36, 39, 0, 28, 1, 42, 25, 16, 38, 2, 0, 11, 20, 32, 50, 6, 9, 0, 37, 33, 47, 44, 23, 30, 0]
+    }
+  },
+  "server_evidence": "NOT_RUN"
+}

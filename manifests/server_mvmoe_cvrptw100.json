@@ -1,0 +1,43 @@
+{
+  "evidence_class": "SERVER_VERIFIED",
+  "method": "MVMoE",
+  "variant": "MOE/4E",
+  "problem": "CVRPTW",
+  "problem_size": 100,
+  "project_commit": "31156cf078bf55c85b414adb13bb6430908fcef9",
+  "project_clean_after_run": true,
+  "upstream_url": "https://github.com/RoyalSkye/Routing-MVMoE",
+  "upstream_commit": "af29e5af0595f94f3ecc3bc46d72df1089a62682",
+  "upstream_clean_after_run": true,
+  "configuration": {
+    "problem_size": 100,
+    "pomo_size": 100,
+    "aug_factor": 8,
+    "eval_type": "argmax",
+    "seed": 2024,
+    "dataset_subset": "first5"
+  },
+  "rollout": {
+    "total_runtime_seconds": 1.429045194759965,
+    "runtime_class": "engineering smoke; NOT PAPER-COMPARABLE",
+    "selected_node_list_shape": [40, 100, 137],
+    "reward_shape": [40, 100],
+    "depot_time_window": [0.0, 4.599999904632568]
+  },
+  "four_gate_counts": {
+    "count": 5,
+    "independent_feasible": 5,
+    "kit_feasible": 5,
+    "reported_objective_agrees": 5,
+    "kit_objective_agrees": 5
+  },
+  "results": [
+    {"index": 0, "reported": 31.462202072144, "independent": 31.462200699412, "kit": 31.462200995535, "reference": 23.487735148403, "best_aug_idx": 7, "best_pomo_idx": 85, "max_depot_return": 4.548895123, "independent_feasible": true, "kit_feasible": true, "reported_objective_agrees": true, "kit_objective_agrees": true},
+    {"index": 1, "reported": 38.551017761230, "independent": 38.551016785176, "kit": 38.551016717218, "reference": 28.477873931639, "best_aug_idx": 2, "best_pomo_idx": 52, "max_depot_return": 4.382771690, "independent_feasible": true, "kit_feasible": true, "reported_objective_agrees": true, "kit_objective_agrees": true},
+    {"index": 2, "reported": 35.184654235840, "independent": 35.184655558729, "kit": 35.184655903140, "reference": 28.712642805884, "best_aug_idx": 7, "best_pomo_idx": 61, "max_depot_return": 4.390721248, "independent_feasible": true, "kit_feasible": true, "reported_objective_agrees": true, "kit_objective_agrees": true},
+    {"index": 3, "reported": 32.354080200195, "independent": 32.354081065123, "kit": 32.354081027675, "reference": 25.623673561960, "best_aug_idx": 4, "best_pomo_idx": 39, "max_depot_return": 4.388253408, "independent_feasible": true, "kit_feasible": true, "reported_objective_agrees": true, "kit_objective_agrees": true},
+    {"index": 4, "reported": 34.488422393799, "independent": 34.488422205452, "kit": 34.488422278315, "reference": 27.023432094604, "best_aug_idx": 6, "best_pomo_idx": 93, "max_depot_return": 4.390052163, "independent_feasible": true, "kit_feasible": true, "reported_objective_agrees": true, "kit_objective_agrees": true}
+  ],
+  "validated_artifact_sha256": "6a27b6a6eda251c87dd75b394b28a33324a719ea081fa4e6e4a9459794098923",
+  "evidence_origin": "user-executed server validation; raw values supplied to this repository"
+}

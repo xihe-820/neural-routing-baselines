@@ -139,13 +139,61 @@ python -B methods/mvmoe/cvrptw/validate_with_kit.py --problem-size 100 \
 
 Every row must have `evidence_status=LOCAL_VERIFIED` and all four completion gates true.
 
-## 8. Regression tests
+## 8. NeuOpt CVRP50 and CVRP100
+
+Run both sizes from the same integration. These commands keep the official checkout read-only and use the official 1000-step configuration.
+
+```bash
+export NEUOPT_UPSTREAM="$BASELINE_UPSTREAM_ROOT/NeuOpt"
+export NEUOPT_N50_CHECKPOINT="$NEUOPT_UPSTREAM/pre-trained/cvrp50.pt"
+export NEUOPT_N100_CHECKPOINT="$NEUOPT_UPSTREAM/pre-trained/cvrp100.pt"
+
+test "$(git -C "$NEUOPT_UPSTREAM" rev-parse HEAD)" = "ccf6b5f0f6a8fda2792b4be11d4ec35390a8139b"
+test -z "$(git -C "$NEUOPT_UPSTREAM" status --porcelain)"
+test "$(sha256sum "$CVRP50_DATASET" | cut -d' ' -f1)" = "eea12fbefe9c1bcc008d56ecfc1c50dadd64ac774f3547774c9fade8a7baa6c2"
+test "$(sha256sum "$CVRP100_DATASET" | cut -d' ' -f1)" = "bb47d5a113848e5a404edefc562d5d2ef6b0ade1aafc287828bdf60364e23532"
+test "$(sha256sum "$NEUOPT_N50_CHECKPOINT" | cut -d' ' -f1)" = "1cd201ca47888e51068a157389460641c81d71054f064d9c8ea1743312289e3a"
+test "$(sha256sum "$NEUOPT_N100_CHECKPOINT" | cut -d' ' -f1)" = "502a5904182306c1a3f65f7b1a8503a609ff2a044db054abcf93690af36594fb"
+
+python -B methods/neuopt/cvrp/prepare_instances.py \
+  --dataset "$CVRP50_DATASET" --problem-size 50 --offset 0 --count 5 \
+  --output "$BASELINE_ARTIFACT_ROOT/neuopt_cvrp50/input_first5.npz"
+python -B methods/neuopt/cvrp/run.py --problem-size 50 \
+  --input "$BASELINE_ARTIFACT_ROOT/neuopt_cvrp50/input_first5.npz" \
+  --upstream "$NEUOPT_UPSTREAM" --checkpoint "$NEUOPT_N50_CHECKPOINT" \
+  --output "$BASELINE_ARTIFACT_ROOT/neuopt_cvrp50/official_first5.json" --device cuda:0
+python -B methods/neuopt/cvrp/validate_with_kit.py --problem-size 50 \
+  --input "$BASELINE_ARTIFACT_ROOT/neuopt_cvrp50/official_first5.json" \
+  --dataset "$CVRP50_DATASET" \
+  --output "$BASELINE_ARTIFACT_ROOT/neuopt_cvrp50/official_first5_validated.json"
+
+python -B methods/neuopt/cvrp/prepare_instances.py \
+  --dataset "$CVRP100_DATASET" --problem-size 100 --offset 0 --count 5 \
+  --output "$BASELINE_ARTIFACT_ROOT/neuopt_cvrp100/input_first5.npz"
+python -B methods/neuopt/cvrp/run.py --problem-size 100 \
+  --input "$BASELINE_ARTIFACT_ROOT/neuopt_cvrp100/input_first5.npz" \
+  --upstream "$NEUOPT_UPSTREAM" --checkpoint "$NEUOPT_N100_CHECKPOINT" \
+  --output "$BASELINE_ARTIFACT_ROOT/neuopt_cvrp100/official_first5.json" --device cuda:0
+python -B methods/neuopt/cvrp/validate_with_kit.py --problem-size 100 \
+  --input "$BASELINE_ARTIFACT_ROOT/neuopt_cvrp100/official_first5.json" \
+  --dataset "$CVRP100_DATASET" \
+  --output "$BASELINE_ARTIFACT_ROOT/neuopt_cvrp100/official_first5_validated.json"
+
+test "$(git rev-parse HEAD)" = "$BASELINE_PROJECT_COMMIT"
+test -z "$(git -C "$NEUOPT_UPSTREAM" status --porcelain)"
+sha256sum "$BASELINE_ARTIFACT_ROOT/neuopt_cvrp50/official_first5_validated.json" \
+  "$BASELINE_ARTIFACT_ROOT/neuopt_cvrp100/official_first5_validated.json"
+```
+
+Every result row must report all four completion gates as true. Return both validated artifacts, their SHA256 lines, the environment audit and both repository clean-state outputs.
+
+## 9. Regression tests
 
 ```bash
 ML4CO_REFERENCE_TESTS=1 python -B -m unittest discover -s tests -v
 ```
 
-## 9. Return evidence
+## 10. Return evidence
 
 Return these files without editing their values:
 
@@ -154,6 +202,7 @@ Return these files without editing their values:
 - `artifacts/server/audit/server_upstreams.json`
 - `artifacts/server/audit/server_checkpoints.json`
 - each requested `official_search_aug8_first5_validated.json`
+- each requested NeuOpt `official_first5_validated.json`
 - the regression-test terminal output
 
 Also return SHA256 for each validated result artifact. No password, private key or SSH access is required.

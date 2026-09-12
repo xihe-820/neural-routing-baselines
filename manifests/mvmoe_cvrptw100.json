@@ -58,7 +58,11 @@
       "backward": false,
       "optimizer_created": false,
       "fine_tune_epochs": 0,
-      "server_evidence": "NOT_RUN"
+      "server_evidence": {
+        "status": "SERVER_VERIFIED",
+        "manifest": "manifests/server_mvmoe_cvrptw100.json",
+        "validated_artifact_sha256": "6a27b6a6eda251c87dd75b394b28a33324a719ea081fa4e6e4a9459794098923"
+      }
     }
   },
   "smokes": {
