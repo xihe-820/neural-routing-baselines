@@ -1,0 +1,65 @@
+{
+  "evidence_scope": "user-executed server validation summary; original artifact retained outside Git",
+  "verification_timestamp": null,
+  "project_repository": {
+    "url": "https://github.com/xihe-820/neural-routing-baselines",
+    "commit": "4dbb52b509ce5dafc2ee135a60b2a1b0ba840181"
+  },
+  "upstream_repository": {
+    "url": "https://github.com/RoyalSkye/Routing-MVMoE",
+    "commit": "af29e5af0595f94f3ecc3bc46d72df1089a62682"
+  },
+  "environment": {
+    "python": "3.11.13",
+    "numpy": "1.26.4",
+    "torch": "2.5.0+cu124",
+    "torch_cuda_build": "12.4",
+    "torch_cuda_available": true,
+    "gpu": "NVIDIA GeForce RTX 4090",
+    "ml4co_kit": "0.5.4"
+  },
+  "run": {
+    "status": "SERVER_VERIFIED",
+    "problem": "CVRPTW",
+    "problem_size": 50,
+    "dataset_filename": "cvrptw50_pyvrp-10s_16.038.pkl",
+    "dataset_sha256": "a16975d9dd242739973191256e1cdbd8166c4405759ef195b985a8c3ec49df40",
+    "checkpoint_relative_path": "pretrained/mvmoe_4e_n50/epoch-5000.pt",
+    "checkpoint_sha256": "3417f302fbddf232fd19a2a886cd1c7f44290b6d8c7280fcb0ae3777eeed3192",
+    "asset_match": true,
+    "checkpoint_metadata": {
+      "epoch": 5000,
+      "problem": "Train_ALL",
+      "strict_load_during_inference": true
+    },
+    "configuration": {
+      "pomo_size": 50,
+      "aug_factor": 8,
+      "eval_type": "argmax",
+      "seed": 2024,
+      "count": 5,
+      "depot_time_window": [0.0, 4.599999904632568],
+      "configuration_class": "official_search_decode_smoke"
+    },
+    "selected_node_list_shape": [40, 50, 72],
+    "reward_shape": [40, 50],
+    "total_rollout_seconds": 1.5821110121905804,
+    "runtime_class": "engineering evidence; NOT PAPER-COMPARABLE",
+    "completion_gate_passed": 5,
+    "validated_artifact_sha256": "b0c1074b93b25dd358110d45f279fda284ee8553455d2e7ef2b92e593739193d",
+    "results": [
+      {"index": 0, "reported": 14.086605072021, "independent": 14.086604809933, "kit": 14.086604918353, "reference": 13.199351084419, "best_aug_idx": 6, "best_pomo_idx": 19, "max_depot_return": 4.143522829, "independent_feasible": true, "kit_feasible": true, "reported_objective_agrees": true, "kit_objective_agrees": true},
+      {"index": 1, "reported": 15.332053184509, "independent": 15.332053087350, "kit": 15.332053128630, "reference": 14.116132652387, "best_aug_idx": 6, "best_pomo_idx": 16, "max_depot_return": 4.379848708, "independent_feasible": true, "kit_feasible": true, "reported_objective_agrees": true, "kit_objective_agrees": true},
+      {"index": 2, "reported": 16.374761581421, "independent": 16.374761188185, "kit": 16.374761208892, "reference": 14.913758382201, "best_aug_idx": 5, "best_pomo_idx": 16, "max_depot_return": 4.339021414, "independent_feasible": true, "kit_feasible": true, "reported_objective_agrees": true, "kit_objective_agrees": true},
+      {"index": 3, "reported": 20.872287750244, "independent": 20.872285862796, "kit": 20.872286131606, "reference": 17.828571161255, "best_aug_idx": 3, "best_pomo_idx": 27, "max_depot_return": 4.359311302, "independent_feasible": true, "kit_feasible": true, "reported_objective_agrees": true, "kit_objective_agrees": true},
+      {"index": 4, "reported": 15.760301589966, "independent": 15.760301680847, "kit": 15.760301742936, "reference": 14.198095046217, "best_aug_idx": 6, "best_pomo_idx": 27, "max_depot_return": 4.317548602, "independent_feasible": true, "kit_feasible": true, "reported_objective_agrees": true, "kit_objective_agrees": true}
+    ]
+  },
+  "cross_environment_comparison": {
+    "reported_objectives_match_local": true,
+    "independent_objectives_match_local": true,
+    "best_augmentation_pomo_match_local": true,
+    "max_depot_return_match_local": true,
+    "numeric_note": "Server Kit/reference low-order differences are preserved exactly and were not replaced with local values."
+  }
+}

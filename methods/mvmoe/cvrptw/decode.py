@@ -3,16 +3,17 @@ from __future__ import annotations
 
 import numpy as np
 
-from methods.mvmoe.cvrptw.config import PROBLEM_SIZE
 
-
-def decode_selected_nodes(selected_nodes):
+def decode_selected_nodes(selected_nodes, *, problem_size):
     """Collapse only terminal finished-POMO depot padding; never repair routes."""
     raw = np.asarray(selected_nodes)
+    if int(problem_size) <= 0:
+        raise ValueError("problem_size must be positive")
+    problem_size = int(problem_size)
     if raw.ndim != 1 or raw.dtype.kind not in "iu" or raw.size == 0:
         raise ValueError("selected nodes must be a nonempty 1D integer sequence")
-    if (raw < 0).any() or (raw > PROBLEM_SIZE).any():
-        raise ValueError("selected node ID outside 0..50")
+    if (raw < 0).any() or (raw > problem_size).any():
+        raise ValueError(f"selected node ID outside 0..{problem_size}")
     if raw[0] != 0:
         raise ValueError("official MVMoE rollout must start at depot 0")
     end = len(raw)
@@ -30,7 +31,8 @@ def decode_selected_nodes(selected_nodes):
     }
 
 
-def select_best_candidates(reward, selected_node_list, *, aug_factor, batch_size):
+def select_best_candidates(reward, selected_node_list, *, aug_factor, batch_size,
+                           problem_size):
     """Mirror official max(POMO), then max(augmentation), gathering the same route."""
     rewards = np.asarray(reward)
     selected = np.asarray(selected_node_list)
@@ -38,6 +40,8 @@ def select_best_candidates(reward, selected_node_list, *, aug_factor, batch_size
         raise ValueError("reward [A*B,P] and selected [A*B,P,T] shapes must agree")
     if rewards.shape[0] != aug_factor * batch_size:
         raise ValueError("augmented batch does not match aug_factor * batch_size")
+    if rewards.shape[1] != problem_size:
+        raise ValueError("POMO dimension must equal problem_size")
     pomo = rewards.shape[1]
     aug_rewards = rewards.reshape(aug_factor, batch_size, pomo)
     aug_selected = selected.reshape(aug_factor, batch_size, pomo, selected.shape[2])
@@ -50,7 +54,8 @@ def select_best_candidates(reward, selected_node_list, *, aug_factor, batch_size
         pomo_index = int(best_pomo_per_aug[aug_index, batch_index])
         candidate_reward = float(aug_rewards[aug_index, batch_index, pomo_index])
         canonical, decoding = decode_selected_nodes(
-            aug_selected[aug_index, batch_index, pomo_index])
+            aug_selected[aug_index, batch_index, pomo_index],
+            problem_size=problem_size)
         output.append({
             "best_aug_idx": aug_index,
             "best_pomo_idx": pomo_index,

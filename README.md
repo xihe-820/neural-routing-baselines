@@ -1,10 +1,10 @@
 # Neural Routing Baselines
 
-独立、可复现、可审计的 neural routing baseline 接入仓库。使用作者官方代码与 pretrained checkpoint，在 ML4CO-Bench 的 **50 / 100** 实例上进行真实推理、提取解、独立验证约束与目标值，并尽量用 ML4CO-Kit 二次核验。
+This repository provides independent, reproducible integrations of official neural-routing implementations and pretrained checkpoints with ML4CO-Bench. Each completed integration runs the official model, captures its actual solution, validates feasibility and objective value independently, and uses ML4CO-Kit as a secondary check.
 
-Phase 0 / Phase 1 snapshot 固定为 `38f794fc19c3aaa988bfa78db0ae51143aab93ef`。GitHub commit `f6db50e694cbab8870f4f1a1544856c49e9e0106` 已包含MVMoE/4E CVRP50+100，并由用户在RTX4090服务器完成实际验证。当前工作树新增CVRPTW50本地真实first-5 integration；该增量尚未commit/push。
+## Formal scope
 
-工作模式为 **local development + user-executed server validation**：Codex 在 WSL 开发；用户从 GitHub checkout 经批准的项目 commit 后手动运行服务器命令，再回传原始 JSON。CVRP50+100已有服务器证据；CVRPTW50和其它rows仍按各自证据独立标记。历史 NeuOpt CVRP50成功记录仍只作为迁移背景。
+Only problem sizes 50 and 100 are formal targets. Training, fine-tuning and modified checkpoints are outside scope.
 
 | Method | TSP | CVRP | CVRPTW |
 |---|---|---|---|
@@ -16,26 +16,49 @@ Phase 0 / Phase 1 snapshot 固定为 `38f794fc19c3aaa988bfa78db0ae51143aab93ef`�
 | MoSES(CaDA) | — | 50 / 100 | 50 / 100 |
 | NeuOpt | — | 50 / 100 | — |
 
-共 13 个 method/problem integration、26 个独立 size 状态。
+The matrix contains 13 method/problem integrations and 26 independent size rows. See [STATUS](docs/STATUS.md) for current evidence.
 
-- [本轮审计报告](docs/AUDIT_REPORT.md)：本地证据与服务器待验证项。
-- [MVMoE/4E + CVRP50 integration report](docs/MVMOE_CVRP50_REPORT.md)：首个真实本地端到端结果。
-- [MVMoE/4E + CVRP100 integration report](docs/MVMOE_CVRP100_REPORT.md)：同一adapter的第二个正式size。
-- [MVMoE/4E + CVRPTW50 integration report](docs/MVMOE_CVRPTW50_REPORT.md)：独立TW adapter与实际路线验证。
-- [MVMoE CVRP server evidence](manifests/server_mvmoe_cvrp.json)：用户执行的RTX4090验证摘要。
-- [正式范围](docs/SCOPE.md)、[长期状态矩阵](docs/STATUS.md)。
-- [工程设计](docs/DESIGN.md)、[输入输出与依赖审计](docs/NATIVE_IO_AUDIT.md)、[validator 设计](docs/VALIDATION_DESIGN.md)。
-- [服务器操作手册](docs/SERVER_RUNBOOK.md)：用户手动执行，默认不安装或更换依赖。
-- [本地环境报告](docs/ENVIRONMENT_AUDIT.md)、[checkpoint 清单](docs/CHECKPOINT_AUDIT.md)、[数据报告](docs/DATASET_AUDIT.md)。
+## Architecture
 
-官方仓库放在被忽略的 `external/`，也可通过 CLI 或环境变量指向现有 checkout。主仓库只维护审计脚本、adapters、validators、provenance 与文档。不提交官方源码、模型、数据、日志或结果。
+- `external/`: ignored, read-only official checkouts pinned by `manifests/upstreams.yaml`.
+- `methods/<method>/<problem>/`: problem-specific input preparation, native adapter, exact solution decoder, runner and optional ML4CO-Kit validation.
+- `problems/<problem>/`: independent objective and constraint validation using original benchmark data.
+- `common/`: result schema, provenance, hashing and the shared objective-agreement policy (`rtol=1e-6`, `atol=1e-6`).
+- `scripts/`: read-only environment, dataset, upstream and checkpoint audits.
+- `manifests/`: source of truth for identities, evidence, environments, historical provenance and detailed run results.
+- `artifacts/`: ignored generated inputs and run outputs.
+
+Official source, datasets, checkpoints, logs and full result artifacts are never committed here. Paths are supplied through CLI arguments or environment variables; source code does not depend on a server-specific absolute path.
+
+## Evidence levels
+
+- `SOURCE_CONFIRMED`: official documentation or source identifies an intended asset/configuration.
+- `LOCAL_VERIFIED`: the recorded check ran in the local WSL environment.
+- `SERVER_VERIFIED`: the user ran the recorded check on the target server and returned its evidence.
+- `NOT_RUN`, `NOT_IMPLEMENTED`, `BLOCKED`, `NOT_APPLICABLE`: no stronger claim is made.
+
+An integration is complete at an execution location only when its actual decoded solutions pass independent feasibility, ML4CO-Kit feasibility, reported-objective agreement and Kit-objective agreement. Checkpoint deserialization alone is not integration evidence. Runtime values are engineering diagnostics and are not paper-comparable.
+
+## Basic workflow
+
+Run the dependency-light unit suite:
 
 ```bash
-# 使用已有含NumPy的解释器；真实reference测试另需已有ML4CO-Kit
 python -B -m unittest discover -s tests -v
+```
+
+Enable the available ML4CO reference checks:
+
+```bash
+ML4CO_REFERENCE_TESTS=1 python -B -m unittest discover -s tests -v
+```
+
+Audit configured assets without modifying official repositories or environments:
+
+```bash
 python3 -B scripts/audit_assets.py --upstream-root external
 ```
 
-CPU checkpoint 反序列化需要当前解释器已有 PyTorch；使用 `--load-checkpoints` 显式启用。脚本对受信任官方 pickle 使用 `weights_only=False`，不修改文件、不加载优化器进行训练、不执行推理。报告中的成功反序列化不等于模型匹配、CUDA forward 或 benchmark 验证成功。
+Implemented method commands and the required return artifacts are in [SERVER_RUNBOOK](docs/SERVER_RUNBOOK.md). Detailed asset identities, run results and historical dirty-worktree facts remain in `manifests/`.
 
-No training / no fine-tuning；当前开发轮未经明确要求不自动commit/push，official source read-only。所有smoke runtime仅用于工程诊断，**NOT paper-comparable runtime**。
+Development uses local WSL plus user-executed server validation. No training or fine-tuning is performed, and official source remains read-only.

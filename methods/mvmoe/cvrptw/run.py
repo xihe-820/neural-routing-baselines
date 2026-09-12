@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Direct official MVMoE/4E CVRPTW50 rollout with solution capture."""
+"""Direct official MVMoE/4E CVRPTW50/100 rollout with solution capture."""
 from __future__ import annotations
 
 import argparse
@@ -20,8 +20,7 @@ from common.provenance import (environment_provenance, git_provenance,
                                normalize_git_repository_identity, source_provenance)
 from common.result_schema import make_run_metadata, new_result, write_result_bundle
 from methods.mvmoe.cvrptw.adapter import adapt_batch
-from methods.mvmoe.cvrptw.config import (CAPACITY, CHECKPOINT_SHA256, DATASET_SHA256,
-                                        PROBLEM_SIZE, require_problem_size)
+from methods.mvmoe.cvrptw.config import SUPPORTED_SIZES, get_size_config
 from methods.mvmoe.cvrptw.decode import select_best_candidates
 from problems.cvrptw.validate import validate
 
@@ -51,7 +50,7 @@ def _device(value, torch):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", type=Path, required=True)
-    parser.add_argument("--problem-size", type=int, choices=[PROBLEM_SIZE], required=True)
+    parser.add_argument("--problem-size", type=int, choices=SUPPORTED_SIZES, required=True)
     parser.add_argument("--input-metadata", type=Path)
     parser.add_argument("--upstream", type=Path, required=True)
     parser.add_argument("--checkpoint", type=Path, required=True)
@@ -60,17 +59,19 @@ def main():
     parser.add_argument("--seed", type=int, default=2024)
     parser.add_argument("--device", default="auto")
     args = parser.parse_args()
-    require_problem_size(args.problem_size)
+    problem_size = args.problem_size
+    size_config = get_size_config(problem_size)
     metadata_path = args.input_metadata or args.input.with_suffix(args.input.suffix + ".json")
     metadata = json.loads(metadata_path.read_text())
     if metadata.get("format") != "mvmoe-cvrptw-input-v1":
         raise ValueError("unsupported prepared input metadata")
-    if metadata.get("problem_size") != PROBLEM_SIZE:
-        raise ValueError("prepared input is not CVRPTW50")
+    if metadata.get("problem_size") != problem_size:
+        raise ValueError(f"prepared input is not CVRPTW{problem_size}")
     if metadata.get("input_npz_sha256") != sha256_file(args.input):
         raise ValueError("prepared NPZ hash does not match metadata")
-    if metadata.get("dataset_sha256") != DATASET_SHA256:
-        raise ValueError("prepared input is not from the pinned official CVRPTW50 dataset")
+    if metadata.get("dataset_sha256") != size_config["dataset_sha256"]:
+        raise ValueError(
+            f"prepared input is not from the pinned official CVRPTW{problem_size} dataset")
     upstream = git_provenance(args.upstream)
     if (upstream["commit"] != UPSTREAM_COMMIT or
             normalize_git_repository_identity(upstream["url"]) !=
@@ -79,8 +80,8 @@ def main():
     if upstream["dirty"]:
         raise ValueError("official MVMoE checkout must be clean")
     checkpoint_hash = sha256_file(args.checkpoint)
-    if checkpoint_hash != CHECKPOINT_SHA256:
-        raise ValueError("unexpected MVMoE/4E n50 checkpoint SHA256")
+    if checkpoint_hash != size_config["checkpoint_sha256"]:
+        raise ValueError(f"unexpected MVMoE/4E n{problem_size} checkpoint SHA256")
 
     import torch
     device = _device(args.device, torch)
@@ -99,24 +100,27 @@ def main():
         time_windows, service_times = data["time_windows"], data["service_times"]
         time_tolerances = data["time_tolerances"]
         indices, references = data["dataset_indices"], data["reference_objectives"]
-    if not np.all(capacities == CAPACITY):
-        raise ValueError("prepared capacities do not match CVRPTW50")
+    if not np.all(capacities == size_config["capacity"]):
+        raise ValueError(f"prepared capacities do not match CVRPTW{problem_size}")
     native, depot_window, mapping = adapt_batch(
         depots, points, demands, capacities, time_windows, service_times,
-        problem_size=PROBLEM_SIZE, device=device)
+        problem_size=problem_size, device=device)
     batch_size = len(points)
+    if depot_window[0] != 0.0:
+        raise ValueError("MVMoE VRPTWEnv requires depot time-window lower bound 0")
 
     sys.path.insert(0, str(args.upstream.resolve()))
     from envs.VRPTWEnv import VRPTWEnv
     from models.MOEModel import MOEModel
     checkpoint = torch.load(args.checkpoint, map_location=device, weights_only=False)
     if checkpoint.get("problem") != "Train_ALL" or checkpoint.get("epoch") != 5000:
-        raise ValueError("checkpoint metadata does not match official 4E n50 artifact")
+        raise ValueError(
+            f"checkpoint metadata does not match official 4E n{problem_size} artifact")
     config = dict(MODEL_CONFIG, device=device)
     model = MOEModel(**config).to(device)
     model.load_state_dict(checkpoint["model_state_dict"], strict=True)
     model.eval()
-    env = VRPTWEnv(problem_size=PROBLEM_SIZE, pomo_size=PROBLEM_SIZE,
+    env = VRPTWEnv(problem_size=problem_size, pomo_size=problem_size,
                    loc_scaler=None, device=device)
     # Official Tester._solve_cvrptwlib overrides the depot horizon before load.
     # We additionally preserve the benchmark lower bound; adapter rejects mixed batches.
@@ -138,7 +142,8 @@ def main():
     finished_at = datetime.now(timezone.utc).isoformat()
     selections = select_best_candidates(
         reward.detach().cpu().numpy(), env.selected_node_list.detach().cpu().numpy(),
-        aug_factor=args.aug_factor, batch_size=batch_size)
+        aug_factor=args.aug_factor, batch_size=batch_size,
+        problem_size=problem_size)
 
     project = git_provenance(ROOT)
     adapter_sources = source_provenance([
@@ -165,7 +170,8 @@ def main():
         reference = float(references[i])
         independent_pass = validation["feasible"] and reported_agrees
         rows.append(new_result(
-            method="MVMoE", variant="MOE/4E", problem="CVRPTW", problem_size=PROBLEM_SIZE,
+            method="MVMoE", variant="MOE/4E", problem="CVRPTW",
+            problem_size=problem_size,
             instance_id=metadata["instance_names"][i],
             project_repo_commit=project["commit"], project_repo_dirty=project["dirty"],
             upstream_url=upstream["url"], upstream_commit=upstream["commit"],
@@ -174,7 +180,7 @@ def main():
             dataset_sha256=metadata["dataset_sha256"], dataset_instance_index=int(indices[i]),
             adapter_provenance={"sources": adapter_sources, "mapping": mapping},
             inference_config={
-                "problem_size": PROBLEM_SIZE, "pomo_size": PROBLEM_SIZE,
+                "problem_size": problem_size, "pomo_size": problem_size,
                 "aug_factor": args.aug_factor, "eval_type": "argmax", "seed": args.seed,
                 "model_type": "MOE", "model": MODEL_CONFIG, "fine_tune_epochs": 0,
                 "loc_scaler": None, "speed": 1.0,
@@ -202,7 +208,7 @@ def main():
     run_metadata = make_run_metadata(
         started_at=started_at, finished_at=finished_at,
         total_runtime_seconds=runtime, batch_size=batch_size,
-        aug_factor=args.aug_factor, problem_size=PROBLEM_SIZE,
+        aug_factor=args.aug_factor, problem_size=problem_size,
         selected_node_list_shape=list(env.selected_node_list.shape),
         reward_shape=list(reward.shape), depot_time_window=list(depot_window), speed=1.0,
         training=False, backward=False, optimizer_created=False, fine_tune_epochs=0,

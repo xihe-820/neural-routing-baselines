@@ -16,19 +16,19 @@
           "path": "pretrained/Reviser-stage2/reviser_50/epoch-299.pt",
           "asset_role": "local-reviser",
           "target_size_specific": false,
-          "compatibility_basis": "Official code/API static analysis; see docs/SIZE_COMPATIBILITY.md. Not checkpoint-forward verified.",
+          "compatibility_basis": "Official code/API static analysis recorded in manifests/status.json; not checkpoint-forward verified.",
           "required_companion": "args.json in checkpoint directory; hash separately"
         },
         {
           "path": "pretrained/Reviser-stage2/reviser_20/epoch-299.pt",
           "asset_role": "local-reviser",
           "target_size_specific": false,
-          "compatibility_basis": "Official code/API static analysis; see docs/SIZE_COMPATIBILITY.md. Not checkpoint-forward verified.",
+          "compatibility_basis": "Official code/API static analysis recorded in manifests/status.json; not checkpoint-forward verified.",
           "required_companion": "args.json in checkpoint directory; hash separately"
         }
       ],
       "upstream_commit": "e540bc0153a0598e923e35116deeaecaf9c1cfff",
-      "compatibility_audit": "docs/SIZE_COMPATIBILITY.md"
+      "compatibility_audit": "manifests/status.json"
     },
     {
       "method": "GLOP",
@@ -44,26 +44,26 @@
           "path": "pretrained/Reviser-stage2/reviser_100/epoch-299.pt",
           "asset_role": "local-reviser",
           "target_size_specific": false,
-          "compatibility_basis": "Official code/API static analysis; see docs/SIZE_COMPATIBILITY.md. Not checkpoint-forward verified.",
+          "compatibility_basis": "Official code/API static analysis recorded in manifests/status.json; not checkpoint-forward verified.",
           "required_companion": "args.json in checkpoint directory; hash separately"
         },
         {
           "path": "pretrained/Reviser-stage2/reviser_50/epoch-299.pt",
           "asset_role": "local-reviser",
           "target_size_specific": false,
-          "compatibility_basis": "Official code/API static analysis; see docs/SIZE_COMPATIBILITY.md. Not checkpoint-forward verified.",
+          "compatibility_basis": "Official code/API static analysis recorded in manifests/status.json; not checkpoint-forward verified.",
           "required_companion": "args.json in checkpoint directory; hash separately"
         },
         {
           "path": "pretrained/Reviser-stage2/reviser_20/epoch-299.pt",
           "asset_role": "local-reviser",
           "target_size_specific": false,
-          "compatibility_basis": "Official code/API static analysis; see docs/SIZE_COMPATIBILITY.md. Not checkpoint-forward verified.",
+          "compatibility_basis": "Official code/API static analysis recorded in manifests/status.json; not checkpoint-forward verified.",
           "required_companion": "args.json in checkpoint directory; hash separately"
         }
       ],
       "upstream_commit": "e540bc0153a0598e923e35116deeaecaf9c1cfff",
-      "compatibility_audit": "docs/SIZE_COMPATIBILITY.md"
+      "compatibility_audit": "manifests/status.json"
     },
     {
       "method": "GLOP",
@@ -79,18 +79,18 @@
           "path": "pretrained/Partitioner/cvrp/cvrp-1000.pt",
           "asset_role": "partitioner",
           "target_size_specific": false,
-          "compatibility_basis": "Official code/API static analysis; see docs/SIZE_COMPATIBILITY.md. Not checkpoint-forward verified."
+          "compatibility_basis": "Official code/API static analysis recorded in manifests/status.json; not checkpoint-forward verified."
         },
         {
           "path": "pretrained/Reviser-stage2/reviser_20/epoch-299.pt",
           "asset_role": "local-reviser",
           "target_size_specific": false,
-          "compatibility_basis": "Official code/API static analysis; see docs/SIZE_COMPATIBILITY.md. Not checkpoint-forward verified.",
+          "compatibility_basis": "Official code/API static analysis recorded in manifests/status.json; not checkpoint-forward verified.",
           "required_companion": "args.json in checkpoint directory; hash separately"
         }
       ],
       "upstream_commit": "e540bc0153a0598e923e35116deeaecaf9c1cfff",
-      "compatibility_audit": "docs/SIZE_COMPATIBILITY.md"
+      "compatibility_audit": "manifests/status.json"
     },
     {
       "method": "GLOP",
@@ -106,18 +106,18 @@
           "path": "pretrained/Partitioner/cvrp/cvrp-1000.pt",
           "asset_role": "partitioner",
           "target_size_specific": false,
-          "compatibility_basis": "Official code/API static analysis; see docs/SIZE_COMPATIBILITY.md. Not checkpoint-forward verified."
+          "compatibility_basis": "Official code/API static analysis recorded in manifests/status.json; not checkpoint-forward verified."
         },
         {
           "path": "pretrained/Reviser-stage2/reviser_20/epoch-299.pt",
           "asset_role": "local-reviser",
           "target_size_specific": false,
-          "compatibility_basis": "Official code/API static analysis; see docs/SIZE_COMPATIBILITY.md. Not checkpoint-forward verified.",
+          "compatibility_basis": "Official code/API static analysis recorded in manifests/status.json; not checkpoint-forward verified.",
           "required_companion": "args.json in checkpoint directory; hash separately"
         }
       ],
       "upstream_commit": "e540bc0153a0598e923e35116deeaecaf9c1cfff",
-      "compatibility_audit": "docs/SIZE_COMPATIBILITY.md"
+      "compatibility_audit": "manifests/status.json"
     },
     {
       "method": "UDC",
@@ -133,17 +133,17 @@
           "path": "single_objective/UDC-Large-scale-CO-master/UDC/TSP-AGNN-ICAM/checkpoint-tsp-460.pt",
           "asset_role": "conquering-model",
           "target_size_specific": false,
-          "compatibility_basis": "Official code/API static analysis; see docs/SIZE_COMPATIBILITY.md. Not checkpoint-forward verified."
+          "compatibility_basis": "Official code/API static analysis recorded in manifests/status.json; not checkpoint-forward verified."
         },
         {
           "path": "single_objective/UDC-Large-scale-CO-master/UDC/TSP-AGNN-ICAM/checkpoint-partition-460.pt",
           "asset_role": "partitioner",
           "target_size_specific": false,
-          "compatibility_basis": "Official code/API static analysis; see docs/SIZE_COMPATIBILITY.md. Not checkpoint-forward verified."
+          "compatibility_basis": "Official code/API static analysis recorded in manifests/status.json; not checkpoint-forward verified."
         }
       ],
       "upstream_commit": "274df3c4975384592b60fe7f79fbb2441ce11c15",
-      "compatibility_audit": "docs/SIZE_COMPATIBILITY.md"
+      "compatibility_audit": "manifests/status.json"
     },
     {
       "method": "UDC",
@@ -159,17 +159,17 @@
           "path": "single_objective/UDC-Large-scale-CO-master/UDC/TSP-AGNN-ICAM/checkpoint-tsp-460.pt",
           "asset_role": "conquering-model",
           "target_size_specific": false,
-          "compatibility_basis": "Official code/API static analysis; see docs/SIZE_COMPATIBILITY.md. Not checkpoint-forward verified."
+          "compatibility_basis": "Official code/API static analysis recorded in manifests/status.json; not checkpoint-forward verified."
         },
         {
           "path": "single_objective/UDC-Large-scale-CO-master/UDC/TSP-AGNN-ICAM/checkpoint-partition-460.pt",
           "asset_role": "partitioner",
           "target_size_specific": false,
-          "compatibility_basis": "Official code/API static analysis; see docs/SIZE_COMPATIBILITY.md. Not checkpoint-forward verified."
+          "compatibility_basis": "Official code/API static analysis recorded in manifests/status.json; not checkpoint-forward verified."
         }
       ],
       "upstream_commit": "274df3c4975384592b60fe7f79fbb2441ce11c15",
-      "compatibility_audit": "docs/SIZE_COMPATIBILITY.md"
+      "compatibility_audit": "manifests/status.json"
     },
     {
       "method": "UDC",
@@ -185,17 +185,17 @@
           "path": "single_objective/UDC-Large-scale-CO-master/UDC/CVRP-AGNN-ICAM/checkpoint-tsp-230.pt",
           "asset_role": "conquering-model",
           "target_size_specific": false,
-          "compatibility_basis": "Official code/API static analysis; see docs/SIZE_COMPATIBILITY.md. Not checkpoint-forward verified."
+          "compatibility_basis": "Official code/API static analysis recorded in manifests/status.json; not checkpoint-forward verified."
         },
         {
           "path": "single_objective/UDC-Large-scale-CO-master/UDC/CVRP-AGNN-ICAM/checkpoint-partition-230.pt",
           "asset_role": "partitioner",
           "target_size_specific": false,
-          "compatibility_basis": "Official code/API static analysis; see docs/SIZE_COMPATIBILITY.md. Not checkpoint-forward verified."
+          "compatibility_basis": "Official code/API static analysis recorded in manifests/status.json; not checkpoint-forward verified."
         }
       ],
       "upstream_commit": "274df3c4975384592b60fe7f79fbb2441ce11c15",
-      "compatibility_audit": "docs/SIZE_COMPATIBILITY.md"
+      "compatibility_audit": "manifests/status.json"
     },
     {
       "method": "UDC",
@@ -211,17 +211,17 @@
           "path": "single_objective/UDC-Large-scale-CO-master/UDC/CVRP-AGNN-ICAM/checkpoint-tsp-230.pt",
           "asset_role": "conquering-model",
           "target_size_specific": false,
-          "compatibility_basis": "Official code/API static analysis; see docs/SIZE_COMPATIBILITY.md. Not checkpoint-forward verified."
+          "compatibility_basis": "Official code/API static analysis recorded in manifests/status.json; not checkpoint-forward verified."
         },
         {
           "path": "single_objective/UDC-Large-scale-CO-master/UDC/CVRP-AGNN-ICAM/checkpoint-partition-230.pt",
           "asset_role": "partitioner",
           "target_size_specific": false,
-          "compatibility_basis": "Official code/API static analysis; see docs/SIZE_COMPATIBILITY.md. Not checkpoint-forward verified."
+          "compatibility_basis": "Official code/API static analysis recorded in manifests/status.json; not checkpoint-forward verified."
         }
       ],
       "upstream_commit": "274df3c4975384592b60fe7f79fbb2441ce11c15",
-      "compatibility_audit": "docs/SIZE_COMPATIBILITY.md"
+      "compatibility_audit": "manifests/status.json"
     },
     {
       "method": "CaDA",

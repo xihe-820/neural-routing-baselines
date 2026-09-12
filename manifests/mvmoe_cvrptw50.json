@@ -58,8 +58,9 @@
       "backward": false,
       "optimizer_created": false,
       "fine_tune_epochs": 0,
-      "server_evidence": "NOT_RUN"
-    }
+      "server_evidence": "SERVER_VERIFIED"
+    },
+    "server_evidence_manifest": "manifests/server_mvmoe_cvrptw50.json"
   },
   "smokes": {
     "reduced_aug1_first2": {

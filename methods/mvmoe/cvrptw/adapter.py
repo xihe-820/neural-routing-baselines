@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from methods.mvmoe.cvrptw.config import PROBLEM_SIZE, require_problem_size
+from methods.mvmoe.cvrptw.config import get_size_config
 
 
 def adapt_batch(depots, points, raw_demands, raw_capacities, time_windows,
@@ -11,7 +11,8 @@ def adapt_batch(depots, points, raw_demands, raw_capacities, time_windows,
     """Split depot/customer rows and normalize demand exactly once."""
     import torch
 
-    require_problem_size(problem_size)
+    get_size_config(problem_size)
+    problem_size = int(problem_size)
     depot = np.asarray(depots)
     customers = np.asarray(points)
     demand = np.asarray(raw_demands)
@@ -22,19 +23,21 @@ def adapt_batch(depots, points, raw_demands, raw_capacities, time_windows,
         depot = depot[:, None, :]
     if depot.ndim != 3 or depot.shape[1:] != (1, 2):
         raise ValueError("depots must have shape [B,2] or [B,1,2]")
-    if customers.ndim != 3 or customers.shape[1:] != (PROBLEM_SIZE, 2):
-        raise ValueError("points must have shape [B,50,2]")
+    if customers.ndim != 3 or customers.shape[1:] != (problem_size, 2):
+        raise ValueError(f"points must have shape [B,{problem_size},2]")
     batch = customers.shape[0]
-    if depot.shape[0] != batch or demand.shape != (batch, PROBLEM_SIZE):
+    if depot.shape[0] != batch or demand.shape != (batch, problem_size):
         raise ValueError("batch dimensions or demand shape do not match")
     if capacity.shape == (batch, 1):
         capacity = capacity[:, 0]
     if capacity.shape != (batch,):
         raise ValueError("raw_capacities must have shape [B] or [B,1]")
-    if tw.shape != (batch, PROBLEM_SIZE + 1, 2):
-        raise ValueError("time_windows must have shape [B,51,2], including depot")
-    if service.shape != (batch, PROBLEM_SIZE + 1):
-        raise ValueError("service_times must have shape [B,51], including depot")
+    if tw.shape != (batch, problem_size + 1, 2):
+        raise ValueError(
+            f"time_windows must have shape [B,{problem_size + 1},2], including depot")
+    if service.shape != (batch, problem_size + 1):
+        raise ValueError(
+            f"service_times must have shape [B,{problem_size + 1}], including depot")
     for name, array in (("depot", depot), ("points", customers),
                         ("raw_demands", demand), ("raw_capacities", capacity),
                         ("time_windows", tw), ("service_times", service)):
@@ -51,6 +54,8 @@ def adapt_batch(depots, points, raw_demands, raw_capacities, time_windows,
     depot_windows = tw[:, 0, :]
     if not np.all(depot_windows == depot_windows[0]):
         raise ValueError("batch contains different depot time windows")
+    if float(depot_windows[0, 0]) != 0.0:
+        raise ValueError("MVMoE VRPTWEnv requires depot time-window lower bound 0")
 
     normalized_demand = demand.astype(np.float64) / capacity.astype(np.float64)[:, None]
     native = (
@@ -65,14 +70,15 @@ def adapt_batch(depots, points, raw_demands, raw_capacities, time_windows,
     mapping = {
         "native_depot_id": 0,
         "benchmark_depot_id": 0,
-        "customer_id_relation": "identity: native 1..50 == benchmark 1..50",
+        "customer_id_relation": (
+            f"identity: native 1..{problem_size} == benchmark 1..{problem_size}"),
         "depot_rows_removed_from_customer_service_and_time_windows": True,
         "augmentation_preserves_node_order": True,
         "normalization": "node_demand = raw_demand / raw_capacity exactly once",
         "coordinate_scaling": "none",
         "time_window_scaling": "none",
         "service_time_scaling": "none",
-        "problem_size": PROBLEM_SIZE,
+        "problem_size": problem_size,
         "depot_time_window": list(depot_window),
     }
     return native, depot_window, mapping
