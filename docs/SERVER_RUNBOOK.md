@@ -1,16 +1,16 @@
 # SERVER_RUNBOOK：用户手动部署和复核
 
-仅包含目前已实现的命令。Codex不连接服务器；默认不安装、更换环境，不修改official source。当前server事实全为NOT_RUN。本地模型/数据identity已建立的部分只需复核服务器实际副本与执行环境。
+仅包含目前已实现的命令。Codex不连接服务器；默认不安装、更换环境，不修改official source。MVMoE/CVRP50+100已由用户在服务器完成验证，证据见`manifests/server_mvmoe_cvrp.json`；CVRPTW50及其它server状态仍为NOT_RUN。
 
 ## Step 1 — repository sync / setup
 
-主仓库为 `https://github.com/xihe-820/neural-routing-baselines`；Phase 0/1 snapshot是`38f794fc19c3aaa988bfa78db0ae51143aab93ef`，首个已提交MVMoE/CVRP50 integration是`54271cf4f97d7bd99784f6e6ee5ce52ee9f5994b`。服务器必须clone/pull后checkout用户明确批准的项目commit；运行CVRP100时该commit还必须包含本轮扩展。
+主仓库为 `https://github.com/xihe-820/neural-routing-baselines`。MVMoE/CVRP50+100服务器验证使用的clean project commit是`f6db50e694cbab8870f4f1a1544856c49e9e0106`。服务器必须clone/pull后checkout用户明确批准的项目commit；未来运行CVRPTW50时，该commit必须包含CVRPTW50文件。
 
 在同一终端粘贴并输入当前实际路径（不依赖shell history）：
 
 ```bash
 read -r -p 'New/existing baseline repository absolute path: ' BASELINE_PROJECT_ROOT
-read -r -p 'Approved project commit containing requested MVMoE/CVRP sizes: ' BASELINE_PROJECT_COMMIT
+read -r -p 'Approved project commit containing the requested integration: ' BASELINE_PROJECT_COMMIT
 read -r -p 'Existing official checkout root: ' BASELINE_UPSTREAM_ROOT
 read -r -p 'ML4CO-Bench dataset root: ' ML4CO_DATA_ROOT
 export BASELINE_PROJECT_ROOT BASELINE_PROJECT_COMMIT BASELINE_UPSTREAM_ROOT ML4CO_DATA_ROOT
@@ -28,6 +28,14 @@ export BASELINE_ARTIFACT_ROOT="$BASELINE_PROJECT_ROOT/artifacts/server"
 mkdir -p "$BASELINE_ARTIFACT_ROOT"
 conda activate cp311_base
 ```
+
+已知deployment中的公共benchmark root可设为：
+
+```bash
+export ML4CO_DATA_ROOT=/inspire/hdd/global_user/majiale-253108540229/ML4CO-Bench-101
+```
+
+这只是runbook中的已知部署示例；所有程序仍通过CLI接收路径，源码不硬编码该位置。
 
 若activate失败，回传错误，不自动创建或重装。实际解释器由下一步记录。
 
@@ -131,19 +139,20 @@ python -B scripts/audit_model_load.py --repo "$BASELINE_UPSTREAM_ROOT/NeuOpt" \
 MVMoE/NeuOpt 包含官方模型 CPU strict load；其余方法目前只有 module import + Step 5 payload load，architecture construction/forward 要等依赖与资产信息回来再补。这些区别都在 JSON 中记录。NeuOpt 若复现历史 protobuf generated-code 错误，可额外设置 `PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python` 后写到另一份输出，以保留原错误证据；不要降级 protobuf。
 
 
-## Step 7 — MVMoE/4E CVRP50 and CVRP100 official search/decode configuration smoke
+## Step 7 — MVMoE/4E CVRP50, CVRP100 and CVRPTW50 smoke
 
-以下两组命令分别运行首5例。它们保持aug8、POMO=N、argmax、seed2024，但不是作者完整100-instance evaluation command，也不产生paper-comparable runtime。runner直接使用官方MOEModel/CVRPEnv；dataset、checkpoint、upstream commit或clean状态不符合固定identity时会拒绝运行。
+以下三组命令分别运行首5例。它们保持aug8、POMO=N、argmax、seed2024，但不是作者完整100-instance evaluation command，也不产生paper-comparable runtime。runner直接使用官方MOEModel及对应的CVRPEnv或VRPTWEnv；dataset、checkpoint、upstream commit或clean状态不符合固定identity时会拒绝运行。
 
 先设置本次实际路径：
 
 ```bash
 read -r -p 'Exact CVRP50 benchmark pickle: ' CVRP50_DATASET
 read -r -p 'Exact CVRP100 benchmark pickle: ' CVRP100_DATASET
+read -r -p 'Exact CVRPTW50 benchmark pickle: ' CVRPTW50_DATASET
 read -r -p 'Exact Routing-MVMoE checkout: ' MVMOE_UPSTREAM
 read -r -p 'Exact MVMoE 4E n50 checkpoint: ' MVMOE_N50_CHECKPOINT
 read -r -p 'Exact MVMoE 4E n100 checkpoint: ' MVMOE_N100_CHECKPOINT
-export CVRP50_DATASET CVRP100_DATASET MVMOE_UPSTREAM
+export CVRP50_DATASET CVRP100_DATASET CVRPTW50_DATASET MVMOE_UPSTREAM
 export MVMOE_N50_CHECKPOINT MVMOE_N100_CHECKPOINT
 ```
 
@@ -177,11 +186,26 @@ python -B methods/mvmoe/cvrp/run.py \
   --aug-factor 8 --seed 2024 --device auto
 ```
 
+CVRPTW50（会从dataset读取depot TW并在`load_problems`前覆盖环境默认值）：
+
+```bash
+python -B methods/mvmoe/cvrptw/prepare_instances.py \
+  --dataset "$CVRPTW50_DATASET" --problem-size 50 --offset 0 --count 5 \
+  --output "$BASELINE_ARTIFACT_ROOT/mvmoe_cvrptw50/input_first5.npz"
+
+python -B methods/mvmoe/cvrptw/run.py \
+  --problem-size 50 \
+  --input "$BASELINE_ARTIFACT_ROOT/mvmoe_cvrptw50/input_first5.npz" \
+  --upstream "$MVMOE_UPSTREAM" --checkpoint "$MVMOE_N50_CHECKPOINT" \
+  --output "$BASELINE_ARTIFACT_ROOT/mvmoe_cvrptw50/official_search_aug8_first5.json" \
+  --aug-factor 8 --seed 2024 --device auto
+```
+
 `prepare_instances.py`需要当前解释器已有ML4CO-Kit；若cp311_base没有Kit，使用服务器已有Kit环境只执行prepare和Step 9，再切回cp311_base运行模型。不要为此更换模型环境核心依赖。`--device auto`有CUDA则用当前GPU，否则会合法回退CPU并在JSON明确记录。
 
 ## Step 8 — independent validation
 
-`run.py`已对每个actual decoded solution调用共享 `problems.cvrp.validate.validate`，保存reported/independent objective、agreement、raw-capacity约束与actual route。任一`independent_feasible`或`reported_objective_agrees`不是true时，row会成为`FAILED`；停止并回传原始JSON，不放宽容差。
+对应runner已对每个actual decoded solution调用`problems.cvrp.validate`或`problems.cvrptw.validate`。CVRPTW额外使用原始TW/service、speed1、task threshold检查等待、service-start和depot return。任一`independent_feasible`或`reported_objective_agrees`不是true时，row会成为`FAILED`；停止并回传原始JSON，不放宽容差。
 
 ## Step 9 — secondary ML4CO-Kit validation
 
@@ -197,9 +221,14 @@ python -B methods/mvmoe/cvrp/validate_with_kit.py \
   --input "$BASELINE_ARTIFACT_ROOT/mvmoe_cvrp100/official_search_aug8_first5.json" \
   --dataset "$CVRP100_DATASET" \
   --output "$BASELINE_ARTIFACT_ROOT/mvmoe_cvrp100/official_search_aug8_first5_validated.json"
+
+python -B methods/mvmoe/cvrptw/validate_with_kit.py \
+  --input "$BASELINE_ARTIFACT_ROOT/mvmoe_cvrptw50/official_search_aug8_first5.json" \
+  --dataset "$CVRPTW50_DATASET" \
+  --output "$BASELINE_ARTIFACT_ROOT/mvmoe_cvrptw50/official_search_aug8_first5_validated.json"
 ```
 
-每个size的5个row都必须同时满足`evidence_status=LOCAL_VERIFIED`、`independent_feasible=true`、`kit_feasible=true`、`reported_objective_agrees=true`和`kit_objective_agrees=true`。服务器验证通过后，证据等级才可升级SERVER_VERIFIED。
+每组5个row都必须同时满足`evidence_status=LOCAL_VERIFIED`、`independent_feasible=true`、`kit_feasible=true`、`reported_objective_agrees=true`和`kit_objective_agrees=true`。CVRPTW50服务器验证通过后，其项目级证据才可升级SERVER_VERIFIED。
 
 ## Step 10 — regression tests
 
@@ -207,6 +236,6 @@ python -B methods/mvmoe/cvrp/validate_with_kit.py \
 ML4CO_REFERENCE_TESTS=1 python -B -m unittest discover -s tests -v
 ```
 
-如果服务器环境不含全部六组reference数据，可先不设置`ML4CO_REFERENCE_TESTS`运行其余unit tests；这不会替代上面两个size的实际解与Kit验证。
+如果服务器环境不含全部六组reference数据，可先不设置`ML4CO_REFERENCE_TESTS`运行其余unit tests；这不会替代上面各integration的实际解与Kit验证。
 
-回传 `artifacts/server/environment/server_environment.json`、`artifacts/server/audit/`、两个`official_search_aug8_first5_validated.json`及测试终端输出。无需密码、私钥、SSH权限。
+CVRPTW50后续回传`artifacts/server/mvmoe_cvrptw50/official_search_aug8_first5_validated.json`及测试终端输出。无需密码、私钥、SSH权限。

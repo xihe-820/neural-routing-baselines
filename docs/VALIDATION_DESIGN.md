@@ -1,6 +1,6 @@
 # 独立 objective / validator：已实现
 
-实现仅依赖NumPy，不调用任何baseline或Kit成本/约束函数。当前支持六组实际benchmark的unrounded Euclidean、closed TSP/single-depot CVRP/CVRPTW。实例规模可用于小型handcrafted tests，正式运行scope仍50/100。服务器还未执行。
+实现仅依赖NumPy，不调用任何baseline或Kit成本/约束函数。当前支持六组实际benchmark的unrounded Euclidean、closed TSP/single-depot CVRP/CVRPTW。实例规模可用于小型handcrafted tests，正式运行scope仍50/100。MVMoE/CVRP50+100已有服务器执行证据；CVRPTW50仅本地执行。
 
 | Module / API | Input | Output / constraints |
 |---|---|---|

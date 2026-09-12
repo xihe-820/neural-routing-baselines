@@ -26,4 +26,4 @@ Pin rationale：
 
 [RouteFinder v0.4.0 official release](https://github.com/ai4co/routefinder/releases/tag/v0.4.0)；[HF official model repo](https://huggingface.co/ai4co/routefinder)。HF repository revision 与 Git commit 是不同 provenance，不可互相替代。
 
-服务器 checkout 路径、commit、dirty 均为 `NOT_RUN`。上述 pins 是本地审阅建议，未更改任何服务器代码。
+MVMoE服务器checkout已在CVRP50+100运行前验证为官方remote、commit `af29e5af0595f94f3ecc3bc46d72df1089a62682`且clean；其它服务器checkout仍为`NOT_RUN`。未更改任何服务器官方源码。

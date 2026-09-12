@@ -69,7 +69,11 @@
       "training": false,
       "backward": false,
       "optimizer_created": false,
-      "server_evidence": "NOT_RUN"
+      "server_evidence": {
+        "status": "SERVER_VERIFIED",
+        "project_commit": "f6db50e694cbab8870f4f1a1544856c49e9e0106",
+        "summary_manifest": "manifests/server_mvmoe_cvrp.json"
+      }
     }
   },
   "smokes": {

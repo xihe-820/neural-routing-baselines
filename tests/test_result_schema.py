@@ -3,6 +3,9 @@ from pathlib import Path
 import tempfile
 import unittest
 
+import numpy as np
+
+from common.objective_agreement import OBJECTIVE_ATOL, OBJECTIVE_RTOL, objective_agrees
 from common.provenance import normalize_git_repository_identity
 from common.result_schema import (complete_validation, make_run_metadata, new_result,
                                   read_result_bundle, write_result_bundle)
@@ -114,6 +117,21 @@ class GitIdentityTests(unittest.TestCase):
     def test_non_github_remote_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "GitHub"):
             normalize_git_repository_identity("https://example.com/OWNER/REPO.git")
+
+
+class ObjectiveAgreementTests(unittest.TestCase):
+    def test_values_immediately_inside_and_outside_policy_boundary(self):
+        reference = 10.0
+        boundary = OBJECTIVE_ATOL + OBJECTIVE_RTOL * abs(reference)
+        self.assertTrue(objective_agrees(reference + boundary * 0.999, reference))
+        self.assertFalse(objective_agrees(reference + boundary * 1.001, reference))
+
+    def test_policy_matches_numpy_for_asymmetric_arguments(self):
+        value = 1.0 + 2.0e-6
+        reference = 1.0
+        self.assertEqual(objective_agrees(value, reference),
+                         bool(np.isclose(value, reference,
+                                         rtol=OBJECTIVE_RTOL, atol=OBJECTIVE_ATOL)))
 
 
 if __name__ == "__main__":

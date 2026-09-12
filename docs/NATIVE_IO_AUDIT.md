@@ -1,6 +1,6 @@
 # Native 输入输出与依赖审计
 
-证据基于 [upstreams manifest](../manifests/upstreams.yaml) 的实际固定 checkout。下面描述作者接口，不代表 benchmark adapter 已实现。服务器 cp311_base 的 import、load、forward 均待用户执行。
+证据基于 [upstreams manifest](../manifests/upstreams.yaml) 的实际固定 checkout。下面主要保留Phase 0/1作者接口审计；当前实现状态以STATUS为准。MVMoE/CVRP50+100已有服务器执行证据，MVMoE/CVRPTW50已有本地actual-solution证据，其它server import/load/forward仍待用户执行。
 
 ## GLOP
 

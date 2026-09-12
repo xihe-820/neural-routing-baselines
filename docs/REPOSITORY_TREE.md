@@ -1,6 +1,6 @@
 # Repository tree
 
-Phase 0/1 snapshot: `38f794fc19c3aaa988bfa78db0ae51143aab93ef`. First committed MVMoE/CVRP50 integration: `54271cf4f97d7bd99784f6e6ee5ce52ee9f5994b`. The tree also includes current CVRP50/100 development changes; ignored external/data/artifact directories are summarized only.
+Phase 0/1 snapshot: `38f794fc19c3aaa988bfa78db0ae51143aab93ef`. Server-verified MVMoE/CVRP50+100 commit: `f6db50e694cbab8870f4f1a1544856c49e9e0106`. The tree also includes the current CVRPTW50 local integration; ignored external/data/artifact directories are summarized only.
 
 ```text
 neural-routing-baselines/
@@ -9,6 +9,7 @@ neural-routing-baselines/
   common/
     README.md
     hashing.py
+    objective_agreement.py
     provenance.py
     result_schema.py
     validation.py
@@ -20,6 +21,7 @@ neural-routing-baselines/
     ENVIRONMENT_AUDIT.md
     MVMOE_CVRP50_REPORT.md
     MVMOE_CVRP100_REPORT.md
+    MVMOE_CVRPTW50_REPORT.md
     NATIVE_IO_AUDIT.md
     REPOSITORY_TREE.md
     SCOPE.md
@@ -35,7 +37,9 @@ neural-routing-baselines/
     local_verification.json
     mvmoe_cvrp50.json
     mvmoe_cvrp100.json
+    mvmoe_cvrptw50.json
     public_datasets.json
+    server_mvmoe_cvrp.json
     status.json
     upstreams.yaml
   methods/
@@ -44,6 +48,12 @@ neural-routing-baselines/
         README.md
       cvrptw/
         README.md
+        adapter.py
+        config.py
+        decode.py
+        prepare_instances.py
+        run.py
+        validate_with_kit.py
     glop/
       cvrp/
         README.md
@@ -101,6 +111,7 @@ neural-routing-baselines/
     test_audits.py
     test_benchmark_references.py
     test_mvmoe_cvrp.py
+    test_mvmoe_cvrptw.py
     test_result_schema.py
     test_validators.py
   external/       # ignored; 7 official read-only checkouts

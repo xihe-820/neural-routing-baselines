@@ -1,15 +1,39 @@
-# MVMoE/4E / CVRPTW — adapter contract
+# MVMoE/4E / CVRPTW50 — LOCAL_VERIFIED integration
 
-Target sizes: 50 / 100. `adapter=NOT_IMPLEMENTED`, `solution_decoder=NOT_IMPLEMENTED`, `runner=NOT_IMPLEMENTED`。本轮固定接口，不提供返回成功的stub。
+This directory implements only MVMoE/4E CVRPTW50. It has its own config, adapter, decoder, preparation, runner and Kit validation code; it does not import the CVRP adapter/decoder and does not implement CVRPTW100.
 
-输入由经审计的benchmark task字段与source hash/index构成。转换器归本method/problem目录所有；不调用共享baseline input adapter。共同validator可复用。
+The integration pins Routing-MVMoE commit `af29e5af0595f94f3ecc3bc46d72df1089a62682`, dataset SHA256 `a16975d9dd242739973191256e1cdbd8166c4405759ef195b985a8c3ec49df40`, and n50 checkpoint SHA256 `3417f302fbddf232fd19a2a886cd1c7f44290b6d8c7280fcb0ae3777eeed3192`.
 
-- Official source boundary: `envs/CVRPEnv.py:load_dataset (295–303), load_problems (111); envs/VRPTWEnv.py:load_dataset (330–338), load_problems (119)`。版本见 [upstreams](../../../manifests/upstreams.yaml)。
-- Native input: pickle边界CVRP=(depot,loc,raw_demand,capacity)，CVRPTW另附customer service_time,tw_start,tw_end；官方loader内部demand/capacity。若直接load_problems则提供已normalized demand，只选一个边界，禁止二次normalize。
-- Native output: env.selected_node_list[B,P,T]与best POMO/augmentation的reward。
-- Solution decoder obligation: 按同一best POMO/augmentation index选真实route，显式移除结束padding、加闭合depot边界并验证，不从reward反推解。
-- Configuration constraints: MOE/4E、fine_tune_epochs=0；复用作者 `Tester._solve_cvrptwlib` 已有的 per-instance `env.depot_end = data[0,5] / scaler` 路径，把真实benchmark depot上界传入。该机制为官方evaluation行为，不是算法patch；actual CVRPTW validation仍未实现。
+Native mapping:
 
-接口设计：`adapt_instance(task, *, device, config)`只做明确字段/单位/索引转换并返回本方法native对象及provenance；`decode_solution(native_output, selection, mapping)`返回canonical IDs/routes和选择证据。这两个签名是设计契约，尚无实现。不得在adapter内训练、运行额外search或静默补不支持字段。具体张量batch与关闭约束值将在该方法实现测试中固定。
+- `depot_xy`: benchmark depot → `[B,1,2]`
+- `node_xy`: customer points → `[B,50,2]`
+- `node_demand`: raw demand / raw capacity exactly once → `[B,50]`
+- `service_time`: depot-inclusive `service[:,1:]` → `[B,50]`
+- `tw_start`, `tw_end`: depot-inclusive `tw[:,1:,0/1]` → `[B,50]`
+- `env.depot_start/end`: exact benchmark `tw[:,0,:]`, assigned before `load_problems`
 
-Benchmark truth见 [DATASET_AUDIT](../../../docs/DATASET_AUDIT.md)，源码/依赖与保真限制见 [NATIVE_IO_AUDIT](../../../docs/NATIVE_IO_AUDIT.md)，尺寸候选见 [SIZE_COMPATIBILITY](../../../docs/SIZE_COMPATIBILITY.md)。最终真实solution必须通过 [independent validators](../../../docs/VALIDATION_DESIGN.md)，Kit为secondary。
+Coordinates, time windows and service times are not scaled. A batch with differing depot windows is rejected; depot service must be zero. The actual dataset's 1000 tasks use depot window `[0,4.599999904632568]`, task threshold `1e-4`, speed 1 and unrounded Euclidean distance.
+
+The runner strict-loads official MOE/4E (`Train_ALL`, epoch 5000), uses POMO50, argmax and seed2024 with the official CuDNN seeding side effects. It creates no optimizer and performs no training, backward or fine-tuning. The decoder gathers `selected_node_list` at the exact winning augmentation/POMO reward index, preserves internal depot separators, and removes only terminal finished-POMO padding.
+
+The local RTX4060 aug8 first-5 run passed 5/5 independent feasibility, Kit feasibility, reported-objective agreement and Kit-objective agreement. Independent validation simulates arrival, waiting, service start/duration and final depot return using original benchmark data. See [the evidence manifest](../../../manifests/mvmoe_cvrptw50.json).
+
+```bash
+python -B methods/mvmoe/cvrptw/prepare_instances.py \
+  --dataset "$CVRPTW50_DATASET" --problem-size 50 --offset 0 --count 5 \
+  --output artifacts/mvmoe_cvrptw50/input_first5.npz
+
+python -B methods/mvmoe/cvrptw/run.py \
+  --problem-size 50 --input artifacts/mvmoe_cvrptw50/input_first5.npz \
+  --upstream "$MVMOE_UPSTREAM" --checkpoint "$MVMOE_N50_CHECKPOINT" \
+  --output artifacts/mvmoe_cvrptw50/official_search_aug8_first5.json \
+  --aug-factor 8 --seed 2024 --device auto
+
+python -B methods/mvmoe/cvrptw/validate_with_kit.py \
+  --input artifacts/mvmoe_cvrptw50/official_search_aug8_first5.json \
+  --dataset "$CVRPTW50_DATASET" \
+  --output artifacts/mvmoe_cvrptw50/official_search_aug8_first5_validated.json
+```
+
+Runtime fields are engineering-smoke evidence: per-row values are amortized batch runtime, not single-instance latency and not paper-comparable. All CVRPTW50 server fields remain `NOT_RUN`.

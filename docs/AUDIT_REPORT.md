@@ -1,6 +1,6 @@
 # Phase 0 / Phase 1 checkpoint report
 
-这是 Phase 0 / Phase 1 snapshot `38f794fc19c3aaa988bfa78db0ae51143aab93ef` 的审计报告。其后 MVMoE/4E + CVRP50 已完成首个本地真实 integration，并已将同一adapter本地扩展到CVRP100；对应现状见 [method README](../methods/mvmoe/cvrp/README.md)、[STATUS](STATUS.md)、[CVRP50 manifest](../manifests/mvmoe_cvrp50.json) 和 [CVRP100 manifest](../manifests/mvmoe_cvrp100.json)。其它技术结论维持本报告的证据边界。
+这是 Phase 0 / Phase 1 snapshot `38f794fc19c3aaa988bfa78db0ae51143aab93ef` 的审计报告。其后MVMoE/4E CVRP50+100已在commit `f6db50e694cbab8870f4f1a1544856c49e9e0106`完成服务器验证，CVRPTW50已完成本地integration；对应现状见 [STATUS](STATUS.md) 和各MVMoE manifest。其它技术结论维持本报告的历史证据边界。
 
 ## A. git diff / 新增文件
 
@@ -10,11 +10,11 @@
 
 ## B. repository tree
 
-见 [REPOSITORY_TREE.md](REPOSITORY_TREE.md)，只展示主仓库自有文件与ignored目录摘要，不展开official monorepo。共享数学真值在problems/；MVMoE/CVRP50+100 的输入、decoder和runner现已实现，其它method接口仍保持独立。
+见 [REPOSITORY_TREE.md](REPOSITORY_TREE.md)，只展示主仓库自有文件与ignored目录摘要，不展开official monorepo。共享数学真值在problems/；MVMoE/CVRP50+100与CVRPTW50的problem-specific输入、decoder和runner现已实现。
 
 ## C. 26-row status
 
-完整19列×26行见 [STATUS.md](STATUS.md)，机器可读为 [status.json](../manifests/status.json)。MVMoE/CVRP50和CVRP100已升级为本地 integration LOCAL_VERIFIED；其它 rows 仍保留原审计状态。所有 server 项仍为 NOT_RUN。
+完整19列×26行见 [STATUS.md](STATUS.md)，机器可读为 [status.json](../manifests/status.json)。MVMoE/CVRP50和CVRP100为`SERVER_VERIFIED_INTEGRATION`；MVMoE/CVRPTW50为`LOCAL_VERIFIED_INTEGRATION_SERVER_NOT_RUN`；其它rows保留原审计状态。
 
 | Method | Problem | N | Local binary/SHA | Official strict load | Configuration / current limit |
 |---|---|---:|---|---|---|
@@ -32,7 +32,7 @@
 | CaDA | CVRPTW | 100 | NOT_RUN | NOT_RUN | Checkpoint absent; legacy API risk |
 | MVMoE | CVRP | 50 | LOCAL_VERIFIED | LOCAL_VERIFIED | Direct MOEModel/CVRPEnv official search/decode config first-5 integration LOCAL_VERIFIED |
 | MVMoE | CVRP | 100 | LOCAL_VERIFIED | LOCAL_VERIFIED | Direct MOEModel/CVRPEnv official search/decode config first-5 integration LOCAL_VERIFIED |
-| MVMoE | CVRPTW | 50 | LOCAL_VERIFIED | LOCAL_VERIFIED | Tester missing scipy in gan; no forward; depot TW mapping required |
+| MVMoE | CVRPTW | 50 | LOCAL_VERIFIED | LOCAL_VERIFIED | Direct MOEModel/VRPTWEnv first-5 integration LOCAL_VERIFIED; depot TW 4.6 injected before load |
 | MVMoE | CVRPTW | 100 | LOCAL_VERIFIED | LOCAL_VERIFIED | Tester missing scipy in gan; no forward; depot TW mapping required |
 | RF-TE | CVRP | 50 | NOT_RUN | NOT_RUN | Transformer asset source confirmed; binary absent |
 | RF-TE | CVRP | 100 | NOT_RUN | NOT_RUN | Transformer asset source confirmed; binary absent |
@@ -67,7 +67,7 @@ strict load使用已有gan：Python3.10.20 / Torch2.5.1 / NumPy1.24.3。数据�
 
 MVMoE/4E n50/n100：binary非LFS、SHA、torch.load、官方MOEModel strict=True均通过；各3,682,176 parameters、无missing/unexpected。NeuOpt CVRP50/100：同级别证据，官方Actor各685,140 parameters、seq70/120、with_simpleMDP=True。均CPU执行，已成功的四次strict load未为整理文档重跑。
 
-MoSES(CaDA)50/100：只达到完整binary/SHA LOCAL_VERIFIED；deserialize因缺rl4co BLOCKED，不能声称state shape或architecture匹配。六份完整SHA/bytes/source及四次exact command/model config见 [CHECKPOINT_AUDIT.md](CHECKPOINT_AUDIT.md) 和 [checkpoints.yaml](../manifests/checkpoints.yaml)。server副本尚未比较。
+MoSES(CaDA)50/100：只达到完整binary/SHA LOCAL_VERIFIED；deserialize因缺rl4co BLOCKED，不能声称state shape或architecture匹配。六份完整SHA/bytes/source及四次exact command/model config见 [CHECKPOINT_AUDIT.md](CHECKPOINT_AUDIT.md) 和 [checkpoints.yaml](../manifests/checkpoints.yaml)。MVMoE CVRP所用server副本已匹配；其它server副本尚未比较。
 
 GLOP/UDC/CaDA/RF-TE官方资产入口与intended role为SOURCE_CONFIRMED，本地未落盘。GLOP/UDC公开Drive页面可读，不声称需要权限或链接失效；包内尚未定向获取组件。manifest按target_size + required_official_assets + asset_role + size_specific + compatibility_basis组织，不强求n50/n100命名权重。
 
@@ -83,9 +83,9 @@ CVRP50/100默认K_SPARSE键缺失。官方load_partitioner/infer允许显式k_sp
 
 另查官方lib tester：TSP仍hardcode topk100；CVRP存在ceil/padding处理，因此不能声称所有UDC代码都不处理小规模。但CVRP50默认k仍越界、完整padding执行未验证。当前TSP50未找到完整不改语义的合法配置；这不是证明其权重architecture必然绑定N>=100。后续先100，再单独报告50保真方案。目标两个子树均缺partition/conquer checkpoint，PyG缺失另阻碍partition import。
 
-## J. PENDING SERVER VERIFICATION（各字段当前NOT_RUN）
+## J. Server evidence boundary
 
-服务器当前Python/Torch/CUDA/包状态、pip check、RTX4090真实可见性；服务器使用的dataset/checkpoint SHA与本地manifest是否一致；所选upstream commit/dirty；server imports/load、CUDA forward、实际small inference/independent validation、最终benchmark。历史cp311_base版本与路径仅为背景，不是当前事实。
+MVMoE/CVRP50+100已有用户执行证据：Python3.11.13、NumPy1.26.4、Torch2.5.0+cu124/CUDA12.4、RTX4090、Kit0.5.4，且project/upstream clean、资产SHA匹配、first-5四项gate通过。精确结果见[server manifest](../manifests/server_mvmoe_cvrp.json)。CVRPTW50及其它rows的server字段仍为NOT_RUN。
 
 [SERVER_RUNBOOK.md](SERVER_RUNBOOK.md)提供现有可复制audit命令与SHA比较；GPU/inference待对应wrapper实现才补命令。用户手动迁移执行并回传原始JSON，本地任务不因没有SSH停止。
 
@@ -95,11 +95,11 @@ CVRP50/100默认K_SPARSE键缺失。官方load_partitioner/infer允许显式k_sp
 - GLOP/UDC/CaDA/RF-TE所选components本地未落盘；公开来源已知，当前不是已证实的权限障碍。
 - gan缺PyG/random_insertion等阻碍相应导入；MoSES deserialize缺rl4co；CaDA/RF/MoSES的rl4co/TensorDict/TorchRL/Lightning API兼容仍有风险，未擅自改核心stack。
 - MVMoE Tester缺scipy、NeuOpt PPO缺tensorboard_logger只阻碍对应entrypoint，未阻塞source审计或已成功strict load。
-- MVMoE CVRPTW需沿用作者 `_solve_cvrptwlib` 已有的 per-instance `env.depot_end = data[0,5] / scaler` 配置路径；尚待实际CVRPTW验证。
-- Method adapter/decoder/runner尚未实现是本轮有意停止的位置，不能写成失败或integration complete。官方数据smoke/Kit不是绝对门槛。
+- MVMoE CVRPTW50已按作者`_solve_cvrptwlib`机制在load前注入实际depot窗口，并通过本地actual-solution/Kit验证；server仍待用户执行。
+- MVMoE CVRPTW100和其它method adapters仍未实现，不写成失败或integration complete。
 
 ## L. 下一步第一个 implementation
 
 推荐 **GLOP / TSP / 100**，保持既定优先级：先定向取得Reviser100/50/20与args.json，核对原始keys，运行最小forward，设计无歧义ID捕获，再接真实ML4CO少量实例和独立验证。随后GLOP/TSP50验证50/20组合。此建议是工程排序推断，不是已经执行的计划结果。
 
-后续排序建议属于该 snapshot 的历史结论；MVMoE/4E + CVRP50 已在下一轮完成，随后同一adapter扩展到CVRP100。当前实现仍未扩展CVRPTW或其它方法。
+后续排序建议属于该snapshot的历史结论；当前已完成MVMoE/4E CVRP50+100 server验证和CVRPTW50 local integration。CVRPTW100及其它方法未扩展。

@@ -11,7 +11,7 @@ This directory implements the same method/problem adapter for the two official s
 
 The model is official MOE/4E (not MOE_LIGHT): embedding 128, 6 encoder layers, 1 decoder layer, qkv 16, 8 heads, ff 512, 4 experts, top-k 2, node/input-choice routing, argmax, instance norm/norm_last, and experts at Enc0..5+Dec. The environment uses `problem_size=pomo_size=N`; seed 2024 also copies the two CuDNN side effects from `Routing-MVMoE/utils.py:seed_everything`. Reduced smoke uses aug1 and is explicitly debug-only. Completion uses the official search/decode configuration aug8, on only 2/5 instances; it is not the authors' complete evaluation command or a paper benchmark.
 
-The local RTX4060 first-5 completion runs are 5/5 independently feasible and 5/5 Kit feasible for both sizes; every reported and Kit objective agrees with the independently recomputed objective at `rtol=atol=1e-6`. CVRP50 routes and costs exactly match the earlier integration after generalization. See the [CVRP50 manifest](../../../manifests/mvmoe_cvrp50.json) and [CVRP100 manifest](../../../manifests/mvmoe_cvrp100.json). Server evidence remains `NOT_RUN`.
+The local RTX4060 first-5 completion runs are 5/5 independently feasible and 5/5 Kit feasible for both sizes; every reported and Kit objective agrees with the independently recomputed objective at `rtol=atol=1e-6`. User-executed RTX4090 validation at project commit `f6db50e694cbab8870f4f1a1544856c49e9e0106` reproduced both sizes. See the [CVRP50 manifest](../../../manifests/mvmoe_cvrp50.json), [CVRP100 manifest](../../../manifests/mvmoe_cvrp100.json), and [server evidence](../../../manifests/server_mvmoe_cvrp.json).
 
 ```bash
 # Set N=50 or N=100, with its matching pinned dataset and checkpoint.

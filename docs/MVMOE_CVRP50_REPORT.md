@@ -1,6 +1,6 @@
 # MVMoE/4E + CVRP50 integration report
 
-Status: `LOCAL_VERIFIED_INTEGRATION_SERVER_NOT_RUN`. This report records the first committed CVRP50 integration at `54271cf4f97d7bd99784f6e6ee5ce52ee9f5994b`. The shared CVRP adapter has since been generalized to CVRP100; see [the CVRP100 report](MVMOE_CVRP100_REPORT.md). CVRPTW and other methods remain untouched.
+Status: `SERVER_VERIFIED_INTEGRATION`. This report records the local integration history beginning at `54271cf4f97d7bd99784f6e6ee5ce52ee9f5994b`; the CVRP50+100 implementation was later committed and server-tested at `f6db50e694cbab8870f4f1a1544856c49e9e0106`.
 
 ## A. Changed files
 
@@ -65,15 +65,14 @@ Official rollout output had shape `[40,50,60]` for five original instances (`8*5
 
 Model environment: Python3.10.20, Torch2.5.1+CUDA12.1 build, NumPy1.24.3, RTX4060 Laptop GPU, `cuda:0`. Secondary environment: Python3.10.20, Torch2.12.0+cpu, NumPy2.2.6, ML4CO-Kit0.5.4. Local success is separate from server evidence.
 
-`external/Routing-MVMoE` was clean before and after (`git status --porcelain` empty). The CVRP50 status row now has local model smoke, adapter, decoder, independent validator, small smoke, and Kit validation all `LOCAL_VERIFIED`; all four server columns remain `NOT_RUN`.
+`external/Routing-MVMoE` was clean locally and on the server. The CVRP50 status row has all local fields `LOCAL_VERIFIED` and all four server columns `SERVER_VERIFIED`.
 
 ## M. Server-ready command
 
-Use [SERVER_RUNBOOK](SERVER_RUNBOOK.md). The first committed CVRP50 implementation is `54271cf4f97d7bd99784f6e6ee5ce52ee9f5994b`; server execution must still checkout the exact project commit approved for that run.
+The completed server run used clean project commit `f6db50e694cbab8870f4f1a1544856c49e9e0106`, clean upstream commit `af29e5af0595f94f3ecc3bc46d72df1089a62682`, and the exact pinned asset hashes. Its five rows passed all four gates; validated artifact SHA256 is `0a5b54a3843be9aea6bd887d2a2da7fdc17f66556a95bf68cb17ea61172e2ef8`. See [server evidence](../manifests/server_mvmoe_cvrp.json).
 
 ## N. Remaining issues
 
-- Server dataset/checkpoint identity, cp311_base environment and RTX4090 execution remain `NOT_RUN`.
-- CVRP50 code is committed; server execution and server asset/environment evidence remain pending.
+- CVRP50 server validation is complete; no exact server timestamp was provided, so none is fabricated.
 - Runtime values are small-smoke engineering observations, not benchmark timing claims.
-- CVRP100 is now covered separately; CVRPTW remains intentionally untouched. For future CVRPTW work, the official tester already exposes a per-instance `env.depot_end` mechanism; actual validation is still required.
+- CVRP100 is covered separately; CVRPTW50 now has its own local report and remains server `NOT_RUN`.

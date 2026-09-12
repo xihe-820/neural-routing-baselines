@@ -1,0 +1,89 @@
+{
+  "evidence_scope": "user-executed server validation summary; original artifacts retained outside Git",
+  "verification_timestamp": null,
+  "project_repository": {
+    "url": "https://github.com/xihe-820/neural-routing-baselines",
+    "commit": "f6db50e694cbab8870f4f1a1544856c49e9e0106",
+    "status_short_empty_before_run": true
+  },
+  "upstream_repository": {
+    "url_observed": "https://github.com/RoyalSkye/Routing-MVMoE.git",
+    "identity": "github.com/RoyalSkye/Routing-MVMoE",
+    "commit": "af29e5af0595f94f3ecc3bc46d72df1089a62682",
+    "status_short_empty_before_run": true
+  },
+  "environment": {
+    "python": "3.11.13",
+    "numpy": "1.26.4",
+    "torch": "2.5.0+cu124",
+    "torch_cuda_build": "12.4",
+    "torch_cuda_available": true,
+    "gpu": "NVIDIA GeForce RTX 4090",
+    "ml4co_kit": "0.5.4"
+  },
+  "runs": {
+    "cvrp50": {
+      "status": "SERVER_VERIFIED",
+      "dataset_sha256": "eea12fbefe9c1bcc008d56ecfc1c50dadd64ac774f3547774c9fade8a7baa6c2",
+      "checkpoint_sha256": "3417f302fbddf232fd19a2a886cd1c7f44290b6d8c7280fcb0ae3777eeed3192",
+      "asset_match": true,
+      "configuration": {
+        "problem_size": 50,
+        "pomo_size": 50,
+        "aug_factor": 8,
+        "eval_type": "argmax",
+        "seed": 2024,
+        "count": 5,
+        "configuration_class": "official_search_decode_smoke"
+      },
+      "selected_node_list_shape": [40, 50, 60],
+      "reward_shape": [40, 50],
+      "total_rollout_seconds": 1.5105859832838178,
+      "runtime_class": "engineering evidence under concurrent GPU load; NOT PAPER-COMPARABLE",
+      "completion_gate_passed": 5,
+      "validated_artifact_sha256": "0a5b54a3843be9aea6bd887d2a2da7fdc17f66556a95bf68cb17ea61172e2ef8",
+      "results": [
+        {"index": 0, "reported": 11.156522750854, "independent": 11.156523627420, "kit": 11.156523646787, "reference": 10.973380074836, "reported_agrees": true, "kit_agrees": true, "independent_feasible": true, "kit_feasible": true, "best_aug_idx": 5, "best_pomo_idx": 5},
+        {"index": 1, "reported": 9.705957412720, "independent": 9.705957737490, "kit": 9.705957697704, "reference": 9.475135942921, "reported_agrees": true, "kit_agrees": true, "independent_feasible": true, "kit_feasible": true, "best_aug_idx": 5, "best_pomo_idx": 19},
+        {"index": 2, "reported": 10.951583862305, "independent": 10.951584170825, "kit": 10.951584159397, "reference": 10.940146311186, "reported_agrees": true, "kit_agrees": true, "independent_feasible": true, "kit_feasible": true, "best_aug_idx": 6, "best_pomo_idx": 30},
+        {"index": 3, "reported": 10.604280471802, "independent": 10.604281638055, "kit": 10.604281688109, "reference": 10.585030263290, "reported_agrees": true, "kit_agrees": true, "independent_feasible": true, "kit_feasible": true, "best_aug_idx": 1, "best_pomo_idx": 13},
+        {"index": 4, "reported": 12.467794418335, "independent": 12.467793849919, "kit": 12.467793881893, "reference": 12.329597227275, "reported_agrees": true, "kit_agrees": true, "independent_feasible": true, "kit_feasible": true, "best_aug_idx": 5, "best_pomo_idx": 48}
+      ]
+    },
+    "cvrp100": {
+      "status": "SERVER_VERIFIED",
+      "dataset_sha256": "bb47d5a113848e5a404edefc562d5d2ef6b0ade1aafc287828bdf60364e23532",
+      "checkpoint_sha256": "554d6daea825e17d62c1b9db40d56869312923848504bdf4970663673c971bdc",
+      "asset_match": true,
+      "configuration": {
+        "problem_size": 100,
+        "pomo_size": 100,
+        "aug_factor": 8,
+        "eval_type": "argmax",
+        "seed": 2024,
+        "count": 5,
+        "configuration_class": "official_search_decode_smoke"
+      },
+      "selected_node_list_shape": [40, 100, 114],
+      "reward_shape": [40, 100],
+      "total_rollout_seconds": 1.1212520934641361,
+      "runtime_class": "engineering evidence; NOT PAPER-COMPARABLE",
+      "completion_gate_passed": 5,
+      "validated_artifact_sha256": "8b210b55436767ce621ad56c1dead4f1c3381e1b1f67c48155ff7397869cc04d",
+      "results": [
+        {"index": 0, "reported": 14.775226593018, "independent": 14.775226689553, "kit": 14.775226679631, "reference": 14.605232179165, "reported_agrees": true, "kit_agrees": true, "independent_feasible": true, "kit_feasible": true, "best_aug_idx": 0, "best_pomo_idx": 87},
+        {"index": 1, "reported": 14.362275123596, "independent": 14.362274229932, "kit": 14.362274232786, "reference": 14.043174288701, "reported_agrees": true, "kit_agrees": true, "independent_feasible": true, "kit_feasible": true, "best_aug_idx": 7, "best_pomo_idx": 25},
+        {"index": 2, "reported": 14.842935562134, "independent": 14.842935233389, "kit": 14.842935279943, "reference": 14.578952469863, "reported_agrees": true, "kit_agrees": true, "independent_feasible": true, "kit_feasible": true, "best_aug_idx": 4, "best_pomo_idx": 17},
+        {"index": 3, "reported": 15.408880233765, "independent": 15.408880467801, "kit": 15.408880430274, "reference": 15.096463770606, "reported_agrees": true, "kit_agrees": true, "independent_feasible": true, "kit_feasible": true, "best_aug_idx": 0, "best_pomo_idx": 62},
+        {"index": 4, "reported": 18.993721008301, "independent": 18.993722386408, "kit": 18.993722403888, "reference": 18.816234965343, "reported_agrees": true, "kit_agrees": true, "independent_feasible": true, "kit_feasible": true, "best_aug_idx": 2, "best_pomo_idx": 4}
+      ]
+    }
+  },
+  "cross_environment_comparison": {
+    "reported_objectives_match_local": true,
+    "independent_objectives_match_local": true,
+    "best_augmentation_pomo_match_local": true,
+    "canonical_model_selection_drift_observed": false,
+    "numeric_note": "Kit/reference low-order differences are retained from the server Python/NumPy/Kit reevaluation; no values were replaced with local bitwise results."
+  }
+}

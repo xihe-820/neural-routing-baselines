@@ -34,4 +34,4 @@ CVRPTW两组所有depot TW均为 `[0, 4.599999904632568]`，depot service=0。`t
 | CVRPTW50 | 13.199350986061 | 13.199351310730 | Yes / Yes |
 | CVRPTW100 | 23.487735013781 | 23.487731933594 | Yes / Yes |
 
-此外六文件各前5个reference通过独立约束与Kit二次核验（30实例），成本比较rtol=1e-6、atol=1e-6。这不是全量参考解验证，更不是baseline推理结果。服务器只需确认实际使用的副本SHA及自身loader环境。
+此外六文件各前5个reference通过独立约束与Kit二次核验（30实例），成本比较rtol=1e-6、atol=1e-6。这不是全量参考解验证。CVRP50/100服务器运行副本SHA及loader环境已确认；其它dataset server副本仍需按各自任务确认。

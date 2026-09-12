@@ -1,6 +1,6 @@
 # MVMoE/4E + CVRP100 integration report
 
-Status: `LOCAL_VERIFIED_INTEGRATION_SERVER_NOT_RUN`. Scope is the existing MVMoE/CVRP adapter generalized to size 100; CVRPTW and all other methods remain untouched.
+Status: `SERVER_VERIFIED_INTEGRATION`. The implementation is included in clean project commit `f6db50e694cbab8870f4f1a1544856c49e9e0106` and has user-executed RTX4090 evidence.
 
 ## Identity and execution
 
@@ -37,4 +37,4 @@ An actual canonical solution for index 0 is:
 [0,88,73,96,50,32,86,59,20,6,65,0,90,49,87,22,45,7,41,75,79,14,76,85,0,52,54,5,66,34,78,89,46,91,0,30,61,23,71,74,97,98,44,70,93,47,77,0,37,53,33,69,11,9,16,92,63,2,35,0,10,38,72,1,42,25,67,99,28,83,0,64,43,31,58,13,26,80,81,24,39,48,0,40,21,82,17,94,8,4,57,3,0,18,56,36,55,95,29,27,60,19,12,84,0,62,15,100,68,51,0]
 ```
 
-The full row data, runtime timestamps, source hashes and all canonical solutions are in [the CVRP100 manifest](../manifests/mvmoe_cvrp100.json) and the ignored validated artifact named there. Server environment, assets and GPU execution remain `NOT_RUN`; use [SERVER_RUNBOOK](SERVER_RUNBOOK.md) for user-executed validation.
+The full local row data, runtime timestamps, source hashes and all canonical solutions are in [the CVRP100 manifest](../manifests/mvmoe_cvrp100.json). Server first-5 reproduced the reported/independent objectives and best augmentation/POMO selections; all four gates passed. The server artifact SHA256 is `8b210b55436767ce621ad56c1dead4f1c3381e1b1f67c48155ff7397869cc04d`. Low-order Kit/reference differences from the server environment are preserved in [server evidence](../manifests/server_mvmoe_cvrp.json).

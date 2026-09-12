@@ -5,6 +5,8 @@ import json
 import math
 from pathlib import Path
 
+from common.objective_agreement import objective_agrees
+
 
 RESULT_FIELDS = (
     "method", "variant", "problem", "problem_size", "instance_id",
@@ -74,8 +76,7 @@ def validate_result(row):
         if row[flag] is not None:
             if row[compared_objective] is None or row["independent_objective"] is None:
                 raise ValueError(f"{flag} requires both objective values")
-            actual = math.isclose(row[compared_objective], row["independent_objective"],
-                                  rel_tol=1e-6, abs_tol=1e-6)
+            actual = objective_agrees(row[compared_objective], row["independent_objective"])
             if row[flag] is not actual:
                 raise ValueError(f"{flag} contradicts objective values")
     if row["runtime_seconds"] is not None and not row["runtime_semantics"]:

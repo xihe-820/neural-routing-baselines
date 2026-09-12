@@ -2,7 +2,7 @@
 
 正式size只有50/100；TSP为节点数，CVRP/CVRPTW为customer数（不含depot）。TSP仅GLOP/UDC；CVRP七方法；CVRPTW仅CaDA/MVMoE/4E/RF-TE/MoSES(CaDA)，共26 rows。RF-TE固定Transformer，MoSES固定CaDA backbone，MVMoE固定MOE/4 experts。NeuOpt只迁移CVRP，历史结果不继承为新integration成功。
 
-Phase 0/1 snapshot `38f794fc19c3aaa988bfa78db0ae51143aab93ef` 包含基础审计；首个已提交MVMoE/CVRP50 integration是`54271cf4f97d7bd99784f6e6ee5ce52ee9f5994b`。当前增量严格只将同一MVMoE/CVRP实现扩展到100并回归50；完成两个size本地first-5 smoke和server command后停止，不实现CVRPTW或其它方法。
+Phase 0/1 snapshot `38f794fc19c3aaa988bfa78db0ae51143aab93ef`包含基础审计；commit `f6db50e694cbab8870f4f1a1544856c49e9e0106`包含已服务器验证的MVMoE/CVRP50+100。当前增量只实现MVMoE/CVRPTW50并固化CVRP服务器证据；完成本地first-5和server command后停止，不实现CVRPTW100或其它方法。
 
 No training/fine-tuning/EAL/LoRA training；只用official pretrained assets。不得修改checkpoint、截断/插值权重、用随机权重冒充正式模型、改成500/1000。official source只读；本轮未经明确要求不自动commit/push。不得整体安装legacy requirements。核心Torch/CUDA/NumPy/PyG/rl4co/TensorDict/TorchRL/Lightning更换需先报告；明确必要且低风险的叶子依赖允许记录后安装，本轮实际没有安装任何包。
 
@@ -12,7 +12,7 @@ No training/fine-tuning/EAL/LoRA training；只用official pretrained assets。�
 |---|---|
 | SOURCE_CONFIRMED | Official source/README/release/HF confirms intended asset or behavior; no execution claim |
 | LOCAL_VERIFIED | Actual WSL inspection/execution with recorded environment and artifact |
-| SERVER_VERIFIED | User-returned server execution evidence; currently none |
+| SERVER_VERIFIED | User-returned server execution evidence; currently MVMoE/CVRP50+100 |
 | BLOCKED | Specific technical failure, with cause; not merely unrun work |
 | NOT_APPLICABLE | Check does not apply |
 | NOT_RUN / NOT_IMPLEMENTED | Separate execution/implementation states, not evidence of failure |

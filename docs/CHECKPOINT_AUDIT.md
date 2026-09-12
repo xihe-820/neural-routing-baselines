@@ -1,6 +1,6 @@
 # Checkpoint audit
 
-以下严格区分 `SOURCE_CONFIRMED`、`LOCAL_VERIFIED` 与服务器 `NOT_RUN`；没有任何 `SERVER_VERIFIED`。本轮checkpoint证据来自已有官方文件；六组公开benchmark数据另已下载/复用。完整 state tensor key/shape 存在忽略的 `artifacts/audit/assets.json`。
+以下严格区分 `SOURCE_CONFIRMED`、`LOCAL_VERIFIED` 与 `SERVER_VERIFIED`。MVMoE n50/n100服务器副本已在CVRP运行前匹配固定SHA；其它方法仍为`NOT_RUN`。完整本地state tensor key/shape存在忽略的`artifacts/audit/assets.json`。
 
 | Method | Size | Official relative file / component | WSL actual evidence | Server |
 |---|---|---|---|---|
@@ -10,8 +10,8 @@
 | UDC | 100 | `single_objective/UDC-Large-scale-CO-master/UDC/TSP-AGNN-ICAM/checkpoint-tsp-460.pt / single_objective/UDC-Large-scale-CO-master/UDC/TSP-AGNN-ICAM/checkpoint-partition-460.pt` | NOT FOUND in inspected local checkout; remote/server existence not negated | NOT_RUN |
 | CaDA | 50 | `50/result/2024-1111-1139/checkpoint-300.pt` | NOT FOUND in inspected local checkout; remote/server existence not negated | NOT_RUN |
 | CaDA | 100 | `100/result/2024-1121-1355/checkpoint-300.pt` | NOT FOUND in inspected local checkout; remote/server existence not negated | NOT_RUN |
-| MVMoE | 50 | `pretrained/mvmoe_4e_n50/epoch-5000.pt` | binary/hash + CPU deserialize + official strict model load | NOT_RUN |
-| MVMoE | 100 | `pretrained/mvmoe_4e_n100/epoch-5000.pt` | binary/hash + CPU deserialize + official strict model load | NOT_RUN |
+| MVMoE | 50 | `pretrained/mvmoe_4e_n50/epoch-5000.pt` | binary/hash + CPU deserialize + official strict model load | SERVER_VERIFIED |
+| MVMoE | 100 | `pretrained/mvmoe_4e_n100/epoch-5000.pt` | binary/hash + CPU deserialize + official strict model load | SERVER_VERIFIED |
 | RF-TE | 50 | `checkpoints/50/rf-transformer.ckpt` | NOT FOUND in inspected local checkout; remote/server existence not negated | NOT_RUN |
 | RF-TE | 100 | `checkpoints/100/rf-transformer.ckpt` | NOT FOUND in inspected local checkout; remote/server existence not negated | NOT_RUN |
 | MoSES(CaDA) | 50 | `pretrained_moses_model/cada/50/multilora_denseroute_sigmoid.ckpt` | binary/hash; CPU deserialize fails: missing rl4co | NOT_RUN |
@@ -63,4 +63,4 @@ MVMoE：MOEModel，embedding128、encoder6、decoder1、heads8、qkv16、ff512�
 
 NeuOpt：Actor，embedding/hidden128、heads4、layers3、layer norm、v_range6、k4、RNN/feature1/feature3=True、with_simpleMDP=True；seq_length分别70/120。torch.load(map_location=cpu, weights_only=False)之后官方load_state_dict(strict=True)。构造配置遵循options.py与README dummy_rate；没有训练、optimizer step或forward。
 
-完整binary/hash是LOCAL_VERIFIED；MoSES deserialize仍BLOCKED（missing rl4co）。任何strict-load成功都只说明checkpoint与所构造模型匹配，不说明adapter、搜索、实际解或target dataset已验证。所有server副本身份与server执行均NOT_RUN。
+完整binary/hash是LOCAL_VERIFIED；MoSES deserialize仍BLOCKED（missing rl4co）。任何strict-load成功都只说明checkpoint与所构造模型匹配。MVMoE n50/n100另有server asset match和CVRP actual inference证据，见[server manifest](../manifests/server_mvmoe_cvrp.json)；其它server副本仍NOT_RUN。

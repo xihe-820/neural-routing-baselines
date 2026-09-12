@@ -1,6 +1,6 @@
 # Environment audit
 
-服务器状态：`NOT_RUN`。以下仅为 WSL 本地已有 gan 环境，不代表 cp311_base；本轮没有安装、更改任何依赖。
+服务器环境对MVMoE/CVRP50+100已`SERVER_VERIFIED`：Python3.11.13、NumPy1.26.4、PyTorch2.5.0+cu124、CUDA build12.4、RTX4090、ML4CO-Kit0.5.4。其它server rows仍不继承该执行证据。以下章节保留WSL本地gan环境审计；本轮没有安装、更改任何依赖。
 
 Environment label: `local-gan-not-cp311_base`.
 This report describes only the interpreter and host recorded below. Imports do not prove compiled CUDA operations or method compatibility.
