@@ -1,8 +1,11 @@
 import unittest
+from types import ModuleType
+from unittest.mock import patch
 
 import numpy as np
 
 from methods.neuopt.cvrp.adapter import adapt_batch
+from methods.neuopt.cvrp.compat import ensure_tensorboard_logger
 from methods.neuopt.cvrp.config import supported_config
 from methods.neuopt.cvrp.decode import (canonicalize_internal_order,
                                         decode_successor, extract_final_best)
@@ -13,6 +16,40 @@ def successor_from_order(order):
     for current, following in zip(order, order[1:] + order[:1]):
         successor[current] = following
     return successor
+
+
+class NeuOptTensorboardCompatibilityTests(unittest.TestCase):
+    def test_existing_module_uses_real_package_without_shim(self):
+        existing = ModuleType("tensorboard_logger")
+        with patch.dict("sys.modules", {"tensorboard_logger": existing}):
+            result = ensure_tensorboard_logger()
+            self.assertTrue(result["tensorboard_logger_available"])
+            self.assertFalse(result["tensorboard_logger_import_shim"])
+            self.assertIs(__import__("tensorboard_logger"), existing)
+
+    def test_missing_module_registers_importable_guard_shim(self):
+        def missing(name):
+            raise ModuleNotFoundError("missing tensorboard_logger", name=name)
+
+        with patch.dict("sys.modules", {}, clear=False):
+            import sys
+            sys.modules.pop("tensorboard_logger", None)
+            result = ensure_tensorboard_logger(import_module=missing)
+            from tensorboard_logger import Logger
+            self.assertFalse(result["tensorboard_logger_available"])
+            self.assertTrue(result["tensorboard_logger_import_shim"])
+            self.assertFalse(result["official_source_modified"])
+            with self.assertRaisesRegex(RuntimeError, "unexpectedly entered TensorBoard path"):
+                Logger("unused")
+            sys.modules.pop("tensorboard_logger", None)
+
+    def test_unrelated_import_failure_is_not_swallowed(self):
+        def transitive_failure(name):
+            raise ModuleNotFoundError("missing unrelated dependency", name="unrelated_dependency")
+
+        with self.assertRaises(ModuleNotFoundError) as raised:
+            ensure_tensorboard_logger(import_module=transitive_failure)
+        self.assertEqual(raised.exception.name, "unrelated_dependency")
 
 
 class NeuOptCVRPConfigAdapterTests(unittest.TestCase):

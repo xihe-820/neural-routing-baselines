@@ -20,6 +20,7 @@ from common.provenance import (environment_provenance, git_provenance,
                                normalize_git_repository_identity, source_provenance)
 from common.result_schema import make_run_metadata, new_result, write_result_bundle
 from methods.neuopt.cvrp.adapter import adapt_batch
+from methods.neuopt.cvrp.compat import ensure_tensorboard_logger
 from methods.neuopt.cvrp.config import supported_config
 from methods.neuopt.cvrp.decode import decode_successor, extract_final_best
 from problems.cvrp.validate import validate
@@ -100,6 +101,7 @@ def main():
         if module_name == "problems" or module_name.startswith("problems."):
             del sys.modules[module_name]
     sys.path.insert(0, str(args.upstream.resolve()))
+    tensorboard_compatibility = ensure_tensorboard_logger()
     from options import get_options
     from problems.problem_cvrp import CVRP
     from agent.ppo import PPO
@@ -197,6 +199,7 @@ def main():
                 "backward": False, "optimizer_created": False,
                 "protobuf_workaround": False, "configuration_class": "official_inference_smoke",
                 "configuration_evidence": config["inference_evidence"],
+                **tensorboard_compatibility,
             },
             selection_metadata={
                 **decode_info, "successor": successor.tolist(),
@@ -223,6 +226,7 @@ def main():
         problem_size=args.problem_size, training=False, backward=False,
         optimizer_created=False, T_max=T_MAX, val_m=VAL_M,
         stall_limit=STALL_LIMIT, k=K, init_val_met="random",
+        tensorboard_compatibility=tensorboard_compatibility,
         seed_side_effects={
             "source": "NeuOpt/run.py __main__", "python_random": SEED,
             "numpy": SEED, "torch": SEED, "torch_cuda_all": SEED,

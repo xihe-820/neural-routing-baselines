@@ -143,6 +143,8 @@ Every row must have `evidence_status=LOCAL_VERIFIED` and all four completion gat
 
 Run both sizes from the same integration. These commands keep the official checkout read-only and use the official 1000-step configuration.
 
+If `tensorboard_logger` is absent, the runner enables a repository-owned import-only guard shim for `no_tb` inference; any attempt to instantiate its `Logger` fails immediately.
+
 ```bash
 export NEUOPT_UPSTREAM="$BASELINE_UPSTREAM_ROOT/NeuOpt"
 export NEUOPT_N50_CHECKPOINT="$NEUOPT_UPSTREAM/pre-trained/cvrp50.pt"

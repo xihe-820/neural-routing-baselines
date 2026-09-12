@@ -60,6 +60,9 @@
     "numpy": "1.23.5",
     "device": "cuda:0",
     "gpu": "NVIDIA GeForce RTX 4060 Laptop GPU",
+    "tensorboard_logger_available": true,
+    "tensorboard_logger_import_shim": false,
+    "official_source_modified": false,
     "protobuf_workaround": false,
     "kit": {"ml4co_kit": "0.5.4", "torch": "2.12.0+cpu", "numpy": "2.2.6"}
   },
@@ -89,6 +92,12 @@
       "artifact_sha256": "1a70153c599debbe83ee6f654b0ac86775351f1bdefa6e3ec44860ae8a310928",
       "canonical_solution_example_index_0": [0, 12, 19, 60, 27, 29, 95, 55, 36, 56, 39, 48, 18, 0, 10, 2, 65, 28, 72, 16, 9, 92, 63, 37, 89, 0, 90, 49, 87, 22, 45, 7, 41, 75, 79, 14, 76, 85, 0, 46, 78, 34, 66, 5, 54, 52, 91, 0, 62, 84, 15, 100, 68, 51, 0, 1, 88, 42, 25, 73, 96, 67, 99, 26, 0, 64, 83, 31, 58, 13, 80, 81, 24, 43, 0, 40, 21, 82, 17, 94, 8, 4, 57, 3, 0, 77, 47, 93, 70, 44, 98, 97, 74, 71, 23, 61, 30, 0, 53, 33, 69, 11, 20, 59, 86, 32, 50, 6, 38, 35, 0]
     }
+  },
+  "server_compatibility_policy": {
+    "tensorboard_logger_import_shim": "activate only when tensorboard_logger itself is missing",
+    "compatibility_reason": "official NeuOpt imports tensorboard_logger unconditionally, while formal eval_only/no_tb inference does not instantiate Logger",
+    "guard": "Logger instantiation raises RuntimeError",
+    "official_source_modified": false
   },
   "server_evidence": "NOT_RUN"
 }
