@@ -1,0 +1,64 @@
+{
+  "files": [
+    {
+      "problem": "TSP",
+      "target_size": 100,
+      "filename": "tsp100_concorde_7.756.pkl",
+      "source_repository": "ML4CO/ML4CO-Bench-101-SL",
+      "url": "https://huggingface.co/datasets/ML4CO/ML4CO-Bench-101-SL/resolve/main/test_dataset/tsp/tsp100_concorde_7.756.pkl",
+      "bytes": 2288145,
+      "sha256": "a2bfe99857b8072bdba051f6ae402b7e241f01b0462c5f379ed0aa03786406a0",
+      "source_evidence": "SOURCE_CONFIRMED"
+    },
+    {
+      "problem": "TSP",
+      "target_size": 50,
+      "filename": "tsp50_concorde_5.688.pkl",
+      "source_repository": "ML4CO/ML4CO-Bench-101-SL",
+      "url": "https://huggingface.co/datasets/ML4CO/ML4CO-Bench-101-SL/resolve/main/test_dataset/tsp/tsp50_concorde_5.688.pkl",
+      "bytes": 1264010,
+      "sha256": "1ede2b289d2e6fbfe614219a86d1ba6dfca2a726925a8fe8cef9c8196ee0b213",
+      "source_evidence": "SOURCE_CONFIRMED"
+    },
+    {
+      "problem": "CVRP",
+      "target_size": 100,
+      "filename": "cvrp100_hgs-20s_15.563.pkl",
+      "source_repository": "ML4CO/ML4CO-Bench-101-SL",
+      "url": "https://huggingface.co/datasets/ML4CO/ML4CO-Bench-101-SL/resolve/main/test_dataset/cvrp/cvrp100_hgs-20s_15.563.pkl",
+      "bytes": 36487115,
+      "sha256": "bb47d5a113848e5a404edefc562d5d2ef6b0ade1aafc287828bdf60364e23532",
+      "source_evidence": "SOURCE_CONFIRMED"
+    },
+    {
+      "problem": "CVRP",
+      "target_size": 50,
+      "filename": "cvrp50_hgs-1s_10.366.pkl",
+      "source_repository": "ML4CO/ML4CO-Bench-101-SL",
+      "url": "https://huggingface.co/datasets/ML4CO/ML4CO-Bench-101-SL/resolve/main/test_dataset/cvrp/cvrp50_hgs-1s_10.366.pkl",
+      "bytes": 20125346,
+      "sha256": "eea12fbefe9c1bcc008d56ecfc1c50dadd64ac774f3547774c9fade8a7baa6c2",
+      "source_evidence": "SOURCE_CONFIRMED"
+    },
+    {
+      "problem": "CVRPTW",
+      "target_size": 100,
+      "filename": "cvrptw100_pyvrp-20s_25.431.pkl",
+      "source_repository": "ML4CO/ML4CO-Bench-101-SL",
+      "url": "https://huggingface.co/datasets/ML4CO/ML4CO-Bench-101-SL/resolve/main/test_dataset/cvrptw/cvrptw100_pyvrp-20s_25.431.pkl",
+      "bytes": 4985023,
+      "sha256": "3b74fa520f42f7aa607a5bd00a7d4aaa118e0715ca1672ee854fc850bac67867",
+      "source_evidence": "SOURCE_CONFIRMED"
+    },
+    {
+      "problem": "CVRPTW",
+      "target_size": 50,
+      "filename": "cvrptw50_pyvrp-10s_16.038.pkl",
+      "source_repository": "ML4CO/ML4CO-Bench-101-SL",
+      "url": "https://huggingface.co/datasets/ML4CO/ML4CO-Bench-101-SL/resolve/main/test_dataset/cvrptw/cvrptw50_pyvrp-10s_16.038.pkl",
+      "bytes": 2727373,
+      "sha256": "a16975d9dd242739973191256e1cdbd8166c4405759ef195b985a8c3ec49df40",
+      "source_evidence": "SOURCE_CONFIRMED"
+    }
+  ]
+}

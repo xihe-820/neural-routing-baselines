@@ -1,0 +1,92 @@
+{
+  "format_note": "JSON syntax, valid YAML 1.2",
+  "evidence": "LOCAL_VERIFIED checkout plus read-only remote refs",
+  "upstreams": {
+    "GLOP": {
+      "url": "https://github.com/henry-yeh/GLOP",
+      "relative_path": "external/GLOP",
+      "actual_commit": "e540bc0153a0598e923e35116deeaecaf9c1cfff",
+      "recommended_pin": "e540bc0153a0598e923e35116deeaecaf9c1cfff",
+      "pin_reason": "保留官方 random-insertion 修复版本；与此前审阅 commit 及远端 HEAD 一致。",
+      "branch": "master",
+      "clean": true,
+      "local_tags": [],
+      "server_verification": "NOT_RUN"
+    },
+    "UDC": {
+      "url": "https://github.com/CIAM-Group/NCO_code",
+      "relative_path": "external/NCO_code",
+      "actual_commit": "274df3c4975384592b60fe7f79fbb2441ce11c15",
+      "recommended_pin": "274df3c4975384592b60fe7f79fbb2441ce11c15",
+      "pin_reason": "保留当前 monorepo commit，仅审计指定两个 AGNN-ICAM 子树；与此前审阅及远端 HEAD 一致。",
+      "branch": "main",
+      "clean": true,
+      "local_tags": [],
+      "server_verification": "NOT_RUN",
+      "allowed_subtrees": [
+        "single_objective/UDC-Large-scale-CO-master/UDC/TSP-AGNN-ICAM",
+        "single_objective/UDC-Large-scale-CO-master/UDC/CVRP-AGNN-ICAM"
+      ]
+    },
+    "CaDA": {
+      "url": "https://github.com/CIAM-Group/CaDA",
+      "relative_path": "external/CaDA",
+      "actual_commit": "b9868e1e09b3a1a3754960d830e801e51c7cb38d",
+      "recommended_pin": "b9868e1e09b3a1a3754960d830e801e51c7cb38d",
+      "pin_reason": "保留已审阅官方 test-only 版本；HEAD learning-rate default 修改不要求迁移 test checkpoint。",
+      "branch": "main",
+      "clean": true,
+      "local_tags": [],
+      "server_verification": "NOT_RUN"
+    },
+    "MVMoE": {
+      "url": "https://github.com/RoyalSkye/Routing-MVMoE",
+      "relative_path": "external/Routing-MVMoE",
+      "actual_commit": "af29e5af0595f94f3ecc3bc46d72df1089a62682",
+      "recommended_pin": "af29e5af0595f94f3ecc3bc46d72df1089a62682",
+      "pin_reason": "同一 commit 随附官方 4E n50/n100 binary，当前实际 strict load 匹配。",
+      "branch": "main",
+      "clean": true,
+      "local_tags": [],
+      "server_verification": "NOT_RUN"
+    },
+    "RF-TE": {
+      "url": "https://github.com/ai4co/routefinder",
+      "relative_path": "external/routefinder",
+      "actual_commit": "fe0e45b6df118af03c5f42db8b93a351f7629131",
+      "recommended_pin": "fe0e45b6df118af03c5f42db8b93a351f7629131",
+      "pin_reason": "保留 v0.4.0 release；README 提供对应 HF 下载入口。暂不跟随远端 main；单个 checkpoint 的训练 commit/架构仍待加载确认。",
+      "branch": "DETACHED",
+      "clean": true,
+      "local_tags": [
+        "v0.4.0"
+      ],
+      "server_verification": "NOT_RUN",
+      "release": "v0.4.0",
+      "remote_main": "cc3ab078650e8db62c0562a60f421defe38d5ae3",
+      "checkpoint_hf_revision": "4edf73d68a5915787dd2f81ba177d77e13317190"
+    },
+    "MoSES(CaDA)": {
+      "url": "https://github.com/panyxy/moses_vrp",
+      "relative_path": "external/moses_vrp",
+      "actual_commit": "e301478b7a5df6d7b0b10a0543f4dee5e3c027a8",
+      "recommended_pin": "e301478b7a5df6d7b0b10a0543f4dee5e3c027a8",
+      "pin_reason": "同一 commit 随附目标 CaDA sigmoid 权重及测试脚本；保持代码和资产共同 provenance。",
+      "branch": "main",
+      "clean": true,
+      "local_tags": [],
+      "server_verification": "NOT_RUN"
+    },
+    "NeuOpt": {
+      "url": "https://github.com/yining043/NeuOpt",
+      "relative_path": "external/NeuOpt",
+      "actual_commit": "ccf6b5f0f6a8fda2792b4be11d4ec35390a8139b",
+      "recommended_pin": "ccf6b5f0f6a8fda2792b4be11d4ec35390a8139b",
+      "pin_reason": "保留已验证历史版本，同一 commit 内含 CVRP50/100 官方权重。",
+      "branch": "main",
+      "clean": true,
+      "local_tags": [],
+      "server_verification": "NOT_RUN"
+    }
+  }
+}

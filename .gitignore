@@ -1,0 +1,11 @@
+external/
+datasets/
+checkpoints/
+artifacts/
+results/
+logs/
+*.log
+__pycache__/
+.pytest_cache/
+*.pyc
+.venv/

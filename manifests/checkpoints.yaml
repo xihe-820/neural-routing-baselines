@@ -1,0 +1,944 @@
+{
+  "format_note": "JSON syntax, valid YAML 1.2",
+  "local_scope": "WSL gan Python3.10.20/Torch2.5.1 CPU; never server verification",
+  "checkpoints": [
+    {
+      "method": "GLOP",
+      "problem": "TSP",
+      "official_source": "https://drive.google.com/file/d/1u9-GVTMRux3rWGcbipSqyTyBx_V8pm9G/view",
+      "source_evidence": "SOURCE_CONFIRMED",
+      "notes": "候选组件组合，未决定或运行50/100 pipeline；CVRP1000 partitioner不代表50/100 checkpoint；缺binary/args.json",
+      "wsl_evidence": [],
+      "server_evidence": "NOT_RUN",
+      "target_size": 50,
+      "required_official_assets": [
+        {
+          "path": "pretrained/Reviser-stage2/reviser_50/epoch-299.pt",
+          "asset_role": "local-reviser",
+          "target_size_specific": false,
+          "compatibility_basis": "Official code/API static analysis; see docs/SIZE_COMPATIBILITY.md. Not checkpoint-forward verified.",
+          "required_companion": "args.json in checkpoint directory; hash separately"
+        },
+        {
+          "path": "pretrained/Reviser-stage2/reviser_20/epoch-299.pt",
+          "asset_role": "local-reviser",
+          "target_size_specific": false,
+          "compatibility_basis": "Official code/API static analysis; see docs/SIZE_COMPATIBILITY.md. Not checkpoint-forward verified.",
+          "required_companion": "args.json in checkpoint directory; hash separately"
+        }
+      ],
+      "upstream_commit": "e540bc0153a0598e923e35116deeaecaf9c1cfff",
+      "compatibility_audit": "docs/SIZE_COMPATIBILITY.md"
+    },
+    {
+      "method": "GLOP",
+      "problem": "TSP",
+      "official_source": "https://drive.google.com/file/d/1u9-GVTMRux3rWGcbipSqyTyBx_V8pm9G/view",
+      "source_evidence": "SOURCE_CONFIRMED",
+      "notes": "候选组件组合，未决定或运行50/100 pipeline；CVRP1000 partitioner不代表50/100 checkpoint；缺binary/args.json",
+      "wsl_evidence": [],
+      "server_evidence": "NOT_RUN",
+      "target_size": 100,
+      "required_official_assets": [
+        {
+          "path": "pretrained/Reviser-stage2/reviser_100/epoch-299.pt",
+          "asset_role": "local-reviser",
+          "target_size_specific": false,
+          "compatibility_basis": "Official code/API static analysis; see docs/SIZE_COMPATIBILITY.md. Not checkpoint-forward verified.",
+          "required_companion": "args.json in checkpoint directory; hash separately"
+        },
+        {
+          "path": "pretrained/Reviser-stage2/reviser_50/epoch-299.pt",
+          "asset_role": "local-reviser",
+          "target_size_specific": false,
+          "compatibility_basis": "Official code/API static analysis; see docs/SIZE_COMPATIBILITY.md. Not checkpoint-forward verified.",
+          "required_companion": "args.json in checkpoint directory; hash separately"
+        },
+        {
+          "path": "pretrained/Reviser-stage2/reviser_20/epoch-299.pt",
+          "asset_role": "local-reviser",
+          "target_size_specific": false,
+          "compatibility_basis": "Official code/API static analysis; see docs/SIZE_COMPATIBILITY.md. Not checkpoint-forward verified.",
+          "required_companion": "args.json in checkpoint directory; hash separately"
+        }
+      ],
+      "upstream_commit": "e540bc0153a0598e923e35116deeaecaf9c1cfff",
+      "compatibility_audit": "docs/SIZE_COMPATIBILITY.md"
+    },
+    {
+      "method": "GLOP",
+      "problem": "CVRP",
+      "official_source": "https://drive.google.com/file/d/1u9-GVTMRux3rWGcbipSqyTyBx_V8pm9G/view",
+      "source_evidence": "SOURCE_CONFIRMED",
+      "notes": "候选组件组合，未决定或运行50/100 pipeline；CVRP1000 partitioner不代表50/100 checkpoint；缺binary/args.json",
+      "wsl_evidence": [],
+      "server_evidence": "NOT_RUN",
+      "target_size": 50,
+      "required_official_assets": [
+        {
+          "path": "pretrained/Partitioner/cvrp/cvrp-1000.pt",
+          "asset_role": "partitioner",
+          "target_size_specific": false,
+          "compatibility_basis": "Official code/API static analysis; see docs/SIZE_COMPATIBILITY.md. Not checkpoint-forward verified."
+        },
+        {
+          "path": "pretrained/Reviser-stage2/reviser_20/epoch-299.pt",
+          "asset_role": "local-reviser",
+          "target_size_specific": false,
+          "compatibility_basis": "Official code/API static analysis; see docs/SIZE_COMPATIBILITY.md. Not checkpoint-forward verified.",
+          "required_companion": "args.json in checkpoint directory; hash separately"
+        }
+      ],
+      "upstream_commit": "e540bc0153a0598e923e35116deeaecaf9c1cfff",
+      "compatibility_audit": "docs/SIZE_COMPATIBILITY.md"
+    },
+    {
+      "method": "GLOP",
+      "problem": "CVRP",
+      "official_source": "https://drive.google.com/file/d/1u9-GVTMRux3rWGcbipSqyTyBx_V8pm9G/view",
+      "source_evidence": "SOURCE_CONFIRMED",
+      "notes": "候选组件组合，未决定或运行50/100 pipeline；CVRP1000 partitioner不代表50/100 checkpoint；缺binary/args.json",
+      "wsl_evidence": [],
+      "server_evidence": "NOT_RUN",
+      "target_size": 100,
+      "required_official_assets": [
+        {
+          "path": "pretrained/Partitioner/cvrp/cvrp-1000.pt",
+          "asset_role": "partitioner",
+          "target_size_specific": false,
+          "compatibility_basis": "Official code/API static analysis; see docs/SIZE_COMPATIBILITY.md. Not checkpoint-forward verified."
+        },
+        {
+          "path": "pretrained/Reviser-stage2/reviser_20/epoch-299.pt",
+          "asset_role": "local-reviser",
+          "target_size_specific": false,
+          "compatibility_basis": "Official code/API static analysis; see docs/SIZE_COMPATIBILITY.md. Not checkpoint-forward verified.",
+          "required_companion": "args.json in checkpoint directory; hash separately"
+        }
+      ],
+      "upstream_commit": "e540bc0153a0598e923e35116deeaecaf9c1cfff",
+      "compatibility_audit": "docs/SIZE_COMPATIBILITY.md"
+    },
+    {
+      "method": "UDC",
+      "problem": "TSP",
+      "official_source": "https://drive.google.com/file/d/1lVWBPvxhHDd-ZLJNCorGJugi_Smrx8uh/view",
+      "source_evidence": "SOURCE_CONFIRMED",
+      "notes": "官方epoch默认文件名；50/100专用checkpoint NOT FOUND in local target subtree；100静态候选，50默认失败",
+      "wsl_evidence": [],
+      "server_evidence": "NOT_RUN",
+      "target_size": 50,
+      "required_official_assets": [
+        {
+          "path": "single_objective/UDC-Large-scale-CO-master/UDC/TSP-AGNN-ICAM/checkpoint-tsp-460.pt",
+          "asset_role": "conquering-model",
+          "target_size_specific": false,
+          "compatibility_basis": "Official code/API static analysis; see docs/SIZE_COMPATIBILITY.md. Not checkpoint-forward verified."
+        },
+        {
+          "path": "single_objective/UDC-Large-scale-CO-master/UDC/TSP-AGNN-ICAM/checkpoint-partition-460.pt",
+          "asset_role": "partitioner",
+          "target_size_specific": false,
+          "compatibility_basis": "Official code/API static analysis; see docs/SIZE_COMPATIBILITY.md. Not checkpoint-forward verified."
+        }
+      ],
+      "upstream_commit": "274df3c4975384592b60fe7f79fbb2441ce11c15",
+      "compatibility_audit": "docs/SIZE_COMPATIBILITY.md"
+    },
+    {
+      "method": "UDC",
+      "problem": "TSP",
+      "official_source": "https://drive.google.com/file/d/1lVWBPvxhHDd-ZLJNCorGJugi_Smrx8uh/view",
+      "source_evidence": "SOURCE_CONFIRMED",
+      "notes": "官方epoch默认文件名；50/100专用checkpoint NOT FOUND in local target subtree；100静态候选，50默认失败",
+      "wsl_evidence": [],
+      "server_evidence": "NOT_RUN",
+      "target_size": 100,
+      "required_official_assets": [
+        {
+          "path": "single_objective/UDC-Large-scale-CO-master/UDC/TSP-AGNN-ICAM/checkpoint-tsp-460.pt",
+          "asset_role": "conquering-model",
+          "target_size_specific": false,
+          "compatibility_basis": "Official code/API static analysis; see docs/SIZE_COMPATIBILITY.md. Not checkpoint-forward verified."
+        },
+        {
+          "path": "single_objective/UDC-Large-scale-CO-master/UDC/TSP-AGNN-ICAM/checkpoint-partition-460.pt",
+          "asset_role": "partitioner",
+          "target_size_specific": false,
+          "compatibility_basis": "Official code/API static analysis; see docs/SIZE_COMPATIBILITY.md. Not checkpoint-forward verified."
+        }
+      ],
+      "upstream_commit": "274df3c4975384592b60fe7f79fbb2441ce11c15",
+      "compatibility_audit": "docs/SIZE_COMPATIBILITY.md"
+    },
+    {
+      "method": "UDC",
+      "problem": "CVRP",
+      "official_source": "https://drive.google.com/file/d/1lVWBPvxhHDd-ZLJNCorGJugi_Smrx8uh/view",
+      "source_evidence": "SOURCE_CONFIRMED",
+      "notes": "官方epoch默认文件名；50/100专用checkpoint NOT FOUND in local target subtree；100静态候选，50默认失败",
+      "wsl_evidence": [],
+      "server_evidence": "NOT_RUN",
+      "target_size": 50,
+      "required_official_assets": [
+        {
+          "path": "single_objective/UDC-Large-scale-CO-master/UDC/CVRP-AGNN-ICAM/checkpoint-tsp-230.pt",
+          "asset_role": "conquering-model",
+          "target_size_specific": false,
+          "compatibility_basis": "Official code/API static analysis; see docs/SIZE_COMPATIBILITY.md. Not checkpoint-forward verified."
+        },
+        {
+          "path": "single_objective/UDC-Large-scale-CO-master/UDC/CVRP-AGNN-ICAM/checkpoint-partition-230.pt",
+          "asset_role": "partitioner",
+          "target_size_specific": false,
+          "compatibility_basis": "Official code/API static analysis; see docs/SIZE_COMPATIBILITY.md. Not checkpoint-forward verified."
+        }
+      ],
+      "upstream_commit": "274df3c4975384592b60fe7f79fbb2441ce11c15",
+      "compatibility_audit": "docs/SIZE_COMPATIBILITY.md"
+    },
+    {
+      "method": "UDC",
+      "problem": "CVRP",
+      "official_source": "https://drive.google.com/file/d/1lVWBPvxhHDd-ZLJNCorGJugi_Smrx8uh/view",
+      "source_evidence": "SOURCE_CONFIRMED",
+      "notes": "官方epoch默认文件名；50/100专用checkpoint NOT FOUND in local target subtree；100静态候选，50默认失败",
+      "wsl_evidence": [],
+      "server_evidence": "NOT_RUN",
+      "target_size": 100,
+      "required_official_assets": [
+        {
+          "path": "single_objective/UDC-Large-scale-CO-master/UDC/CVRP-AGNN-ICAM/checkpoint-tsp-230.pt",
+          "asset_role": "conquering-model",
+          "target_size_specific": false,
+          "compatibility_basis": "Official code/API static analysis; see docs/SIZE_COMPATIBILITY.md. Not checkpoint-forward verified."
+        },
+        {
+          "path": "single_objective/UDC-Large-scale-CO-master/UDC/CVRP-AGNN-ICAM/checkpoint-partition-230.pt",
+          "asset_role": "partitioner",
+          "target_size_specific": false,
+          "compatibility_basis": "Official code/API static analysis; see docs/SIZE_COMPATIBILITY.md. Not checkpoint-forward verified."
+        }
+      ],
+      "upstream_commit": "274df3c4975384592b60fe7f79fbb2441ce11c15",
+      "compatibility_audit": "docs/SIZE_COMPATIBILITY.md"
+    },
+    {
+      "method": "CaDA",
+      "problem": "CVRP",
+      "official_source": "https://huggingface.co/datasets/Goodyee/CaDA/tree/main",
+      "source_evidence": "SOURCE_CONFIRMED",
+      "notes": "官方同尺寸multi-task checkpoint；本地binary NOT FOUND",
+      "wsl_evidence": [],
+      "server_evidence": "NOT_RUN",
+      "target_size": 50,
+      "required_official_assets": [
+        {
+          "path": "50/result/2024-1111-1139/checkpoint-300.pt",
+          "asset_role": "multi-task-model",
+          "target_size_specific": true,
+          "compatibility_basis": "官方同尺寸multi-task checkpoint；本地binary NOT FOUND"
+        }
+      ],
+      "upstream_commit": "b9868e1e09b3a1a3754960d830e801e51c7cb38d"
+    },
+    {
+      "method": "CaDA",
+      "problem": "CVRP",
+      "official_source": "https://huggingface.co/datasets/Goodyee/CaDA/tree/main",
+      "source_evidence": "SOURCE_CONFIRMED",
+      "notes": "官方同尺寸multi-task checkpoint；本地binary NOT FOUND",
+      "wsl_evidence": [],
+      "server_evidence": "NOT_RUN",
+      "target_size": 100,
+      "required_official_assets": [
+        {
+          "path": "100/result/2024-1121-1355/checkpoint-300.pt",
+          "asset_role": "multi-task-model",
+          "target_size_specific": true,
+          "compatibility_basis": "官方同尺寸multi-task checkpoint；本地binary NOT FOUND"
+        }
+      ],
+      "upstream_commit": "b9868e1e09b3a1a3754960d830e801e51c7cb38d"
+    },
+    {
+      "method": "CaDA",
+      "problem": "CVRPTW",
+      "official_source": "https://huggingface.co/datasets/Goodyee/CaDA/tree/main",
+      "source_evidence": "SOURCE_CONFIRMED",
+      "notes": "官方同尺寸multi-task checkpoint；本地binary NOT FOUND",
+      "wsl_evidence": [],
+      "server_evidence": "NOT_RUN",
+      "target_size": 50,
+      "required_official_assets": [
+        {
+          "path": "50/result/2024-1111-1139/checkpoint-300.pt",
+          "asset_role": "multi-task-model",
+          "target_size_specific": true,
+          "compatibility_basis": "官方同尺寸multi-task checkpoint；本地binary NOT FOUND"
+        }
+      ],
+      "upstream_commit": "b9868e1e09b3a1a3754960d830e801e51c7cb38d"
+    },
+    {
+      "method": "CaDA",
+      "problem": "CVRPTW",
+      "official_source": "https://huggingface.co/datasets/Goodyee/CaDA/tree/main",
+      "source_evidence": "SOURCE_CONFIRMED",
+      "notes": "官方同尺寸multi-task checkpoint；本地binary NOT FOUND",
+      "wsl_evidence": [],
+      "server_evidence": "NOT_RUN",
+      "target_size": 100,
+      "required_official_assets": [
+        {
+          "path": "100/result/2024-1121-1355/checkpoint-300.pt",
+          "asset_role": "multi-task-model",
+          "target_size_specific": true,
+          "compatibility_basis": "官方同尺寸multi-task checkpoint；本地binary NOT FOUND"
+        }
+      ],
+      "upstream_commit": "b9868e1e09b3a1a3754960d830e801e51c7cb38d"
+    },
+    {
+      "method": "MVMoE",
+      "problem": "CVRP",
+      "official_source": "https://github.com/RoyalSkye/Routing-MVMoE/tree/af29e5af0595f94f3ecc3bc46d72df1089a62682/pretrained",
+      "source_evidence": "SOURCE_CONFIRMED",
+      "notes": "WSL CPU strict load PASS；Tester缺scipy；不是server PASS",
+      "wsl_evidence": [
+        {
+          "path": "pretrained/mvmoe_4e_n50/epoch-5000.pt",
+          "size_bytes": 44533389,
+          "sha256": "3417f302fbddf232fd19a2a886cd1c7f44290b6d8c7280fcb0ae3777eeed3192",
+          "materialized": true,
+          "lfs_pointer": false,
+          "cpu_deserialize": true,
+          "load_error": null,
+          "evidence_status": "LOCAL_VERIFIED",
+          "device": "cpu",
+          "strict_model_load": "LOCAL_VERIFIED"
+        }
+      ],
+      "server_evidence": "NOT_RUN",
+      "target_size": 50,
+      "required_official_assets": [
+        {
+          "path": "pretrained/mvmoe_4e_n50/epoch-5000.pt",
+          "asset_role": "multi-task-model",
+          "target_size_specific": true,
+          "compatibility_basis": "WSL CPU strict load PASS；Tester缺scipy；不是server PASS"
+        }
+      ],
+      "upstream_commit": "af29e5af0595f94f3ecc3bc46d72df1089a62682",
+      "local_strict_load": {
+        "evidence": "LOCAL_VERIFIED",
+        "timestamp": "2026-09-11T08:52:03.848575+00:00",
+        "device": "cpu",
+        "executable": "/home/xihe/miniconda3/envs/gan/bin/python",
+        "python": "3.10.20 (main, Mar 11 2026, 17:46:40) [GCC 14.3.0]",
+        "torch": "2.5.1",
+        "config": {
+          "embedding_dim": 128,
+          "sqrt_embedding_dim": 11.313708498984761,
+          "encoder_layer_num": 6,
+          "decoder_layer_num": 1,
+          "qkv_dim": 16,
+          "head_num": 8,
+          "logit_clipping": 10,
+          "ff_hidden_dim": 512,
+          "num_experts": 4,
+          "eval_type": "argmax",
+          "norm": "instance",
+          "norm_loc": "norm_last",
+          "expert_loc": [
+            "Enc0",
+            "Enc1",
+            "Enc2",
+            "Enc3",
+            "Enc4",
+            "Enc5",
+            "Dec"
+          ],
+          "problem": "Train_ALL",
+          "topk": 2,
+          "routing_level": "node",
+          "routing_method": "input_choice",
+          "device": "cpu"
+        },
+        "config_source": "test.py:args2dict and argument defaults; explicit supported device=cpu",
+        "parameters": 3682176,
+        "missing_keys": [],
+        "unexpected_keys": [],
+        "artifact": "artifacts/audit/mvmoe_load.json",
+        "command": "/home/xihe/miniconda3/envs/gan/bin/python -B scripts/audit_model_load.py --repo external/Routing-MVMoE --method MVMoE --module models.MOEModel --module Tester --output artifacts/audit/mvmoe_load.json",
+        "load_method": "torch.load(map_location=cpu, weights_only=False); official model.load_state_dict(strict=True)",
+        "inference_performed": false
+      }
+    },
+    {
+      "method": "MVMoE",
+      "problem": "CVRP",
+      "official_source": "https://github.com/RoyalSkye/Routing-MVMoE/tree/af29e5af0595f94f3ecc3bc46d72df1089a62682/pretrained",
+      "source_evidence": "SOURCE_CONFIRMED",
+      "notes": "WSL CPU strict load PASS；Tester缺scipy；不是server PASS",
+      "wsl_evidence": [
+        {
+          "path": "pretrained/mvmoe_4e_n100/epoch-5000.pt",
+          "size_bytes": 44536097,
+          "sha256": "554d6daea825e17d62c1b9db40d56869312923848504bdf4970663673c971bdc",
+          "materialized": true,
+          "lfs_pointer": false,
+          "cpu_deserialize": true,
+          "load_error": null,
+          "evidence_status": "LOCAL_VERIFIED",
+          "device": "cpu",
+          "strict_model_load": "LOCAL_VERIFIED"
+        }
+      ],
+      "server_evidence": "NOT_RUN",
+      "target_size": 100,
+      "required_official_assets": [
+        {
+          "path": "pretrained/mvmoe_4e_n100/epoch-5000.pt",
+          "asset_role": "multi-task-model",
+          "target_size_specific": true,
+          "compatibility_basis": "WSL CPU strict load PASS；Tester缺scipy；不是server PASS"
+        }
+      ],
+      "upstream_commit": "af29e5af0595f94f3ecc3bc46d72df1089a62682",
+      "local_strict_load": {
+        "evidence": "LOCAL_VERIFIED",
+        "timestamp": "2026-09-11T08:52:03.848575+00:00",
+        "device": "cpu",
+        "executable": "/home/xihe/miniconda3/envs/gan/bin/python",
+        "python": "3.10.20 (main, Mar 11 2026, 17:46:40) [GCC 14.3.0]",
+        "torch": "2.5.1",
+        "config": {
+          "embedding_dim": 128,
+          "sqrt_embedding_dim": 11.313708498984761,
+          "encoder_layer_num": 6,
+          "decoder_layer_num": 1,
+          "qkv_dim": 16,
+          "head_num": 8,
+          "logit_clipping": 10,
+          "ff_hidden_dim": 512,
+          "num_experts": 4,
+          "eval_type": "argmax",
+          "norm": "instance",
+          "norm_loc": "norm_last",
+          "expert_loc": [
+            "Enc0",
+            "Enc1",
+            "Enc2",
+            "Enc3",
+            "Enc4",
+            "Enc5",
+            "Dec"
+          ],
+          "problem": "Train_ALL",
+          "topk": 2,
+          "routing_level": "node",
+          "routing_method": "input_choice",
+          "device": "cpu"
+        },
+        "config_source": "test.py:args2dict and argument defaults; explicit supported device=cpu",
+        "parameters": 3682176,
+        "missing_keys": [],
+        "unexpected_keys": [],
+        "artifact": "artifacts/audit/mvmoe_load.json",
+        "command": "/home/xihe/miniconda3/envs/gan/bin/python -B scripts/audit_model_load.py --repo external/Routing-MVMoE --method MVMoE --module models.MOEModel --module Tester --output artifacts/audit/mvmoe_load.json",
+        "load_method": "torch.load(map_location=cpu, weights_only=False); official model.load_state_dict(strict=True)",
+        "inference_performed": false
+      }
+    },
+    {
+      "method": "MVMoE",
+      "problem": "CVRPTW",
+      "official_source": "https://github.com/RoyalSkye/Routing-MVMoE/tree/af29e5af0595f94f3ecc3bc46d72df1089a62682/pretrained",
+      "source_evidence": "SOURCE_CONFIRMED",
+      "notes": "WSL CPU strict load PASS；Tester缺scipy；不是server PASS",
+      "wsl_evidence": [
+        {
+          "path": "pretrained/mvmoe_4e_n50/epoch-5000.pt",
+          "size_bytes": 44533389,
+          "sha256": "3417f302fbddf232fd19a2a886cd1c7f44290b6d8c7280fcb0ae3777eeed3192",
+          "materialized": true,
+          "lfs_pointer": false,
+          "cpu_deserialize": true,
+          "load_error": null,
+          "evidence_status": "LOCAL_VERIFIED",
+          "device": "cpu",
+          "strict_model_load": "LOCAL_VERIFIED"
+        }
+      ],
+      "server_evidence": "NOT_RUN",
+      "target_size": 50,
+      "required_official_assets": [
+        {
+          "path": "pretrained/mvmoe_4e_n50/epoch-5000.pt",
+          "asset_role": "multi-task-model",
+          "target_size_specific": true,
+          "compatibility_basis": "WSL CPU strict load PASS；Tester缺scipy；不是server PASS"
+        }
+      ],
+      "upstream_commit": "af29e5af0595f94f3ecc3bc46d72df1089a62682",
+      "local_strict_load": {
+        "evidence": "LOCAL_VERIFIED",
+        "timestamp": "2026-09-11T08:52:03.848575+00:00",
+        "device": "cpu",
+        "executable": "/home/xihe/miniconda3/envs/gan/bin/python",
+        "python": "3.10.20 (main, Mar 11 2026, 17:46:40) [GCC 14.3.0]",
+        "torch": "2.5.1",
+        "config": {
+          "embedding_dim": 128,
+          "sqrt_embedding_dim": 11.313708498984761,
+          "encoder_layer_num": 6,
+          "decoder_layer_num": 1,
+          "qkv_dim": 16,
+          "head_num": 8,
+          "logit_clipping": 10,
+          "ff_hidden_dim": 512,
+          "num_experts": 4,
+          "eval_type": "argmax",
+          "norm": "instance",
+          "norm_loc": "norm_last",
+          "expert_loc": [
+            "Enc0",
+            "Enc1",
+            "Enc2",
+            "Enc3",
+            "Enc4",
+            "Enc5",
+            "Dec"
+          ],
+          "problem": "Train_ALL",
+          "topk": 2,
+          "routing_level": "node",
+          "routing_method": "input_choice",
+          "device": "cpu"
+        },
+        "config_source": "test.py:args2dict and argument defaults; explicit supported device=cpu",
+        "parameters": 3682176,
+        "missing_keys": [],
+        "unexpected_keys": [],
+        "artifact": "artifacts/audit/mvmoe_load.json",
+        "command": "/home/xihe/miniconda3/envs/gan/bin/python -B scripts/audit_model_load.py --repo external/Routing-MVMoE --method MVMoE --module models.MOEModel --module Tester --output artifacts/audit/mvmoe_load.json",
+        "load_method": "torch.load(map_location=cpu, weights_only=False); official model.load_state_dict(strict=True)",
+        "inference_performed": false
+      }
+    },
+    {
+      "method": "MVMoE",
+      "problem": "CVRPTW",
+      "official_source": "https://github.com/RoyalSkye/Routing-MVMoE/tree/af29e5af0595f94f3ecc3bc46d72df1089a62682/pretrained",
+      "source_evidence": "SOURCE_CONFIRMED",
+      "notes": "WSL CPU strict load PASS；Tester缺scipy；不是server PASS",
+      "wsl_evidence": [
+        {
+          "path": "pretrained/mvmoe_4e_n100/epoch-5000.pt",
+          "size_bytes": 44536097,
+          "sha256": "554d6daea825e17d62c1b9db40d56869312923848504bdf4970663673c971bdc",
+          "materialized": true,
+          "lfs_pointer": false,
+          "cpu_deserialize": true,
+          "load_error": null,
+          "evidence_status": "LOCAL_VERIFIED",
+          "device": "cpu",
+          "strict_model_load": "LOCAL_VERIFIED"
+        }
+      ],
+      "server_evidence": "NOT_RUN",
+      "target_size": 100,
+      "required_official_assets": [
+        {
+          "path": "pretrained/mvmoe_4e_n100/epoch-5000.pt",
+          "asset_role": "multi-task-model",
+          "target_size_specific": true,
+          "compatibility_basis": "WSL CPU strict load PASS；Tester缺scipy；不是server PASS"
+        }
+      ],
+      "upstream_commit": "af29e5af0595f94f3ecc3bc46d72df1089a62682",
+      "local_strict_load": {
+        "evidence": "LOCAL_VERIFIED",
+        "timestamp": "2026-09-11T08:52:03.848575+00:00",
+        "device": "cpu",
+        "executable": "/home/xihe/miniconda3/envs/gan/bin/python",
+        "python": "3.10.20 (main, Mar 11 2026, 17:46:40) [GCC 14.3.0]",
+        "torch": "2.5.1",
+        "config": {
+          "embedding_dim": 128,
+          "sqrt_embedding_dim": 11.313708498984761,
+          "encoder_layer_num": 6,
+          "decoder_layer_num": 1,
+          "qkv_dim": 16,
+          "head_num": 8,
+          "logit_clipping": 10,
+          "ff_hidden_dim": 512,
+          "num_experts": 4,
+          "eval_type": "argmax",
+          "norm": "instance",
+          "norm_loc": "norm_last",
+          "expert_loc": [
+            "Enc0",
+            "Enc1",
+            "Enc2",
+            "Enc3",
+            "Enc4",
+            "Enc5",
+            "Dec"
+          ],
+          "problem": "Train_ALL",
+          "topk": 2,
+          "routing_level": "node",
+          "routing_method": "input_choice",
+          "device": "cpu"
+        },
+        "config_source": "test.py:args2dict and argument defaults; explicit supported device=cpu",
+        "parameters": 3682176,
+        "missing_keys": [],
+        "unexpected_keys": [],
+        "artifact": "artifacts/audit/mvmoe_load.json",
+        "command": "/home/xihe/miniconda3/envs/gan/bin/python -B scripts/audit_model_load.py --repo external/Routing-MVMoE --method MVMoE --module models.MOEModel --module Tester --output artifacts/audit/mvmoe_load.json",
+        "load_method": "torch.load(map_location=cpu, weights_only=False); official model.load_state_dict(strict=True)",
+        "inference_performed": false
+      }
+    },
+    {
+      "method": "RF-TE",
+      "problem": "CVRP",
+      "official_source": "https://huggingface.co/ai4co/routefinder/tree/4edf73d68a5915787dd2f81ba177d77e13317190/checkpoints",
+      "source_evidence": "SOURCE_CONFIRMED",
+      "notes": "官方HF文件目录确认；本地binary NOT FOUND；release匹配待payload核验",
+      "wsl_evidence": [],
+      "server_evidence": "NOT_RUN",
+      "target_size": 50,
+      "required_official_assets": [
+        {
+          "path": "checkpoints/50/rf-transformer.ckpt",
+          "asset_role": "multi-task-model",
+          "target_size_specific": true,
+          "compatibility_basis": "官方HF文件目录确认；本地binary NOT FOUND；release匹配待payload核验"
+        }
+      ],
+      "upstream_commit": "fe0e45b6df118af03c5f42db8b93a351f7629131"
+    },
+    {
+      "method": "RF-TE",
+      "problem": "CVRP",
+      "official_source": "https://huggingface.co/ai4co/routefinder/tree/4edf73d68a5915787dd2f81ba177d77e13317190/checkpoints",
+      "source_evidence": "SOURCE_CONFIRMED",
+      "notes": "官方HF文件目录确认；本地binary NOT FOUND；release匹配待payload核验",
+      "wsl_evidence": [],
+      "server_evidence": "NOT_RUN",
+      "target_size": 100,
+      "required_official_assets": [
+        {
+          "path": "checkpoints/100/rf-transformer.ckpt",
+          "asset_role": "multi-task-model",
+          "target_size_specific": true,
+          "compatibility_basis": "官方HF文件目录确认；本地binary NOT FOUND；release匹配待payload核验"
+        }
+      ],
+      "upstream_commit": "fe0e45b6df118af03c5f42db8b93a351f7629131"
+    },
+    {
+      "method": "RF-TE",
+      "problem": "CVRPTW",
+      "official_source": "https://huggingface.co/ai4co/routefinder/tree/4edf73d68a5915787dd2f81ba177d77e13317190/checkpoints",
+      "source_evidence": "SOURCE_CONFIRMED",
+      "notes": "官方HF文件目录确认；本地binary NOT FOUND；release匹配待payload核验",
+      "wsl_evidence": [],
+      "server_evidence": "NOT_RUN",
+      "target_size": 50,
+      "required_official_assets": [
+        {
+          "path": "checkpoints/50/rf-transformer.ckpt",
+          "asset_role": "multi-task-model",
+          "target_size_specific": true,
+          "compatibility_basis": "官方HF文件目录确认；本地binary NOT FOUND；release匹配待payload核验"
+        }
+      ],
+      "upstream_commit": "fe0e45b6df118af03c5f42db8b93a351f7629131"
+    },
+    {
+      "method": "RF-TE",
+      "problem": "CVRPTW",
+      "official_source": "https://huggingface.co/ai4co/routefinder/tree/4edf73d68a5915787dd2f81ba177d77e13317190/checkpoints",
+      "source_evidence": "SOURCE_CONFIRMED",
+      "notes": "官方HF文件目录确认；本地binary NOT FOUND；release匹配待payload核验",
+      "wsl_evidence": [],
+      "server_evidence": "NOT_RUN",
+      "target_size": 100,
+      "required_official_assets": [
+        {
+          "path": "checkpoints/100/rf-transformer.ckpt",
+          "asset_role": "multi-task-model",
+          "target_size_specific": true,
+          "compatibility_basis": "官方HF文件目录确认；本地binary NOT FOUND；release匹配待payload核验"
+        }
+      ],
+      "upstream_commit": "fe0e45b6df118af03c5f42db8b93a351f7629131"
+    },
+    {
+      "method": "MoSES(CaDA)",
+      "problem": "CVRP",
+      "official_source": "https://github.com/panyxy/moses_vrp/tree/e301478b7a5df6d7b0b10a0543f4dee5e3c027a8/pretrained_moses_model/cada",
+      "source_evidence": "SOURCE_CONFIRMED",
+      "notes": "WSL完整binary/hash；反序列化缺rl4co；非tensor-only；shape未验证",
+      "wsl_evidence": [
+        {
+          "path": "pretrained_moses_model/cada/50/multilora_denseroute_sigmoid.ckpt",
+          "size_bytes": 54581822,
+          "sha256": "1aa499f3fce5d3412c2544c9632bbb9709309a7299b4298b535fa7e9014ef803",
+          "materialized": true,
+          "lfs_pointer": false,
+          "cpu_deserialize": false,
+          "load_error": "ModuleNotFoundError: No module named 'rl4co'",
+          "evidence_status": "LOCAL_VERIFIED",
+          "device": "cpu",
+          "strict_model_load": "NOT_RUN"
+        }
+      ],
+      "server_evidence": "NOT_RUN",
+      "target_size": 50,
+      "required_official_assets": [
+        {
+          "path": "pretrained_moses_model/cada/50/multilora_denseroute_sigmoid.ckpt",
+          "asset_role": "multi-task-model",
+          "target_size_specific": true,
+          "compatibility_basis": "WSL完整binary/hash；反序列化缺rl4co；非tensor-only；shape未验证"
+        }
+      ],
+      "upstream_commit": "e301478b7a5df6d7b0b10a0543f4dee5e3c027a8"
+    },
+    {
+      "method": "MoSES(CaDA)",
+      "problem": "CVRP",
+      "official_source": "https://github.com/panyxy/moses_vrp/tree/e301478b7a5df6d7b0b10a0543f4dee5e3c027a8/pretrained_moses_model/cada",
+      "source_evidence": "SOURCE_CONFIRMED",
+      "notes": "WSL完整binary/hash；反序列化缺rl4co；非tensor-only；shape未验证",
+      "wsl_evidence": [
+        {
+          "path": "pretrained_moses_model/cada/100/multilora_denseroute_sigmoid.ckpt",
+          "size_bytes": 54585022,
+          "sha256": "2eac9b038ae4655581aa73e4dbe8ad529aefd1963368c9a92d254b6269f8aabf",
+          "materialized": true,
+          "lfs_pointer": false,
+          "cpu_deserialize": false,
+          "load_error": "ModuleNotFoundError: No module named 'rl4co'",
+          "evidence_status": "LOCAL_VERIFIED",
+          "device": "cpu",
+          "strict_model_load": "NOT_RUN"
+        }
+      ],
+      "server_evidence": "NOT_RUN",
+      "target_size": 100,
+      "required_official_assets": [
+        {
+          "path": "pretrained_moses_model/cada/100/multilora_denseroute_sigmoid.ckpt",
+          "asset_role": "multi-task-model",
+          "target_size_specific": true,
+          "compatibility_basis": "WSL完整binary/hash；反序列化缺rl4co；非tensor-only；shape未验证"
+        }
+      ],
+      "upstream_commit": "e301478b7a5df6d7b0b10a0543f4dee5e3c027a8"
+    },
+    {
+      "method": "MoSES(CaDA)",
+      "problem": "CVRPTW",
+      "official_source": "https://github.com/panyxy/moses_vrp/tree/e301478b7a5df6d7b0b10a0543f4dee5e3c027a8/pretrained_moses_model/cada",
+      "source_evidence": "SOURCE_CONFIRMED",
+      "notes": "WSL完整binary/hash；反序列化缺rl4co；非tensor-only；shape未验证",
+      "wsl_evidence": [
+        {
+          "path": "pretrained_moses_model/cada/50/multilora_denseroute_sigmoid.ckpt",
+          "size_bytes": 54581822,
+          "sha256": "1aa499f3fce5d3412c2544c9632bbb9709309a7299b4298b535fa7e9014ef803",
+          "materialized": true,
+          "lfs_pointer": false,
+          "cpu_deserialize": false,
+          "load_error": "ModuleNotFoundError: No module named 'rl4co'",
+          "evidence_status": "LOCAL_VERIFIED",
+          "device": "cpu",
+          "strict_model_load": "NOT_RUN"
+        }
+      ],
+      "server_evidence": "NOT_RUN",
+      "target_size": 50,
+      "required_official_assets": [
+        {
+          "path": "pretrained_moses_model/cada/50/multilora_denseroute_sigmoid.ckpt",
+          "asset_role": "multi-task-model",
+          "target_size_specific": true,
+          "compatibility_basis": "WSL完整binary/hash；反序列化缺rl4co；非tensor-only；shape未验证"
+        }
+      ],
+      "upstream_commit": "e301478b7a5df6d7b0b10a0543f4dee5e3c027a8"
+    },
+    {
+      "method": "MoSES(CaDA)",
+      "problem": "CVRPTW",
+      "official_source": "https://github.com/panyxy/moses_vrp/tree/e301478b7a5df6d7b0b10a0543f4dee5e3c027a8/pretrained_moses_model/cada",
+      "source_evidence": "SOURCE_CONFIRMED",
+      "notes": "WSL完整binary/hash；反序列化缺rl4co；非tensor-only；shape未验证",
+      "wsl_evidence": [
+        {
+          "path": "pretrained_moses_model/cada/100/multilora_denseroute_sigmoid.ckpt",
+          "size_bytes": 54585022,
+          "sha256": "2eac9b038ae4655581aa73e4dbe8ad529aefd1963368c9a92d254b6269f8aabf",
+          "materialized": true,
+          "lfs_pointer": false,
+          "cpu_deserialize": false,
+          "load_error": "ModuleNotFoundError: No module named 'rl4co'",
+          "evidence_status": "LOCAL_VERIFIED",
+          "device": "cpu",
+          "strict_model_load": "NOT_RUN"
+        }
+      ],
+      "server_evidence": "NOT_RUN",
+      "target_size": 100,
+      "required_official_assets": [
+        {
+          "path": "pretrained_moses_model/cada/100/multilora_denseroute_sigmoid.ckpt",
+          "asset_role": "multi-task-model",
+          "target_size_specific": true,
+          "compatibility_basis": "WSL完整binary/hash；反序列化缺rl4co；非tensor-only；shape未验证"
+        }
+      ],
+      "upstream_commit": "e301478b7a5df6d7b0b10a0543f4dee5e3c027a8"
+    },
+    {
+      "method": "NeuOpt",
+      "problem": "CVRP",
+      "official_source": "https://github.com/yining043/NeuOpt/tree/ccf6b5f0f6a8fda2792b4be11d4ec35390a8139b/pre-trained",
+      "source_evidence": "SOURCE_CONFIRMED",
+      "notes": "WSL CPU Actor strict load PASS；历史CVRP50结果不继承为新integration",
+      "wsl_evidence": [
+        {
+          "path": "pre-trained/cvrp50.pt",
+          "size_bytes": 10630323,
+          "sha256": "1cd201ca47888e51068a157389460641c81d71054f064d9c8ea1743312289e3a",
+          "materialized": true,
+          "lfs_pointer": false,
+          "cpu_deserialize": true,
+          "load_error": null,
+          "evidence_status": "LOCAL_VERIFIED",
+          "device": "cpu",
+          "strict_model_load": "LOCAL_VERIFIED"
+        }
+      ],
+      "server_evidence": "NOT_RUN",
+      "target_size": 50,
+      "required_official_assets": [
+        {
+          "path": "pre-trained/cvrp50.pt",
+          "asset_role": "actor-critic-checkpoint",
+          "target_size_specific": true,
+          "compatibility_basis": "WSL CPU Actor strict load PASS；历史CVRP50结果不继承为新integration"
+        }
+      ],
+      "upstream_commit": "ccf6b5f0f6a8fda2792b4be11d4ec35390a8139b",
+      "local_strict_load": {
+        "evidence": "LOCAL_VERIFIED",
+        "timestamp": "2026-09-11T08:52:58.308661+00:00",
+        "device": "cpu",
+        "executable": "/home/xihe/miniconda3/envs/gan/bin/python",
+        "python": "3.10.20 (main, Mar 11 2026, 17:46:40) [GCC 14.3.0]",
+        "torch": "2.5.1",
+        "config": {
+          "embedding_dim": 128,
+          "hidden_dim": 128,
+          "n_heads_actor": 4,
+          "n_layers": 3,
+          "normalization": "layer",
+          "v_range": 6.0,
+          "seq_length": 70,
+          "k": 4,
+          "with_RNN": true,
+          "with_feature1": true,
+          "with_feature3": true,
+          "with_simpleMDP": true
+        },
+        "config_source": "options.py and agent/ppo.py; README dummy_rate 0.4/0.2",
+        "parameters": 685140,
+        "missing_keys": [],
+        "unexpected_keys": [],
+        "artifact": "artifacts/audit/neuopt_load.json",
+        "command": "/home/xihe/miniconda3/envs/gan/bin/python -B scripts/audit_model_load.py --repo external/NeuOpt --method NeuOpt --module nets.actor_network --module agent.ppo --output artifacts/audit/neuopt_load.json",
+        "load_method": "torch.load(map_location=cpu, weights_only=False); official model.load_state_dict(strict=True)",
+        "inference_performed": false
+      }
+    },
+    {
+      "method": "NeuOpt",
+      "problem": "CVRP",
+      "official_source": "https://github.com/yining043/NeuOpt/tree/ccf6b5f0f6a8fda2792b4be11d4ec35390a8139b/pre-trained",
+      "source_evidence": "SOURCE_CONFIRMED",
+      "notes": "WSL CPU Actor strict load PASS；历史CVRP50结果不继承为新integration",
+      "wsl_evidence": [
+        {
+          "path": "pre-trained/cvrp100.pt",
+          "size_bytes": 10633669,
+          "sha256": "502a5904182306c1a3f65f7b1a8503a609ff2a044db054abcf93690af36594fb",
+          "materialized": true,
+          "lfs_pointer": false,
+          "cpu_deserialize": true,
+          "load_error": null,
+          "evidence_status": "LOCAL_VERIFIED",
+          "device": "cpu",
+          "strict_model_load": "LOCAL_VERIFIED"
+        }
+      ],
+      "server_evidence": "NOT_RUN",
+      "target_size": 100,
+      "required_official_assets": [
+        {
+          "path": "pre-trained/cvrp100.pt",
+          "asset_role": "actor-critic-checkpoint",
+          "target_size_specific": true,
+          "compatibility_basis": "WSL CPU Actor strict load PASS；历史CVRP50结果不继承为新integration"
+        }
+      ],
+      "upstream_commit": "ccf6b5f0f6a8fda2792b4be11d4ec35390a8139b",
+      "local_strict_load": {
+        "evidence": "LOCAL_VERIFIED",
+        "timestamp": "2026-09-11T08:52:58.308661+00:00",
+        "device": "cpu",
+        "executable": "/home/xihe/miniconda3/envs/gan/bin/python",
+        "python": "3.10.20 (main, Mar 11 2026, 17:46:40) [GCC 14.3.0]",
+        "torch": "2.5.1",
+        "config": {
+          "embedding_dim": 128,
+          "hidden_dim": 128,
+          "n_heads_actor": 4,
+          "n_layers": 3,
+          "normalization": "layer",
+          "v_range": 6.0,
+          "seq_length": 120,
+          "k": 4,
+          "with_RNN": true,
+          "with_feature1": true,
+          "with_feature3": true,
+          "with_simpleMDP": true
+        },
+        "config_source": "options.py and agent/ppo.py; README dummy_rate 0.4/0.2",
+        "parameters": 685140,
+        "missing_keys": [],
+        "unexpected_keys": [],
+        "artifact": "artifacts/audit/neuopt_load.json",
+        "command": "/home/xihe/miniconda3/envs/gan/bin/python -B scripts/audit_model_load.py --repo external/NeuOpt --method NeuOpt --module nets.actor_network --module agent.ppo --output artifacts/audit/neuopt_load.json",
+        "load_method": "torch.load(map_location=cpu, weights_only=False); official model.load_state_dict(strict=True)",
+        "inference_performed": false
+      }
+    }
+  ],
+  "evidence_statuses": [
+    "SOURCE_CONFIRMED",
+    "LOCAL_VERIFIED",
+    "SERVER_VERIFIED",
+    "BLOCKED",
+    "NOT_APPLICABLE",
+    "NOT_RUN",
+    "NOT_IMPLEMENTED"
+  ]
+}

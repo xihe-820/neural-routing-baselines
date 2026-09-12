@@ -1,0 +1,623 @@
+{
+  "format_note": "JSON syntax, valid YAML 1.2",
+  "local_datasets": [
+    {
+      "problem": "TSP",
+      "target_size": 50,
+      "filename": "tsp50_concorde_5.688.pkl",
+      "source_repository": "ML4CO/ML4CO-Bench-101-SL",
+      "url": "https://huggingface.co/datasets/ML4CO/ML4CO-Bench-101-SL/resolve/main/test_dataset/tsp/tsp50_concorde_5.688.pkl",
+      "bytes": 1264010,
+      "sha256": "1ede2b289d2e6fbfe614219a86d1ba6dfca2a726925a8fe8cef9c8196ee0b213",
+      "source_evidence": "SOURCE_CONFIRMED",
+      "local_path": "datasets/ML4CO-Bench-101-SL/tsp50_concorde_5.688.pkl",
+      "evidence": "LOCAL_VERIFIED",
+      "count": 1280,
+      "container": "builtins.list",
+      "task_class": "ml4co_kit.task.routing.tsp.tsp.TSPTask",
+      "first_instance_schema": {
+        "task_type": "TSP",
+        "minimize": true,
+        "precision": {
+          "type": "type",
+          "repr": "<class 'numpy.float32'>"
+        },
+        "sol": null,
+        "ref_sol": {
+          "shape": [
+            51
+          ],
+          "dtype": "int64",
+          "min": 0.0,
+          "max": 49.0
+        },
+        "cache": {
+          "type": "dict",
+          "repr": "{}"
+        },
+        "name": "60bf02586d9e4bc8885a397e10e33f7a",
+        "distance_type": "EUC_2D",
+        "dist_eval": {
+          "type": "DistanceEvaluator",
+          "repr": "<ml4co_kit.task.routing.base.DistanceEvaluator object at 0x7d7bbe4c33a0>"
+        },
+        "nodes_num": 50,
+        "points": {
+          "shape": [
+            50,
+            2
+          ],
+          "dtype": "float32",
+          "min": 0.00011404432007111609,
+          "max": 0.9643661975860596
+        },
+        "dists": null
+      },
+      "metric": {
+        "distance_type": "DISTANCE_TYPE.EUC_2D",
+        "round_type": "ROUND_TYPE.NO"
+      },
+      "reference": {
+        "independent_objective": 5.8260497942172496,
+        "kit_objective": 5.826050281524658,
+        "kit_objective_source": "task.evaluate(task.ref_sol), not a stored cost label",
+        "kit_feasible": true,
+        "absolute_difference": 4.873074086475526e-07,
+        "objective_agrees": true,
+        "independent_feasible": true,
+        "validator_objective_agrees": true,
+        "independent_tw_feasibility": "NOT_APPLICABLE"
+      },
+      "kit_task_source": {
+        "path": "/home/xihe/projects/ML4CO-Kit/ml4co_kit/task/routing/tsp/tsp.py",
+        "sha256": "88236a0ba61d1a14f082e791b22d8231dfe58c53fa1dc37ed14a0e952ca97c3d"
+      },
+      "server_copy_identity": "NOT_RUN"
+    },
+    {
+      "problem": "TSP",
+      "target_size": 100,
+      "filename": "tsp100_concorde_7.756.pkl",
+      "source_repository": "ML4CO/ML4CO-Bench-101-SL",
+      "url": "https://huggingface.co/datasets/ML4CO/ML4CO-Bench-101-SL/resolve/main/test_dataset/tsp/tsp100_concorde_7.756.pkl",
+      "bytes": 2288145,
+      "sha256": "a2bfe99857b8072bdba051f6ae402b7e241f01b0462c5f379ed0aa03786406a0",
+      "source_evidence": "SOURCE_CONFIRMED",
+      "local_path": "datasets/ML4CO-Bench-101-SL/tsp100_concorde_7.756.pkl",
+      "evidence": "LOCAL_VERIFIED",
+      "count": 1280,
+      "container": "builtins.list",
+      "task_class": "ml4co_kit.task.routing.tsp.tsp.TSPTask",
+      "first_instance_schema": {
+        "task_type": "TSP",
+        "minimize": true,
+        "precision": {
+          "type": "type",
+          "repr": "<class 'numpy.float32'>"
+        },
+        "sol": null,
+        "ref_sol": {
+          "shape": [
+            101
+          ],
+          "dtype": "int64",
+          "min": 0.0,
+          "max": 99.0
+        },
+        "cache": {
+          "type": "dict",
+          "repr": "{}"
+        },
+        "name": "92b5dd44b1fb40119e764486fdf3db45",
+        "distance_type": "EUC_2D",
+        "dist_eval": {
+          "type": "DistanceEvaluator",
+          "repr": "<ml4co_kit.task.routing.base.DistanceEvaluator object at 0x7d7b2865d450>"
+        },
+        "nodes_num": 100,
+        "points": {
+          "shape": [
+            100,
+            2
+          ],
+          "dtype": "float32",
+          "min": 0.0011193464742973447,
+          "max": 0.9860072731971741
+        },
+        "dists": null
+      },
+      "metric": {
+        "distance_type": "DISTANCE_TYPE.EUC_2D",
+        "round_type": "ROUND_TYPE.NO"
+      },
+      "reference": {
+        "independent_objective": 7.797036008477863,
+        "kit_objective": 7.7970356941223145,
+        "kit_objective_source": "task.evaluate(task.ref_sol), not a stored cost label",
+        "kit_feasible": true,
+        "absolute_difference": 3.143555487028493e-07,
+        "objective_agrees": true,
+        "independent_feasible": true,
+        "validator_objective_agrees": true,
+        "independent_tw_feasibility": "NOT_APPLICABLE"
+      },
+      "kit_task_source": {
+        "path": "/home/xihe/projects/ML4CO-Kit/ml4co_kit/task/routing/tsp/tsp.py",
+        "sha256": "88236a0ba61d1a14f082e791b22d8231dfe58c53fa1dc37ed14a0e952ca97c3d"
+      },
+      "server_copy_identity": "NOT_RUN"
+    },
+    {
+      "problem": "CVRP",
+      "target_size": 50,
+      "filename": "cvrp50_hgs-1s_10.366.pkl",
+      "source_repository": "ML4CO/ML4CO-Bench-101-SL",
+      "url": "https://huggingface.co/datasets/ML4CO/ML4CO-Bench-101-SL/resolve/main/test_dataset/cvrp/cvrp50_hgs-1s_10.366.pkl",
+      "bytes": 20125346,
+      "sha256": "eea12fbefe9c1bcc008d56ecfc1c50dadd64ac774f3547774c9fade8a7baa6c2",
+      "source_evidence": "SOURCE_CONFIRMED",
+      "local_path": "datasets/ML4CO-Bench-101-SL/cvrp50_hgs-1s_10.366.pkl",
+      "evidence": "LOCAL_VERIFIED",
+      "count": 10000,
+      "container": "builtins.list",
+      "task_class": "ml4co_kit.task.routing.vrp.cvrp.CVRPTask",
+      "first_instance_schema": {
+        "task_type": "CVRP",
+        "minimize": true,
+        "precision": {
+          "type": "type",
+          "repr": "<class 'numpy.float32'>"
+        },
+        "sol": null,
+        "ref_sol": {
+          "shape": [
+            59
+          ],
+          "dtype": "int64",
+          "min": 0.0,
+          "max": 50.0
+        },
+        "cache": {
+          "type": "dict",
+          "repr": "{}"
+        },
+        "name": "dcf20b91995e40bba24018ec14494a38",
+        "distance_type": "EUC_2D",
+        "dist_eval": {
+          "type": "DistanceEvaluator",
+          "repr": "<ml4co_kit.task.routing.base.DistanceEvaluator object at 0x7d7bbe5e7ac0>"
+        },
+        "nodes_num": 50,
+        "depots": {
+          "shape": [
+            2
+          ],
+          "dtype": "float32",
+          "min": 0.19151945412158966,
+          "max": 0.6221087574958801
+        },
+        "points": {
+          "shape": [
+            50,
+            2
+          ],
+          "dtype": "float32",
+          "min": 0.0018524517072364688,
+          "max": 0.9948726296424866
+        },
+        "coords": {
+          "shape": [
+            51,
+            2
+          ],
+          "dtype": "float32",
+          "min": 0.0018524517072364688,
+          "max": 0.9948726296424866
+        },
+        "demands": {
+          "shape": [
+            50
+          ],
+          "dtype": "float32",
+          "min": 1.0,
+          "max": 9.0
+        },
+        "norm_demands": {
+          "shape": [
+            50
+          ],
+          "dtype": "float32",
+          "min": 0.02500000037252903,
+          "max": 0.22499999403953552
+        },
+        "capacity": 40.0,
+        "dists": null,
+        "threshold": 1e-05,
+        "cvrp_open": false
+      },
+      "metric": {
+        "distance_type": "DISTANCE_TYPE.EUC_2D",
+        "round_type": "ROUND_TYPE.NO"
+      },
+      "reference": {
+        "independent_objective": 10.973379950202625,
+        "kit_objective": 10.973381996154785,
+        "kit_objective_source": "task.evaluate(task.ref_sol), not a stored cost label",
+        "kit_feasible": true,
+        "absolute_difference": 2.0459521596905006e-06,
+        "objective_agrees": true,
+        "independent_feasible": true,
+        "validator_objective_agrees": true,
+        "independent_tw_feasibility": "NOT_APPLICABLE"
+      },
+      "kit_task_source": {
+        "path": "/home/xihe/projects/ML4CO-Kit/ml4co_kit/task/routing/vrp/cvrp.py",
+        "sha256": "153574d1e37691a0fd7364b60b894095380952584f60b875f0d7bda9d6a1ce33"
+      },
+      "server_copy_identity": "NOT_RUN"
+    },
+    {
+      "problem": "CVRP",
+      "target_size": 100,
+      "filename": "cvrp100_hgs-20s_15.563.pkl",
+      "source_repository": "ML4CO/ML4CO-Bench-101-SL",
+      "url": "https://huggingface.co/datasets/ML4CO/ML4CO-Bench-101-SL/resolve/main/test_dataset/cvrp/cvrp100_hgs-20s_15.563.pkl",
+      "bytes": 36487115,
+      "sha256": "bb47d5a113848e5a404edefc562d5d2ef6b0ade1aafc287828bdf60364e23532",
+      "source_evidence": "SOURCE_CONFIRMED",
+      "local_path": "datasets/ML4CO-Bench-101-SL/cvrp100_hgs-20s_15.563.pkl",
+      "evidence": "LOCAL_VERIFIED",
+      "count": 10000,
+      "container": "builtins.list",
+      "task_class": "ml4co_kit.task.routing.vrp.cvrp.CVRPTask",
+      "first_instance_schema": {
+        "task_type": "CVRP",
+        "minimize": true,
+        "precision": {
+          "type": "type",
+          "repr": "<class 'numpy.float32'>"
+        },
+        "sol": null,
+        "ref_sol": {
+          "shape": [
+            111
+          ],
+          "dtype": "int64",
+          "min": 0.0,
+          "max": 100.0
+        },
+        "cache": {
+          "type": "dict",
+          "repr": "{}"
+        },
+        "name": "919cbbbfd4d5418c91ee363812e011e1",
+        "distance_type": "EUC_2D",
+        "dist_eval": {
+          "type": "DistanceEvaluator",
+          "repr": "<ml4co_kit.task.routing.base.DistanceEvaluator object at 0x7d7bbe4c3820>"
+        },
+        "nodes_num": 100,
+        "depots": {
+          "shape": [
+            2
+          ],
+          "dtype": "float32",
+          "min": 0.19151945412158966,
+          "max": 0.6221087574958801
+        },
+        "points": {
+          "shape": [
+            100,
+            2
+          ],
+          "dtype": "float32",
+          "min": 0.0018524517072364688,
+          "max": 0.9948726296424866
+        },
+        "coords": {
+          "shape": [
+            101,
+            2
+          ],
+          "dtype": "float32",
+          "min": 0.0018524517072364688,
+          "max": 0.9948726296424866
+        },
+        "demands": {
+          "shape": [
+            100
+          ],
+          "dtype": "float32",
+          "min": 1.0,
+          "max": 9.0
+        },
+        "norm_demands": {
+          "shape": [
+            100
+          ],
+          "dtype": "float32",
+          "min": 0.019999999552965164,
+          "max": 0.18000000715255737
+        },
+        "capacity": 50.0,
+        "dists": null,
+        "threshold": 1e-05,
+        "cvrp_open": false
+      },
+      "metric": {
+        "distance_type": "DISTANCE_TYPE.EUC_2D",
+        "round_type": "ROUND_TYPE.NO"
+      },
+      "reference": {
+        "independent_objective": 14.605232219006798,
+        "kit_objective": 14.605233192443848,
+        "kit_objective_source": "task.evaluate(task.ref_sol), not a stored cost label",
+        "kit_feasible": true,
+        "absolute_difference": 9.734370500780187e-07,
+        "objective_agrees": true,
+        "independent_feasible": true,
+        "validator_objective_agrees": true,
+        "independent_tw_feasibility": "NOT_APPLICABLE"
+      },
+      "kit_task_source": {
+        "path": "/home/xihe/projects/ML4CO-Kit/ml4co_kit/task/routing/vrp/cvrp.py",
+        "sha256": "153574d1e37691a0fd7364b60b894095380952584f60b875f0d7bda9d6a1ce33"
+      },
+      "server_copy_identity": "NOT_RUN"
+    },
+    {
+      "problem": "CVRPTW",
+      "target_size": 50,
+      "filename": "cvrptw50_pyvrp-10s_16.038.pkl",
+      "source_repository": "ML4CO/ML4CO-Bench-101-SL",
+      "url": "https://huggingface.co/datasets/ML4CO/ML4CO-Bench-101-SL/resolve/main/test_dataset/cvrptw/cvrptw50_pyvrp-10s_16.038.pkl",
+      "bytes": 2727373,
+      "sha256": "a16975d9dd242739973191256e1cdbd8166c4405759ef195b985a8c3ec49df40",
+      "source_evidence": "SOURCE_CONFIRMED",
+      "local_path": "datasets/ML4CO-Bench-101-SL/cvrptw50_pyvrp-10s_16.038.pkl",
+      "evidence": "LOCAL_VERIFIED",
+      "count": 1000,
+      "container": "builtins.list",
+      "task_class": "ml4co_kit.task.routing.vrp.cvrptw.CVRPTWTask",
+      "first_instance_schema": {
+        "task_type": "CVRPTW",
+        "minimize": true,
+        "precision": {
+          "type": "type",
+          "repr": "<class 'numpy.float32'>"
+        },
+        "sol": null,
+        "ref_sol": {
+          "shape": [
+            62
+          ],
+          "dtype": "int64",
+          "min": 0.0,
+          "max": 50.0
+        },
+        "cache": {
+          "type": "dict",
+          "repr": "{}"
+        },
+        "name": "ae4d9c3fb58247249c8401cac8f74ad7",
+        "distance_type": "EUC_2D",
+        "dist_eval": {
+          "type": "DistanceEvaluator",
+          "repr": "<ml4co_kit.task.routing.base.DistanceEvaluator object at 0x7d7b7d810100>"
+        },
+        "cvrp_open": false,
+        "nodes_num": 50,
+        "depots": {
+          "shape": [
+            2
+          ],
+          "dtype": "float32",
+          "min": 0.19151945412158966,
+          "max": 0.6221087574958801
+        },
+        "points": {
+          "shape": [
+            50,
+            2
+          ],
+          "dtype": "float32",
+          "min": 0.0062085166573524475,
+          "max": 0.9920814633369446
+        },
+        "coords": {
+          "shape": [
+            51,
+            2
+          ],
+          "dtype": "float32",
+          "min": 0.0062085166573524475,
+          "max": 0.9920814633369446
+        },
+        "demands": {
+          "shape": [
+            50
+          ],
+          "dtype": "float32",
+          "min": 1.0,
+          "max": 9.0
+        },
+        "norm_demands": {
+          "shape": [
+            50
+          ],
+          "dtype": "float32",
+          "min": 0.02500000037252903,
+          "max": 0.22499999403953552
+        },
+        "capacity": 40.0,
+        "dists": null,
+        "threshold": 0.0001,
+        "tw": {
+          "shape": [
+            51,
+            2
+          ],
+          "dtype": "float32",
+          "min": 0.0,
+          "max": 4.599999904632568
+        },
+        "service": {
+          "shape": [
+            51
+          ],
+          "dtype": "float32",
+          "min": 0.0,
+          "max": 0.17967674136161804
+        }
+      },
+      "metric": {
+        "distance_type": "DISTANCE_TYPE.EUC_2D",
+        "round_type": "ROUND_TYPE.NO"
+      },
+      "reference": {
+        "independent_objective": 13.19935098606113,
+        "kit_objective": 13.19935131072998,
+        "kit_objective_source": "task.evaluate(task.ref_sol), not a stored cost label",
+        "kit_feasible": true,
+        "absolute_difference": 3.2466885002691015e-07,
+        "objective_agrees": true,
+        "independent_feasible": true,
+        "validator_objective_agrees": true,
+        "independent_tw_feasibility": true
+      },
+      "kit_task_source": {
+        "path": "/home/xihe/projects/ML4CO-Kit/ml4co_kit/task/routing/vrp/cvrptw.py",
+        "sha256": "22c0dd316f8717042b0c558b3a5614c10227fdae6a312d67e3a61dd813e79269"
+      },
+      "server_copy_identity": "NOT_RUN"
+    },
+    {
+      "problem": "CVRPTW",
+      "target_size": 100,
+      "filename": "cvrptw100_pyvrp-20s_25.431.pkl",
+      "source_repository": "ML4CO/ML4CO-Bench-101-SL",
+      "url": "https://huggingface.co/datasets/ML4CO/ML4CO-Bench-101-SL/resolve/main/test_dataset/cvrptw/cvrptw100_pyvrp-20s_25.431.pkl",
+      "bytes": 4985023,
+      "sha256": "3b74fa520f42f7aa607a5bd00a7d4aaa118e0715ca1672ee854fc850bac67867",
+      "source_evidence": "SOURCE_CONFIRMED",
+      "local_path": "datasets/ML4CO-Bench-101-SL/cvrptw100_pyvrp-20s_25.431.pkl",
+      "evidence": "LOCAL_VERIFIED",
+      "count": 1000,
+      "container": "builtins.list",
+      "task_class": "ml4co_kit.task.routing.vrp.cvrptw.CVRPTWTask",
+      "first_instance_schema": {
+        "task_type": "CVRPTW",
+        "minimize": true,
+        "precision": {
+          "type": "type",
+          "repr": "<class 'numpy.float32'>"
+        },
+        "sol": null,
+        "ref_sol": {
+          "shape": [
+            119
+          ],
+          "dtype": "int64",
+          "min": 0.0,
+          "max": 100.0
+        },
+        "cache": {
+          "type": "dict",
+          "repr": "{}"
+        },
+        "name": "f113fa90478344a68719538d74686d9e",
+        "distance_type": "EUC_2D",
+        "dist_eval": {
+          "type": "DistanceEvaluator",
+          "repr": "<ml4co_kit.task.routing.base.DistanceEvaluator object at 0x7d7bbe4c3820>"
+        },
+        "cvrp_open": false,
+        "nodes_num": 100,
+        "depots": {
+          "shape": [
+            2
+          ],
+          "dtype": "float32",
+          "min": 0.19151945412158966,
+          "max": 0.6221087574958801
+        },
+        "points": {
+          "shape": [
+            100,
+            2
+          ],
+          "dtype": "float32",
+          "min": 0.0062085166573524475,
+          "max": 0.9946538209915161
+        },
+        "coords": {
+          "shape": [
+            101,
+            2
+          ],
+          "dtype": "float32",
+          "min": 0.0062085166573524475,
+          "max": 0.9946538209915161
+        },
+        "demands": {
+          "shape": [
+            100
+          ],
+          "dtype": "float32",
+          "min": 1.0,
+          "max": 9.0
+        },
+        "norm_demands": {
+          "shape": [
+            100
+          ],
+          "dtype": "float32",
+          "min": 0.019999999552965164,
+          "max": 0.18000000715255737
+        },
+        "capacity": 50.0,
+        "dists": null,
+        "threshold": 0.0001,
+        "tw": {
+          "shape": [
+            101,
+            2
+          ],
+          "dtype": "float32",
+          "min": 0.0,
+          "max": 4.599999904632568
+        },
+        "service": {
+          "shape": [
+            101
+          ],
+          "dtype": "float32",
+          "min": 0.0,
+          "max": 0.1798134595155716
+        }
+      },
+      "metric": {
+        "distance_type": "DISTANCE_TYPE.EUC_2D",
+        "round_type": "ROUND_TYPE.NO"
+      },
+      "reference": {
+        "independent_objective": 23.487735013780878,
+        "kit_objective": 23.48773193359375,
+        "kit_objective_source": "task.evaluate(task.ref_sol), not a stored cost label",
+        "kit_feasible": true,
+        "absolute_difference": 3.0801871275798476e-06,
+        "objective_agrees": true,
+        "independent_feasible": true,
+        "validator_objective_agrees": true,
+        "independent_tw_feasibility": true
+      },
+      "kit_task_source": {
+        "path": "/home/xihe/projects/ML4CO-Kit/ml4co_kit/task/routing/vrp/cvrptw.py",
+        "sha256": "22c0dd316f8717042b0c558b3a5614c10227fdae6a312d67e3a61dd813e79269"
+      },
+      "server_copy_identity": "NOT_RUN"
+    }
+  ],
+  "reference_test_scope": "First 5 stored reference solutions per file (30 instances); not method-generated solutions",
+  "server_status": "NOT_RUN"
+}

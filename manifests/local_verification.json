@@ -1,0 +1,351 @@
+{
+  "evidence": "LOCAL_VERIFIED",
+  "strict_loads_repeated_for_documentation": false,
+  "test_command": "ML4CO_REFERENCE_TESTS=1 /home/xihe/miniconda3/envs/ml4co_venv/bin/python -B -m unittest discover -s tests -v",
+  "tests": {
+    "count": 32,
+    "result": "OK",
+    "reference_instances": 30,
+    "reference_files": 6
+  },
+  "artifact_fingerprints": [
+    {
+      "path": "artifacts/audit/mvmoe_load.json",
+      "sha256": "7b02835988a7e3814f888dea88f7e8c1b9965f4755e2c7c7387bbb16abea0d6a"
+    },
+    {
+      "path": "artifacts/audit/neuopt_load.json",
+      "sha256": "ac77ca1fbb2e3c8dddd5099c5c54c243c71040d27de1be78f03dac3809d104c0"
+    },
+    {
+      "path": "artifacts/audit/datasets.json",
+      "sha256": "9d47fb88f37fa8b8d9ac624b324183255ab3b39782abecf8cbe68b546fa44a9b"
+    },
+    {
+      "path": "artifacts/audit/final_tests.txt",
+      "sha256": "9fcc49a7968401232882980b1706b133e646af1832d05ed0074df0fa8109de97"
+    },
+    {
+      "path": "artifacts/audit/dataset_identity_check.json",
+      "sha256": "8faa4bcc754de5df229cce70046e53d8b542077c255b25474dd66b4946430b6f"
+    },
+    {
+      "path": "artifacts/audit/asset_identity_check.json",
+      "sha256": "4e9ae1a4d6f91f9e4d92a43a0f802b591a30dde6f5f9be6af864f15a2a212901"
+    },
+    {
+      "path": "artifacts/environment/local_gpu.json",
+      "sha256": "9c7f9b67b5d25a34ca1d92d46531b3f3405e596a6cea93ac9d9432fcae0ad914"
+    }
+  ],
+  "upstream_checkout_after": {
+    "GLOP": {
+      "commit": "e540bc0153a0598e923e35116deeaecaf9c1cfff",
+      "dirty": false
+    },
+    "UDC": {
+      "commit": "274df3c4975384592b60fe7f79fbb2441ce11c15",
+      "dirty": false
+    },
+    "CaDA": {
+      "commit": "b9868e1e09b3a1a3754960d830e801e51c7cb38d",
+      "dirty": false
+    },
+    "MVMoE": {
+      "commit": "af29e5af0595f94f3ecc3bc46d72df1089a62682",
+      "dirty": false
+    },
+    "RF-TE": {
+      "commit": "fe0e45b6df118af03c5f42db8b93a351f7629131",
+      "dirty": false
+    },
+    "MoSES(CaDA)": {
+      "commit": "e301478b7a5df6d7b0b10a0543f4dee5e3c027a8",
+      "dirty": false
+    },
+    "NeuOpt": {
+      "commit": "ccf6b5f0f6a8fda2792b4be11d4ec35390a8139b",
+      "dirty": false
+    }
+  },
+  "source_files": [
+    {
+      "path": "external/GLOP/README.md",
+      "exists": true,
+      "sha256": "6694ee47ebd0524efc78b4fa2e0f3cb8b016ebc7530538de2ecccfa62bc1fbe3"
+    },
+    {
+      "path": "external/GLOP/main.py",
+      "exists": true,
+      "sha256": "89ddac1067585554cb56d97fd0c83e4b8db57dbce06df751400e9d816970e9ae"
+    },
+    {
+      "path": "external/GLOP/utils/functions.py",
+      "exists": true,
+      "sha256": "666e32877d6ee723a540dc52cceaf3f338383b8c644966c074bd89adf25a02a8"
+    },
+    {
+      "path": "external/GLOP/nets/partition_net.py",
+      "exists": true,
+      "sha256": "518c270b0b972901e6f9bc99f60c9174a55c8de6c32336a9e257be8adee20fa3"
+    },
+    {
+      "path": "external/GLOP/heatmap/cvrp/infer.py",
+      "exists": true,
+      "sha256": "6799044dff7410c9f97fd70d710328c0be9a7ca25df90323ebb29a6cbc7875aa"
+    },
+    {
+      "path": "external/GLOP/heatmap/cvrp/inst.py",
+      "exists": true,
+      "sha256": "3377a034bcb607f7f9cef88676531a735ae335d851759bc8412fb50c0952969a"
+    },
+    {
+      "path": "external/GLOP/problems/cvrp.py",
+      "exists": true,
+      "sha256": "d9ac51be7967433c62f480d118c26e02f3b7baf84718c1ccecf9353c9c8022ba"
+    },
+    {
+      "path": "external/NCO_code/single_objective/UDC-Large-scale-CO-master/Readme.md",
+      "exists": true,
+      "sha256": "247ead0083a81a9126a42d6b7c83340d9d2638632c84ac14901104514d6ef4f9"
+    },
+    {
+      "path": "external/NCO_code/single_objective/UDC-Large-scale-CO-master/UDC/TSP-AGNN-ICAM/test-rrc.py",
+      "exists": true,
+      "sha256": "632f9de7d83245d23e3e1f563368fc54ce4caf5b4a7369c3382b1d2c94037549"
+    },
+    {
+      "path": "external/NCO_code/single_objective/UDC-Large-scale-CO-master/UDC/TSP-AGNN-ICAM/TSPTesterrrc.py",
+      "exists": true,
+      "sha256": "2c9954f3a021b5b155be1c1aeb6b31d2c1ef8994844194932f0838ddca90c717"
+    },
+    {
+      "path": "external/NCO_code/single_objective/UDC-Large-scale-CO-master/UDC/TSP-AGNN-ICAM/TSPEnv.py",
+      "exists": true,
+      "sha256": "1175ef4142deb79acb420279c29afd369fb5e39ae0d7e27adfae9ae5174db524"
+    },
+    {
+      "path": "external/NCO_code/single_objective/UDC-Large-scale-CO-master/UDC/TSP-AGNN-ICAM/TSPModel.py",
+      "exists": true,
+      "sha256": "1fc73aab25064f2ddda0021319a9ba5803313b0889e8147a7708414e813fd5db"
+    },
+    {
+      "path": "external/NCO_code/single_objective/UDC-Large-scale-CO-master/UDC/TSP-AGNN-ICAM/PartitionModel.py",
+      "exists": true,
+      "sha256": "aa9d3530201e02e52838e3643dc0de96159f56132c0f7ea00c91b73915181cb6"
+    },
+    {
+      "path": "external/NCO_code/single_objective/UDC-Large-scale-CO-master/UDC/CVRP-AGNN-ICAM/test_rrc.py",
+      "exists": true,
+      "sha256": "68321aa4ba195834d5d6da9d67e5a7c69b729f8906968b52a6ba5ea2d203a49b"
+    },
+    {
+      "path": "external/NCO_code/single_objective/UDC-Large-scale-CO-master/UDC/CVRP-AGNN-ICAM/CVRPTester.py",
+      "exists": true,
+      "sha256": "ea77427ab83ee6286e72fcc9e5de1ac8abbf7bed964b2953accca162fe187271"
+    },
+    {
+      "path": "external/NCO_code/single_objective/UDC-Large-scale-CO-master/UDC/CVRP-AGNN-ICAM/CVRPEnv.py",
+      "exists": true,
+      "sha256": "75d846a30b3b0542c61b39f27360d3fd45929f48fc7a4dfe7025bcedff041783"
+    },
+    {
+      "path": "external/NCO_code/single_objective/UDC-Large-scale-CO-master/UDC/CVRP-AGNN-ICAM/CVRPModel.py",
+      "exists": true,
+      "sha256": "3d89db018c028e410e9dc988f2ae25c58d9ad357a696feabb898592e84c36a6c"
+    },
+    {
+      "path": "external/NCO_code/single_objective/UDC-Large-scale-CO-master/UDC/CVRP-AGNN-ICAM/PartitionModel.py",
+      "exists": true,
+      "sha256": "a86823c69e59bf02b319f6809855d31c4369a3525be63540c6c4019ee790c36c"
+    },
+    {
+      "path": "external/CaDA/README.md",
+      "exists": true,
+      "sha256": "19b2b337b56f7d0fe5f377e8eeb03261c044d22e2b5fca847abe15637057788f"
+    },
+    {
+      "path": "external/CaDA/50/README.md",
+      "exists": true,
+      "sha256": "b9c153dc0deb76236270090e95be43e438250d8a1535ffe000e9d1d1570eac40"
+    },
+    {
+      "path": "external/CaDA/100/README.md",
+      "exists": true,
+      "sha256": "6eba1dd73a3bffa40e6252aee9375699d79e44fdb222c567ff6d96d1be29f91d"
+    },
+    {
+      "path": "external/CaDA/50/run.py",
+      "exists": true,
+      "sha256": "e0078478010bc50df7d7a8cce287e5b413177f5a9bec3f4a2d181de4da3b6783"
+    },
+    {
+      "path": "external/CaDA/100/run.py",
+      "exists": true,
+      "sha256": "b417d94b412c1e08128d87703bfa369d5031d8c8f3c949cb393f08a3f48d5c2f"
+    },
+    {
+      "path": "external/CaDA/50/trainer.py",
+      "exists": true,
+      "sha256": "1e35c2b37b464bac14fbcd4172828d7a8ad2cab95b4caa86d0484dca723cecaf"
+    },
+    {
+      "path": "external/CaDA/100/trainer.py",
+      "exists": true,
+      "sha256": "0dd1e185ec0f7101ba579619a312ef33ead2a9a42c2b4c3f4e0fe7ab570f8fba"
+    },
+    {
+      "path": "external/CaDA/50/model.py",
+      "exists": true,
+      "sha256": "6a56ca53d2db2b7748008714c21810725e71f3f4123ebebe67f1fd18ec5b74dd"
+    },
+    {
+      "path": "external/CaDA/100/model.py",
+      "exists": true,
+      "sha256": "f967b5d094f2e0f21d70b39a484f64d1c49ce685022dbeb19425c2a7ebb66a67"
+    },
+    {
+      "path": "external/CaDA/50/config.yaml",
+      "exists": true,
+      "sha256": "be862c76be80c1b29e2de5f5babcdac44750ffd8f626368893b41eb5575a7d5c"
+    },
+    {
+      "path": "external/CaDA/100/config.yaml",
+      "exists": true,
+      "sha256": "162e5ce57e85cd0fed6ad40beff7b25f5e5a5dc19f76e2483bc7027dafe241b3"
+    },
+    {
+      "path": "external/Routing-MVMoE/README.md",
+      "exists": true,
+      "sha256": "2bf41b7035803ee2cdec1b7aac09ab656f84f542f60b2bdc5ae4900c0525749f"
+    },
+    {
+      "path": "external/Routing-MVMoE/test.py",
+      "exists": true,
+      "sha256": "09389250e568943559981be89b40ffcaddce815dbe1e288b1572167164d20469"
+    },
+    {
+      "path": "external/Routing-MVMoE/Tester.py",
+      "exists": true,
+      "sha256": "26b92bd242f674398b4c3d2d38a4dd0a83f6962cbdbccaf73289c90d13717ed4"
+    },
+    {
+      "path": "external/Routing-MVMoE/models/MOEModel.py",
+      "exists": true,
+      "sha256": "54fad9c8ffc8a0a9a1b211805d99077da0a0a48b017b3519efa55934c269ab59"
+    },
+    {
+      "path": "external/Routing-MVMoE/models/MOELayer.py",
+      "exists": true,
+      "sha256": "78ef61ac38479ded25a2ec664419746199b1a122c565d466db5703b65d4723cd"
+    },
+    {
+      "path": "external/Routing-MVMoE/envs/CVRPEnv.py",
+      "exists": true,
+      "sha256": "7b3145750d6c8d9271d8a1524d108245f8fa6f81da1315b42add26cf1e071ca5"
+    },
+    {
+      "path": "external/Routing-MVMoE/envs/VRPTWEnv.py",
+      "exists": true,
+      "sha256": "6b9340a5ec3bf75b287854ccb46eafc9aa398671fe615dc1f55ccece1f1af3c2"
+    },
+    {
+      "path": "external/routefinder/README.md",
+      "exists": true,
+      "sha256": "962649e7333f52be607cce8794524c78983568f3a50af40f08240404b0045ca8"
+    },
+    {
+      "path": "external/routefinder/pyproject.toml",
+      "exists": true,
+      "sha256": "d1f94ed5749bfa804f9826f8f523319e8d4e8babfbe9378fbbe417c3954359e4"
+    },
+    {
+      "path": "external/routefinder/test.py",
+      "exists": true,
+      "sha256": "b209184f6defdaa2eff854493227910b9dd6176afc569ddb912a8297c2d7ee7b"
+    },
+    {
+      "path": "external/routefinder/configs/experiment/main/rf/rf-transformer-50.yaml",
+      "exists": true,
+      "sha256": "7b4d941b8ba894e8cd638adfce85a1f17e6ba48429e0611c91f41b33d8d49521"
+    },
+    {
+      "path": "external/routefinder/configs/experiment/main/rf/rf-transformer-100.yaml",
+      "exists": true,
+      "sha256": "3873908d7304c8ad776dabdd3a21ccaf4c365c0803de714509f91c530af3a487"
+    },
+    {
+      "path": "external/moses_vrp/readme.md",
+      "exists": true,
+      "sha256": "aa2ff7447d45f11ec898267fd8289b0e47c4e3fd3d01b2c798f45bc225d76f23"
+    },
+    {
+      "path": "external/moses_vrp/scripts/test_script.sh",
+      "exists": true,
+      "sha256": "e2cabe0ef482faec47f102be42e3dee03f309f4726d8bec078f35038c980d440"
+    },
+    {
+      "path": "external/moses_vrp/test.py",
+      "exists": true,
+      "sha256": "0fe2460292dabf027f437cf91407b657e90a181ce4b4706569ddf6c8fde238e0"
+    },
+    {
+      "path": "external/moses_vrp/models/policy.py",
+      "exists": true,
+      "sha256": "f1f1ac5daa4fd311e1581af61d9a140c90d257d17203d388662265acd15bd571"
+    },
+    {
+      "path": "external/moses_vrp/models/encoder.py",
+      "exists": true,
+      "sha256": "54db99cd7f92be12a5fa57cb61cbe4703dff46e319efbe0f5547e87eec63b494"
+    },
+    {
+      "path": "external/moses_vrp/envs/mtvrp/env.py",
+      "exists": true,
+      "sha256": "d8084178191fcdfd03c7569dec7ab552b99a95aeb4d87132530f1fb498f309f5"
+    },
+    {
+      "path": "external/NeuOpt/README.md",
+      "exists": true,
+      "sha256": "53eb711088d3d974667641386b15221e2de23d0878316d67fc6541183c20bb90"
+    },
+    {
+      "path": "external/NeuOpt/options.py",
+      "exists": true,
+      "sha256": "8da0e7666f0ab3546aa68086b78fa4f78d99b26c6d2bcd64c20769dd6e92317f"
+    },
+    {
+      "path": "external/NeuOpt/agent/ppo.py",
+      "exists": true,
+      "sha256": "e69476beb396699947c820c2cc7094bdc82b5fceadc72859def04fac6ba14cc0"
+    },
+    {
+      "path": "external/NeuOpt/problems/problem_cvrp.py",
+      "exists": true,
+      "sha256": "079bd0b607839e196e620d644e7de8a46364639b662ac0c10eda89202d4d664c"
+    },
+    {
+      "path": "external/NeuOpt/nets/actor_network.py",
+      "exists": true,
+      "sha256": "8723a2a5c021c9cf02828c4572f90da2ca8387f1449adf1dd3d72306c8c2667e"
+    },
+    {
+      "path": "external/NeuOpt/nets/graph_layers.py",
+      "exists": true,
+      "sha256": "a7b232186ae4950ac9c33b78eaeee4e50c786dea772581239cb43ac717542590"
+    },
+    {
+      "path": "external/NCO_code/single_objective/UDC-Large-scale-CO-master/UDC/TSP-AGNN-ICAM/TSPTesterrrclib.py",
+      "exists": true,
+      "sha256": "89220a8d92770495bcceac688640248bd65d6bbeccbb15b5eaf7d936307aa2e7"
+    },
+    {
+      "path": "external/NCO_code/single_objective/UDC-Large-scale-CO-master/UDC/CVRP-AGNN-ICAM/CVRPTesterlib.py",
+      "exists": true,
+      "sha256": "92123f4dac2e0050f97b030293288ad186dd681d2868f1d7e78e8fc95af14136"
+    }
+  ],
+  "server_verification": "NOT_RUN",
+  "model_inference": "NOT_RUN",
+  "package_changes": []
+}

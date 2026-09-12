@@ -1,0 +1,95 @@
+# Repository tree
+
+Actual own files (untracked; no commit), plus ignored directory summary.
+
+```text
+neural-routing-baselines/
+  .gitignore
+  README.md
+  common/
+    README.md
+    hashing.py
+    validation.py
+  docs/
+    AUDIT_REPORT.md
+    CHECKPOINT_AUDIT.md
+    DATASET_AUDIT.md
+    DESIGN.md
+    ENVIRONMENT_AUDIT.md
+    NATIVE_IO_AUDIT.md
+    REPOSITORY_TREE.md
+    SCOPE.md
+    SERVER_RUNBOOK.md
+    SIZE_COMPATIBILITY.md
+    STATUS.md
+    UPSTREAM_AUDIT.md
+    VALIDATION_DESIGN.md
+  manifests/
+    checkpoints.yaml
+    datasets.yaml
+    environment.yaml
+    local_verification.json
+    public_datasets.json
+    status.json
+    upstreams.yaml
+  methods/
+    cada/
+      cvrp/
+        README.md
+      cvrptw/
+        README.md
+    glop/
+      cvrp/
+        README.md
+      tsp/
+        README.md
+    moses_cada/
+      cvrp/
+        README.md
+      cvrptw/
+        README.md
+    mvmoe/
+      cvrp/
+        README.md
+      cvrptw/
+        README.md
+    neuopt/
+      cvrp/
+        README.md
+    rfte/
+      cvrp/
+        README.md
+      cvrptw/
+        README.md
+    udc/
+      cvrp/
+        README.md
+      tsp/
+        README.md
+  problems/
+    cvrp/
+      README.md
+      objective.py
+      validate.py
+    cvrptw/
+      README.md
+      objective.py
+      validate.py
+    tsp/
+      README.md
+      objective.py
+      validate.py
+  scripts/
+    audit_assets.py
+    audit_datasets.py
+    audit_environment.py
+    audit_model_load.py
+    fetch_public_assets.py
+  tests/
+    test_audits.py
+    test_benchmark_references.py
+    test_validators.py
+  external/       # ignored; 7 official read-only checkouts
+  datasets/       # ignored; 6 official benchmark files
+  artifacts/      # ignored; raw audit JSON and test logs
+```

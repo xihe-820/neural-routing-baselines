@@ -1,0 +1,48 @@
+{
+  "format_note": "JSON syntax, valid YAML 1.2",
+  "workflow": "local development + user-executed server validation",
+  "server": {
+    "status": "NOT_RUN",
+    "historical_only": {
+      "conda_env": "cp311_base",
+      "python": "3.11.13",
+      "torch": "2.5.0+cu124",
+      "cuda": "12.4",
+      "gpu": "RTX 4090",
+      "numpy": "1.26.4",
+      "scipy": "1.10.1",
+      "networkx": "3.5",
+      "ml4co_kit": "0.5.3"
+    }
+  },
+  "wsl_verified": {
+    "label": "local-gan-not-cp311_base",
+    "python": "3.10.20 (main, Mar 11 2026, 17:46:40) [GCC 14.3.0]",
+    "torch": "2.5.1",
+    "environment_report": "artifacts/environment/environment_audit.json",
+    "gpu": {
+      "evidence": "LOCAL_VERIFIED",
+      "observed_local_time": "2026-09-12 01:23:34 Asia/Shanghai",
+      "execution_context": "approved read-only command outside restricted sandbox",
+      "gpu": "NVIDIA GeForce RTX 4060 Laptop GPU",
+      "memory_mib": 8188,
+      "driver_version": "591.86",
+      "nvidia_smi_cuda_max": "13.1",
+      "torch": "2.5.1",
+      "torch_cuda_build": "12.1",
+      "cuda_available": true,
+      "model_forward": "NOT_RUN"
+    }
+  },
+  "policy": "Core ML stack unchanged; targeted low-risk leaf dependencies allowed under user policy. No packages installed this round.",
+  "reference_test_environment": {
+    "executable": "/home/xihe/miniconda3/envs/ml4co_venv/bin/python",
+    "python": "3.10.20",
+    "torch": "2.12.0+cpu",
+    "numpy": "2.2.6",
+    "ml4co_kit": "0.5.4",
+    "kit_checkout_commit": "d22fb8be071156a15836d5ed813123c250800fa8",
+    "kit_preexisting_dirty_file": "ml4co_kit/solver/routing/lib/concorde/pyconcorde/setup.py",
+    "kit_dirty_file_modified_this_round": false
+  }
+}
