@@ -5,7 +5,8 @@
     "problem": "CVRP",
     "problem_size": 50,
     "evidence": "LOCAL_VERIFIED",
-    "project_base_snapshot": "38f794fc19c3aaa988bfa78db0ae51143aab93ef",
+    "phase_0_1_snapshot": "38f794fc19c3aaa988bfa78db0ae51143aab93ef",
+    "first_committed_integration": "54271cf4f97d7bd99784f6e6ee5ce52ee9f5994b",
     "project_worktree_dirty_during_run": true,
     "upstream_url": "https://github.com/RoyalSkye/Routing-MVMoE",
     "upstream_commit": "af29e5af0595f94f3ecc3bc46d72df1089a62682",
@@ -45,6 +46,8 @@
       "problem_size": 50,
       "pomo_size": 50,
       "seed": 2024,
+      "cudnn_benchmark": false,
+      "cudnn_deterministic": true,
       "fine_tune_epochs": 0,
       "loc_scaler": null
     },
@@ -81,7 +84,7 @@
       "artifact_sha256": "c3b47177f52c08c5a72f8041a01d1434dbd093215b2eac9a41d162ddb0870998"
     },
     "official_aug8_first2": {
-      "configuration_class": "official",
+      "configuration_class": "official_search_decode_smoke",
       "aug_factor": 8,
       "count": 2,
       "independent_feasible": 2,
@@ -91,7 +94,7 @@
       "artifact_sha256": "2bc440d216f9c765b3d47d9d5f2c47dd32b62e06275d3ce707364da1ad37a8b1"
     },
     "official_aug8_first5": {
-      "configuration_class": "official",
+      "configuration_class": "official_search_decode_smoke",
       "aug_factor": 8,
       "count": 5,
       "independent_feasible": 5,
@@ -102,13 +105,29 @@
       "validated_artifact": "artifacts/mvmoe_cvrp50/official_aug8_first5_validated.json",
       "artifact_sha256": "001abf3ae3b5ef25f6ddb684560742750ad79a01ad509e8869fbd4828d13ba79",
       "results": [
-        {"index": 0, "reported": 11.156522750854492, "independent": 11.156523627419757, "kit": 11.156524658203125, "reference": 10.973381996154785, "gap_percent": 1.668962506993259, "best_aug_idx": 5, "best_pomo_idx": 5, "feasible": true},
-        {"index": 1, "reported": 9.705957412719727, "independent": 9.705957737490278, "kit": 9.70595645904541, "reference": 9.475135803222656, "gap_percent": 2.4360804854017566, "best_aug_idx": 5, "best_pomo_idx": 19, "feasible": true},
-        {"index": 2, "reported": 10.951583862304688, "independent": 10.951584170825218, "kit": 10.951584815979004, "reference": 10.940146446228027, "gap_percent": 0.10454818546906834, "best_aug_idx": 6, "best_pomo_idx": 30, "feasible": true},
-        {"index": 3, "reported": 10.604280471801758, "independent": 10.604281638054594, "kit": 10.604281425476074, "reference": 10.585029602050781, "gap_percent": 0.18187985038873325, "best_aug_idx": 1, "best_pomo_idx": 13, "feasible": true},
-        {"index": 4, "reported": 12.467794418334961, "independent": 12.46779384991857, "kit": 12.467792510986328, "reference": 12.329596519470215, "gap_percent": 1.1208584987361203, "best_aug_idx": 5, "best_pomo_idx": 48, "feasible": true}
+        {"index": 0, "reported": 11.156522750854492, "independent": 11.156523627419757, "reported_agrees": true, "kit": 11.156524658203125, "kit_agrees": true, "reference": 10.973381996154785, "gap_percent": 1.668962506993259, "best_aug_idx": 5, "best_pomo_idx": 5, "feasible": true},
+        {"index": 1, "reported": 9.705957412719727, "independent": 9.705957737490278, "reported_agrees": true, "kit": 9.70595645904541, "kit_agrees": true, "reference": 9.475135803222656, "gap_percent": 2.4360804854017566, "best_aug_idx": 5, "best_pomo_idx": 19, "feasible": true},
+        {"index": 2, "reported": 10.951583862304688, "independent": 10.951584170825218, "reported_agrees": true, "kit": 10.951584815979004, "kit_agrees": true, "reference": 10.940146446228027, "gap_percent": 0.10454818546906834, "best_aug_idx": 6, "best_pomo_idx": 30, "feasible": true},
+        {"index": 3, "reported": 10.604280471801758, "independent": 10.604281638054594, "reported_agrees": true, "kit": 10.604281425476074, "kit_agrees": true, "reference": 10.585029602050781, "gap_percent": 0.18187985038873325, "best_aug_idx": 1, "best_pomo_idx": 13, "feasible": true},
+        {"index": 4, "reported": 12.467794418334961, "independent": 12.46779384991857, "reported_agrees": true, "kit": 12.467792510986328, "kit_agrees": true, "reference": 12.329596519470215, "gap_percent": 1.1208584987361203, "best_aug_idx": 5, "best_pomo_idx": 48, "feasible": true}
       ],
       "canonical_solution_example_index_0": [0, 6, 50, 32, 20, 11, 33, 0, 28, 1, 42, 25, 16, 9, 2, 0, 38, 47, 44, 41, 7, 45, 22, 49, 0, 31, 13, 26, 29, 27, 36, 24, 39, 0, 5, 34, 14, 23, 30, 37, 0, 15, 12, 19, 48, 18, 43, 0, 3, 4, 8, 17, 21, 40, 0, 10, 35, 46, 0]
+    },
+    "post_generalization_regression_aug8_first5": {
+      "configuration_class": "official_search_decode_smoke",
+      "aug_factor": 8,
+      "pomo_size": 50,
+      "count": 5,
+      "independent_feasible": 5,
+      "kit_feasible": 5,
+      "reported_objective_agrees": 5,
+      "kit_objective_agrees": 5,
+      "completion_gate_passed": 5,
+      "routes_and_all_three_objectives_exactly_match_previous_run": true,
+      "total_runtime_seconds": 0.6829682960014907,
+      "runtime_class": "engineering smoke; NOT PAPER-COMPARABLE",
+      "validated_artifact": "artifacts/mvmoe_cvrp50_v2/official_search_aug8_first5_validated.json",
+      "artifact_sha256": "f8b41326d26a86c5221af6345e39d9d1aa07c2ed3204496f880e198120667ff2"
     }
   }
 }

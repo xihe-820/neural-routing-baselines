@@ -2,7 +2,7 @@
 
 正式size只有50/100；TSP为节点数，CVRP/CVRPTW为customer数（不含depot）。TSP仅GLOP/UDC；CVRP七方法；CVRPTW仅CaDA/MVMoE/4E/RF-TE/MoSES(CaDA)，共26 rows。RF-TE固定Transformer，MoSES固定CaDA backbone，MVMoE固定MOE/4 experts。NeuOpt只迁移CVRP，历史结果不继承为新integration成功。
 
-Phase 0/1 snapshot `38f794fc19c3aaa988bfa78db0ae51143aab93ef` 包含source/asset审计、六组真实公开benchmark、problem-level validators、method-specific接口设计、GLOP/UDC尺寸分析与runbook。当前增量严格只实现 MVMoE/4E + CVRP50；完成本地 first-5 smoke 和 server command 后停止，不扩展其它25 rows。
+Phase 0/1 snapshot `38f794fc19c3aaa988bfa78db0ae51143aab93ef` 包含基础审计；首个已提交MVMoE/CVRP50 integration是`54271cf4f97d7bd99784f6e6ee5ce52ee9f5994b`。当前增量严格只将同一MVMoE/CVRP实现扩展到100并回归50；完成两个size本地first-5 smoke和server command后停止，不实现CVRPTW或其它方法。
 
 No training/fine-tuning/EAL/LoRA training；只用official pretrained assets。不得修改checkpoint、截断/插值权重、用随机权重冒充正式模型、改成500/1000。official source只读；本轮未经明确要求不自动commit/push。不得整体安装legacy requirements。核心Torch/CUDA/NumPy/PyG/rl4co/TensorDict/TorchRL/Lightning更换需先报告；明确必要且低风险的叶子依赖允许记录后安装，本轮实际没有安装任何包。
 

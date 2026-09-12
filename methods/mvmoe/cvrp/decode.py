@@ -4,7 +4,7 @@ from __future__ import annotations
 import numpy as np
 
 
-def decode_selected_nodes(selected_nodes, *, problem_size=50):
+def decode_selected_nodes(selected_nodes, *, problem_size):
     """Collapse only the final depot run; preserve internal route separators."""
     raw = np.asarray(selected_nodes)
     if raw.ndim != 1 or raw.dtype.kind not in "iu" or raw.size == 0:
@@ -30,7 +30,8 @@ def decode_selected_nodes(selected_nodes, *, problem_size=50):
                        "removed_finish_padding": max(0, int(len(raw) - end) - 1)}
 
 
-def select_best_candidates(reward, selected_node_list, *, aug_factor, batch_size):
+def select_best_candidates(reward, selected_node_list, *, aug_factor, batch_size,
+                           problem_size):
     """Mirror Tester._test_one_batch max(POMO), then max(augmentation)."""
     rewards = np.asarray(reward)
     selected = np.asarray(selected_node_list)
@@ -50,7 +51,7 @@ def select_best_candidates(reward, selected_node_list, *, aug_factor, batch_size
         pomo_index = int(best_pomo_per_aug[aug_index, batch_index])
         candidate_reward = float(aug_rewards[aug_index, batch_index, pomo_index])
         canonical, decoding = decode_selected_nodes(
-            aug_selected[aug_index, batch_index, pomo_index])
+            aug_selected[aug_index, batch_index, pomo_index], problem_size=problem_size)
         output.append({
             "best_aug_idx": aug_index,
             "best_pomo_idx": pomo_index,

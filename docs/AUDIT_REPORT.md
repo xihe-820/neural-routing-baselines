@@ -1,20 +1,20 @@
 # Phase 0 / Phase 1 checkpoint report
 
-这是 Phase 0 / Phase 1 snapshot `38f794fc19c3aaa988bfa78db0ae51143aab93ef` 的审计报告。其后 MVMoE/4E + CVRP50 已完成首个本地真实 integration；对应现状见 [method README](../methods/mvmoe/cvrp/README.md)、[STATUS](STATUS.md) 和 [integration manifest](../manifests/mvmoe_cvrp50.json)。其它技术结论维持本报告的证据边界。
+这是 Phase 0 / Phase 1 snapshot `38f794fc19c3aaa988bfa78db0ae51143aab93ef` 的审计报告。其后 MVMoE/4E + CVRP50 已完成首个本地真实 integration，并已将同一adapter本地扩展到CVRP100；对应现状见 [method README](../methods/mvmoe/cvrp/README.md)、[STATUS](STATUS.md)、[CVRP50 manifest](../manifests/mvmoe_cvrp50.json) 和 [CVRP100 manifest](../manifests/mvmoe_cvrp100.json)。其它技术结论维持本报告的证据边界。
 
 ## A. git diff / 新增文件
 
-独立仓库已发布为 `https://github.com/xihe-820/neural-routing-baselines`；Phase 0/1 snapshot 是 `38f794fc19c3aaa988bfa78db0ae51143aab93ef`。本轮 integration 修改尚未自动 commit/push；七个 official checkout 在该报告及本轮 MVMoE smoke 后均保持 clean。
+独立仓库已发布为 `https://github.com/xihe-820/neural-routing-baselines`；Phase 0/1 snapshot是`38f794fc19c3aaa988bfa78db0ae51143aab93ef`，首个已提交MVMoE/CVRP50 integration是`54271cf4f97d7bd99784f6e6ee5ce52ee9f5994b`。实验原始provenance中的project dirty=true仍保留，因为实际smoke发生在该commit产生前；official checkout始终clean。
 
 新增/完善：五个audit/download脚本；SHA与数值输入检查；TSP/CVRP/CVRPTW各自objective/validator；三个测试模块；六组dataset清单；组件式checkpoint/完整strict-load记录；26行细粒度status；13个method/problem接口README；源码/环境/数据/尺寸/runbook文档。实际文件树见B。下载数据与外部源码/权重/原始artifact保持gitignored。
 
 ## B. repository tree
 
-见 [REPOSITORY_TREE.md](REPOSITORY_TREE.md)，只展示主仓库自有文件与ignored目录摘要，不展开official monorepo。共享数学真值在problems/；MVMoE/CVRP50 的输入、decoder和runner现已实现，其它method接口仍保持独立。
+见 [REPOSITORY_TREE.md](REPOSITORY_TREE.md)，只展示主仓库自有文件与ignored目录摘要，不展开official monorepo。共享数学真值在problems/；MVMoE/CVRP50+100 的输入、decoder和runner现已实现，其它method接口仍保持独立。
 
 ## C. 26-row status
 
-完整19列×26行见 [STATUS.md](STATUS.md)，机器可读为 [status.json](../manifests/status.json)。MVMoE/CVRP50 已单独升级为本地 integration LOCAL_VERIFIED；其它 rows 仍保留原审计状态。所有 server 项仍为 NOT_RUN。
+完整19列×26行见 [STATUS.md](STATUS.md)，机器可读为 [status.json](../manifests/status.json)。MVMoE/CVRP50和CVRP100已升级为本地 integration LOCAL_VERIFIED；其它 rows 仍保留原审计状态。所有 server 项仍为 NOT_RUN。
 
 | Method | Problem | N | Local binary/SHA | Official strict load | Configuration / current limit |
 |---|---|---:|---|---|---|
@@ -30,8 +30,8 @@
 | CaDA | CVRP | 100 | NOT_RUN | NOT_RUN | Checkpoint absent; legacy API risk |
 | CaDA | CVRPTW | 50 | NOT_RUN | NOT_RUN | Checkpoint absent; legacy API risk |
 | CaDA | CVRPTW | 100 | NOT_RUN | NOT_RUN | Checkpoint absent; legacy API risk |
-| MVMoE | CVRP | 50 | LOCAL_VERIFIED | LOCAL_VERIFIED | Direct MOEModel/CVRPEnv official-config first-5 integration LOCAL_VERIFIED |
-| MVMoE | CVRP | 100 | LOCAL_VERIFIED | LOCAL_VERIFIED | Tester missing scipy in gan; no forward |
+| MVMoE | CVRP | 50 | LOCAL_VERIFIED | LOCAL_VERIFIED | Direct MOEModel/CVRPEnv official search/decode config first-5 integration LOCAL_VERIFIED |
+| MVMoE | CVRP | 100 | LOCAL_VERIFIED | LOCAL_VERIFIED | Direct MOEModel/CVRPEnv official search/decode config first-5 integration LOCAL_VERIFIED |
 | MVMoE | CVRPTW | 50 | LOCAL_VERIFIED | LOCAL_VERIFIED | Tester missing scipy in gan; no forward; depot TW mapping required |
 | MVMoE | CVRPTW | 100 | LOCAL_VERIFIED | LOCAL_VERIFIED | Tester missing scipy in gan; no forward; depot TW mapping required |
 | RF-TE | CVRP | 50 | NOT_RUN | NOT_RUN | Transformer asset source confirmed; binary absent |
@@ -102,4 +102,4 @@ CVRP50/100默认K_SPARSE键缺失。官方load_partitioner/infer允许显式k_sp
 
 推荐 **GLOP / TSP / 100**，保持既定优先级：先定向取得Reviser100/50/20与args.json，核对原始keys，运行最小forward，设计无歧义ID捕获，再接真实ML4CO少量实例和独立验证。随后GLOP/TSP50验证50/20组合。此建议是工程排序推断，不是已经执行的计划结果。
 
-后续排序建议属于该 snapshot 的历史结论；MVMoE/4E + CVRP50 已在下一轮完成。本轮明确不扩展 CVRP100 或其它方法。
+后续排序建议属于该 snapshot 的历史结论；MVMoE/4E + CVRP50 已在下一轮完成，随后同一adapter扩展到CVRP100。当前实现仍未扩展CVRPTW或其它方法。

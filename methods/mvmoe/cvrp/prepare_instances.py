@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Export selected official ML4CO CVRP50 tasks to a neutral, pickle-free NPZ."""
+"""Export selected official ML4CO CVRP50/100 tasks to a neutral NPZ."""
 from __future__ import annotations
 
 import argparse
@@ -12,22 +12,23 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 from common.hashing import sha256_file
-
-EXPECTED_DATASET_SHA256 = "eea12fbefe9c1bcc008d56ecfc1c50dadd64ac774f3547774c9fade8a7baa6c2"
+from methods.mvmoe.cvrp.config import supported_config
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset", type=Path, required=True)
+    parser.add_argument("--problem-size", type=int, choices=[50, 100], required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--offset", type=int, default=0)
     parser.add_argument("--count", type=int, required=True)
     args = parser.parse_args()
     if args.offset < 0 or args.count <= 0:
         parser.error("offset must be nonnegative and count positive")
+    expected = supported_config(args.problem_size)
     actual_hash = sha256_file(args.dataset)
-    if actual_hash != EXPECTED_DATASET_SHA256:
-        raise ValueError(f"unexpected CVRP50 dataset SHA256: {actual_hash}")
+    if actual_hash != expected["dataset_sha256"]:
+        raise ValueError(f"unexpected CVRP{args.problem_size} dataset SHA256: {actual_hash}")
 
     import ml4co_kit as kit
     wrapper = kit.CVRPWrapper()
@@ -36,10 +37,10 @@ def main():
     if len(tasks) != args.count:
         raise ValueError("requested instance range exceeds dataset")
     for task in tasks:
-        if type(task) is not kit.CVRPTask or task.points.shape != (50, 2):
-            raise ValueError("source task is not an exact ML4CO CVRP50 task")
-        if float(task.capacity) != 40.0:
-            raise ValueError("unexpected CVRP50 capacity")
+        if type(task) is not kit.CVRPTask or task.points.shape != (args.problem_size, 2):
+            raise ValueError(f"source task is not an exact ML4CO CVRP{args.problem_size} task")
+        if float(task.capacity) != expected["capacity"]:
+            raise ValueError(f"unexpected CVRP{args.problem_size} capacity")
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(
@@ -52,7 +53,8 @@ def main():
         reference_objectives=np.asarray([task.evaluate(task.ref_sol) for task in tasks], dtype=np.float64),
     )
     metadata = {
-        "format": "mvmoe-cvrp50-input-v1",
+        "format": "mvmoe-cvrp-input-v2",
+        "problem_size": args.problem_size,
         "dataset_path": str(args.dataset.resolve()),
         "dataset_sha256": actual_hash,
         "dataset_indices": list(range(args.offset, args.offset + args.count)),

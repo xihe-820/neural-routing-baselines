@@ -12,7 +12,7 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 from common.hashing import sha256_file
-from common.result_schema import read_result_bundle, write_result_bundle
+from common.result_schema import complete_validation, read_result_bundle, write_result_bundle
 
 
 def main():
@@ -39,12 +39,9 @@ def main():
         row["kit_feasible"] = feasible
         row["kit_objective"] = objective
         row["kit_objective_abs_error"] = error
-        if row["independent_feasible"] and feasible and agrees:
-            row["evidence_status"] = "LOCAL_VERIFIED"
-            row["error"] = None
-        else:
-            row["evidence_status"] = "FAILED"
-            row["error"] = "Kit feasibility/objective does not agree with independent validation"
+        row["kit_objective_agrees"] = agrees
+        complete_validation(row)
+        if row["evidence_status"] == "FAILED":
             failures.append(row["dataset_instance_index"])
     payload["run_metadata"]["kit_validation"] = {
         "kit_module": kit.__file__, "dataset_path": str(args.dataset.resolve()),

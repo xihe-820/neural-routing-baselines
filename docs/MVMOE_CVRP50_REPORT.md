@@ -1,6 +1,6 @@
 # MVMoE/4E + CVRP50 integration report
 
-Status: `LOCAL_VERIFIED_INTEGRATION_SERVER_NOT_RUN`. Scope stops at CVRP50; no CVRP100/CVRPTW/other method implementation was added.
+Status: `LOCAL_VERIFIED_INTEGRATION_SERVER_NOT_RUN`. This report records the first committed CVRP50 integration at `54271cf4f97d7bd99784f6e6ee5ce52ee9f5994b`. The shared CVRP adapter has since been generalized to CVRP100; see [the CVRP100 report](MVMOE_CVRP100_REPORT.md). CVRPTW and other methods remain untouched.
 
 ## A. Changed files
 
@@ -10,7 +10,7 @@ Status: `LOCAL_VERIFIED_INTEGRATION_SERVER_NOT_RUN`. Scope stops at CVRP50; no C
 - Evidence/status: `manifests/mvmoe_cvrp50.json`, `manifests/status.json`, `docs/STATUS.md`.
 - Minimal hygiene/runbook updates: README, AUDIT_REPORT, DESIGN, REPOSITORY_TREE, SCOPE, SERVER_RUNBOOK; corrected the already-confirmed CVRPTW `depot_end` fact in NATIVE_IO_AUDIT, SIZE_COMPATIBILITY and its method README.
 
-No official source/checkpoint was edited. No dependency install, training, backward, optimizer, commit, or push occurred.
+No official source/checkpoint was edited. No dependency install, training, backward, or optimizer occurred. The work was later committed as `54271cf4f97d7bd99784f6e6ee5ce52ee9f5994b`.
 
 ## B. Tests
 
@@ -22,7 +22,7 @@ Official upstream: `af29e5af0595f94f3ecc3bc46d72df1089a62682`, clean before and 
 
 Model is `MOEModel` / `model_type=MOE`, not MOE_LIGHT: embedding128; encoder6; decoder1; qkv16; heads8; clipping10; FF512; 4 experts; topk2; routing node/input_choice; argmax; instance norm/norm_last; experts Enc0..5+Dec; checkpoint problem Train_ALL. CVRP problem/pomo size 50, seed2024, loc_scaler null, fine_tune epochs0.
 
-## E–F. Reduced and official two-instance smoke
+## E–F. Reduced and official search/decode configuration two-instance smoke
 
 Both used the first two hash-pinned ML4CO CVRP50 instances and the RTX4060.
 
@@ -30,12 +30,12 @@ Both used the first two hash-pinned ML4CO CVRP50 instances and the RTX4060.
 |---|---:|---:|---:|---|---|
 | reduced aug1 / 0 | 11.254352570 | 11.254353142 | 11.254355431 | true / true | 0 / 48 |
 | reduced aug1 / 1 | 9.884812355 | 9.884812193 | 9.884811401 | true / true | 0 / 31 |
-| official aug8 / 0 | 11.156522751 | 11.156523627 | 11.156524658 | true / true | 5 / 5 |
-| official aug8 / 1 | 9.705957413 | 9.705957737 | 9.705956459 | true / true | 5 / 19 |
+| official search/decode aug8 / 0 | 11.156522751 | 11.156523627 | 11.156524658 | true / true | 5 / 5 |
+| official search/decode aug8 / 1 | 9.705957413 | 9.705957737 | 9.705956459 | true / true | 5 / 19 |
 
 Reduced total rollout time was 0.8651s; official two-instance total was 0.7153s. These warm local engineering timings are not paper-comparable benchmarks.
 
-## G. Official-config first-five completion gate
+## G. Official search/decode configuration first-five completion gate
 
 Dataset SHA256: `eea12fbefe9c1bcc008d56ecfc1c50dadd64ac774f3547774c9fade8a7baa6c2`. All rows used aug8/POMO50/argmax/seed2024 and passed independent and Kit feasibility.
 
@@ -48,6 +48,8 @@ Dataset SHA256: `eea12fbefe9c1bcc008d56ecfc1c50dadd64ac774f3547774c9fade8a7baa6c
 | 4 | 12.467794418 | 12.467793850 | 12.467792511 | 12.329596519 | 1.120858 | true | 5 / 48 |
 
 Maximum reported/independent absolute error: `1.1663e-6`; maximum Kit/independent absolute error: `1.3389e-6`. Five-instance total rollout time was 0.8043s. Full result artifact SHA256 is `001abf3ae3b5ef25f6ddb684560742750ad79a01ad509e8869fbd4828d13ba79`; compact committed evidence is [mvmoe_cvrp50.json](../manifests/mvmoe_cvrp50.json).
+
+After generalizing the code to 50/100 and copying the official CuDNN seeding side effects, the final-source v2 CVRP50 first-5 run reproduced all five canonical routes and all three objective fields exactly. All 5/5 rows also passed the new four-part completion gate. The new total rollout time was 0.6829683s; its validated artifact SHA256 is `f8b41326d26a86c5221af6345e39d9d1aa07c2ed3204496f880e198120667ff2`.
 
 ## H–I. Actual solution and candidate selection
 
@@ -67,11 +69,11 @@ Model environment: Python3.10.20, Torch2.5.1+CUDA12.1 build, NumPy1.24.3, RTX406
 
 ## M. Server-ready command
 
-Use [SERVER_RUNBOOK Step 7](SERVER_RUNBOOK.md#step-7--mvmoe4e-cvrp50-official-config-smoke). It checks out an explicitly approved project commit, prepares first five source instances, runs the exact official configuration, then applies Kit secondary validation. Because this integration remains uncommitted by request, the approved commit variable must be filled after human review and commit/push.
+Use [SERVER_RUNBOOK](SERVER_RUNBOOK.md). The first committed CVRP50 implementation is `54271cf4f97d7bd99784f6e6ee5ce52ee9f5994b`; server execution must still checkout the exact project commit approved for that run.
 
 ## N. Remaining issues
 
 - Server dataset/checkpoint identity, cp311_base environment and RTX4090 execution remain `NOT_RUN`.
-- The current integration changes are uncommitted, so GitHub deployment requires a later approved commit containing them.
+- CVRP50 code is committed; server execution and server asset/environment evidence remain pending.
 - Runtime values are small-smoke engineering observations, not benchmark timing claims.
-- CVRP100 and CVRPTW are intentionally untouched. For future CVRPTW work, the official tester already exposes a per-instance `env.depot_end` mechanism; actual validation is still required.
+- CVRP100 is now covered separately; CVRPTW remains intentionally untouched. For future CVRPTW work, the official tester already exposes a per-instance `env.depot_end` mechanism; actual validation is still required.

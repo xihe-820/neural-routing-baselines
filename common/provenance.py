@@ -5,6 +5,8 @@ import platform
 import subprocess
 import sys
 from pathlib import Path
+import re
+from urllib.parse import urlsplit
 
 from common.hashing import sha256_file
 
@@ -23,6 +25,25 @@ def git_provenance(repo):
         "dirty": bool(_git(repo, "status", "--porcelain")),
         "url": _git(repo, "remote", "get-url", "origin"),
     }
+
+
+def normalize_git_repository_identity(url):
+    """Normalize common HTTPS/SSH GitHub remotes without weakening commit checks."""
+    value = url.strip()
+    scp = re.fullmatch(r"(?:[^@]+@)?([^:]+):(.+)", value)
+    if scp and "://" not in value:
+        host, path = scp.groups()
+    else:
+        parsed = urlsplit(value)
+        if not parsed.hostname:
+            raise ValueError(f"unsupported git remote URL: {url}")
+        host, path = parsed.hostname, parsed.path
+    path = path.strip("/")
+    if path.endswith(".git"):
+        path = path[:-4]
+    if host.lower() != "github.com" or len(path.split("/")) != 2:
+        raise ValueError(f"expected a GitHub OWNER/REPO remote: {url}")
+    return f"github.com/{path}"
 
 
 def source_provenance(paths, *, root):

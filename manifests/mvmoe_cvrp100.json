@@ -1,0 +1,124 @@
+{
+  "integration": {
+    "method": "MVMoE",
+    "variant": "MOE/4E",
+    "problem": "CVRP",
+    "problem_size": 100,
+    "evidence": "LOCAL_VERIFIED",
+    "project_base_commit": "54271cf4f97d7bd99784f6e6ee5ce52ee9f5994b",
+    "project_worktree_dirty_during_run": true,
+    "upstream_url": "https://github.com/RoyalSkye/Routing-MVMoE",
+    "upstream_commit": "af29e5af0595f94f3ecc3bc46d72df1089a62682",
+    "upstream_dirty_before_and_after": false,
+    "checkpoint": {
+      "path": "pretrained/mvmoe_4e_n100/epoch-5000.pt",
+      "sha256": "554d6daea825e17d62c1b9db40d56869312923848504bdf4970663673c971bdc",
+      "epoch": 5000,
+      "problem": "Train_ALL",
+      "strict_load": true
+    },
+    "dataset": {
+      "filename": "cvrp100_hgs-20s_15.563.pkl",
+      "sha256": "bb47d5a113848e5a404edefc562d5d2ef6b0ade1aafc287828bdf60364e23532",
+      "indices": [0, 1, 2, 3, 4],
+      "raw_capacity": 50
+    },
+    "model_config": {
+      "model_type": "MOE",
+      "embedding_dim": 128,
+      "encoder_layer_num": 6,
+      "decoder_layer_num": 1,
+      "qkv_dim": 16,
+      "head_num": 8,
+      "logit_clipping": 10,
+      "ff_hidden_dim": 512,
+      "num_experts": 4,
+      "topk": 2,
+      "routing_level": "node",
+      "routing_method": "input_choice",
+      "eval_type": "argmax",
+      "norm": "instance",
+      "norm_loc": "norm_last",
+      "expert_loc": ["Enc0", "Enc1", "Enc2", "Enc3", "Enc4", "Enc5", "Dec"],
+      "problem": "Train_ALL",
+      "problem_size": 100,
+      "pomo_size": 100,
+      "seed": 2024,
+      "cudnn_benchmark": false,
+      "cudnn_deterministic": true,
+      "fine_tune_epochs": 0,
+      "loc_scaler": null
+    },
+    "execution": {
+      "model_environment": {
+        "python": "3.10.20",
+        "torch": "2.5.1",
+        "torch_cuda_build": "12.1",
+        "numpy": "1.24.3",
+        "device": "cuda:0",
+        "gpu": "NVIDIA GeForce RTX 4060 Laptop GPU"
+      },
+      "kit_environment": {
+        "python": "3.10.20",
+        "torch": "2.12.0+cpu",
+        "numpy": "2.2.6",
+        "ml4co_kit": "0.5.4"
+      },
+      "training": false,
+      "backward": false,
+      "optimizer_created": false,
+      "server_evidence": "NOT_RUN"
+    }
+  },
+  "smokes": {
+    "reduced_aug1_first2": {
+      "configuration_class": "reduced_debug",
+      "aug_factor": 1,
+      "pomo_size": 100,
+      "count": 2,
+      "completion_gate_passed": 2,
+      "total_runtime_seconds": 0.8051193700011936,
+      "runtime_class": "engineering smoke; NOT PAPER-COMPARABLE",
+      "validated_artifact": "artifacts/mvmoe_cvrp100/reduced_aug1_first2_validated.json",
+      "artifact_sha256": "4e081aa778512e90e8aadb56e51057e78e6f27debf47b5936bbf08db79506bdb"
+    },
+    "official_search_aug8_first2": {
+      "configuration_class": "official_search_decode_smoke",
+      "aug_factor": 8,
+      "pomo_size": 100,
+      "count": 2,
+      "completion_gate_passed": 2,
+      "total_runtime_seconds": 0.9046776239993051,
+      "runtime_class": "engineering smoke; NOT PAPER-COMPARABLE",
+      "validated_artifact": "artifacts/mvmoe_cvrp100/official_search_aug8_first2_validated.json",
+      "artifact_sha256": "3e92d46fec0d495a888e75584fab6e5ae5b3fc61511ec6845d3729ca8aff4f72"
+    },
+    "official_search_aug8_first5": {
+      "configuration_class": "official_search_decode_smoke",
+      "aug_factor": 8,
+      "pomo_size": 100,
+      "count": 5,
+      "independent_feasible": 5,
+      "kit_feasible": 5,
+      "reported_objective_agrees": 5,
+      "kit_objective_agrees": 5,
+      "completion_gate_passed": 5,
+      "batch_size": 5,
+      "total_runtime_seconds": 1.0965036720008356,
+      "per_row_runtime_semantics": "amortized total rollout runtime / batch size; not latency",
+      "runtime_class": "engineering smoke; NOT PAPER-COMPARABLE",
+      "max_reported_independent_abs_error": 0.0000013781070578033905,
+      "max_kit_independent_abs_error": 0.0000030950588190137296,
+      "validated_artifact": "artifacts/mvmoe_cvrp100/official_search_aug8_first5_validated.json",
+      "artifact_sha256": "02c2bf55fc4ab0817fc3d22d6872c009010c5ac89a5fe62ec487d5ef60005da4",
+      "results": [
+        {"index": 0, "reported": 14.775226593017578, "independent": 14.77522668955278, "reported_agrees": true, "kit": 14.775224685668945, "kit_agrees": true, "reference": 14.605233192443848, "gap_percent": 1.16392182766982, "feasible": true, "best_aug_idx": 0, "best_pomo_idx": 87},
+        {"index": 1, "reported": 14.362275123596191, "independent": 14.362274229931918, "reported_agrees": true, "kit": 14.362271308898926, "kit_agrees": true, "reference": 14.043173789978027, "gap_percent": 2.2722814993688836, "feasible": true, "best_aug_idx": 7, "best_pomo_idx": 25},
+        {"index": 2, "reported": 14.842935562133789, "independent": 14.842935233388848, "reported_agrees": true, "kit": 14.842935562133789, "kit_agrees": true, "reference": 14.578950881958008, "gap_percent": 1.810722551768324, "feasible": true, "best_aug_idx": 4, "best_pomo_idx": 17},
+        {"index": 3, "reported": 15.408880233764648, "independent": 15.408880467800518, "reported_agrees": true, "kit": 15.4088773727417, "kit_agrees": true, "reference": 15.096461296081543, "gap_percent": 2.069486123877701, "feasible": true, "best_aug_idx": 0, "best_pomo_idx": 62},
+        {"index": 4, "reported": 18.99372100830078, "independent": 18.99372238640784, "reported_agrees": true, "kit": 18.993722915649414, "kit_agrees": true, "reference": 18.81623649597168, "gap_percent": 0.9432592456741117, "feasible": true, "best_aug_idx": 2, "best_pomo_idx": 4}
+      ],
+      "canonical_solution_example_index_0": [0, 88, 73, 96, 50, 32, 86, 59, 20, 6, 65, 0, 90, 49, 87, 22, 45, 7, 41, 75, 79, 14, 76, 85, 0, 52, 54, 5, 66, 34, 78, 89, 46, 91, 0, 30, 61, 23, 71, 74, 97, 98, 44, 70, 93, 47, 77, 0, 37, 53, 33, 69, 11, 9, 16, 92, 63, 2, 35, 0, 10, 38, 72, 1, 42, 25, 67, 99, 28, 83, 0, 64, 43, 31, 58, 13, 26, 80, 81, 24, 39, 48, 0, 40, 21, 82, 17, 94, 8, 4, 57, 3, 0, 18, 56, 36, 55, 95, 29, 27, 60, 19, 12, 84, 0, 62, 15, 100, 68, 51, 0]
+    }
+  }
+}

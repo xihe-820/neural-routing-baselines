@@ -1,33 +1,34 @@
-# MVMoE/4E / CVRP50 — LOCAL_VERIFIED integration
+# MVMoE/4E / CVRP50+100 — LOCAL_VERIFIED integration
 
-本目录只实现 CVRP50；CVRP100 与 CVRPTW 未复用或扩展。使用官方 upstream `af29e5af0595f94f3ecc3bc46d72df1089a62682`、`pretrained/mvmoe_4e_n50/epoch-5000.pt`（SHA256 `3417f302fbddf232fd19a2a886cd1c7f44290b6d8c7280fcb0ae3777eeed3192`）和正式 ML4CO CVRP50 数据。
+This directory implements the same method/problem adapter for the two official sizes `50` and `100`. It does not implement CVRPTW. Both sizes pin Routing-MVMoE commit `af29e5af0595f94f3ecc3bc46d72df1089a62682`, an exact ML4CO dataset SHA, an exact 4E checkpoint SHA, and the native capacity (`40` or `50`).
 
-- `prepare_instances.py`：在已有 Kit 环境中验证dataset SHA/task/size/capacity，把指定实例导出为pickle-free NPZ；保持raw demand/capacity。
-- `adapter.py`：直接适配官方 `CVRPEnv.load_problems`，只做一次 `raw_demand/raw_capacity`；输出 `[B,1,2]`、`[B,50,2]`、`[B,50]`。
-- `run.py`：直接构造官方 `MOEModel` 与 `CVRPEnv`，strict load后按 `load_problems → reset → pre_forward → pre_step → model/step` rollout；不导入Tester，不创建optimizer，不训练/backward/fine-tune。
-- `decode.py`：按官方 reward 的同一 augmentation/POMO index gather `selected_node_list`。官方CVRPEnv首步为depot；finished POMO会继续选择depot等待，因此仅把最后连续depot规范为一个，保留内部route separators，不修复重复/缺失customer。
-- `validate_with_kit.py`：在已有 Kit 环境读取canonical JSON和hash-pinned source task，补入secondary feasibility/objective。
+- `config.py` is the only size-to-asset identity table; filenames are never used to infer model identity.
+- `prepare_instances.py` validates dataset SHA, task class, point shape and capacity, then writes `mvmoe-cvrp-input-v2` NPZ data with raw demands and capacity.
+- `adapter.py` accepts only size 50/100 and applies `raw_demand / raw_capacity` exactly once for official `CVRPEnv.load_problems` input.
+- `run.py` directly constructs official `MOEModel` and `CVRPEnv`, strict-loads the checkpoint, and follows `load_problems → reset → pre_forward → pre_step → model/step`. It creates no optimizer and performs no training, backward or fine-tuning.
+- `decode.py` selects the exact reward's augmentation/POMO trajectory. It collapses only terminal finished-POMO depot padding; internal depot separators, duplicates and missing customers remain available to the validator.
+- `validate_with_kit.py` adds independent ML4CO-Kit feasibility/objective evidence. Full `LOCAL_VERIFIED` requires independent feasibility, Kit feasibility, reported-objective agreement and Kit-objective agreement.
 
-正式模型：MOE（非MOE_LIGHT），embedding128、encoder6、decoder1、qkv16、heads8、ff512、4 experts、topk2、node/input_choice、argmax、instance norm/norm_last、experts at Enc0..5+Dec、checkpoint problem Train_ALL。`problem_size=pomo_size=50`，seed2024。Reduced smoke使用aug1并明确标为debug；completion smoke使用官方aug8。
+The model is official MOE/4E (not MOE_LIGHT): embedding 128, 6 encoder layers, 1 decoder layer, qkv 16, 8 heads, ff 512, 4 experts, top-k 2, node/input-choice routing, argmax, instance norm/norm_last, and experts at Enc0..5+Dec. The environment uses `problem_size=pomo_size=N`; seed 2024 also copies the two CuDNN side effects from `Routing-MVMoE/utils.py:seed_everything`. Reduced smoke uses aug1 and is explicitly debug-only. Completion uses the official search/decode configuration aug8, on only 2/5 instances; it is not the authors' complete evaluation command or a paper benchmark.
 
-8-fold augmentation来自官方 `CVRPEnv.augment_xy_data_by_8_fold`，只变换坐标、不改变节点顺序；因此native IDs仍是benchmark depot0/customers1..50。独立objective始终在原始benchmark coordinates上重算。每个result保存完整Git/checkpoint/dataset/source SHA、配置、best augmentation/POMO、actual canonical solution、官方/独立/Kit成本、约束和环境。
-
-本地RTX4060 official-config first-5：5/5 independent feasible，5/5 Kit feasible；最大official reward与独立成本绝对差约`1.17e-6`。逐实例结果见 [integration manifest](../../../manifests/mvmoe_cvrp50.json)。本地成功不等于服务器成功；server字段仍NOT_RUN。
+The local RTX4060 first-5 completion runs are 5/5 independently feasible and 5/5 Kit feasible for both sizes; every reported and Kit objective agrees with the independently recomputed objective at `rtol=atol=1e-6`. CVRP50 routes and costs exactly match the earlier integration after generalization. See the [CVRP50 manifest](../../../manifests/mvmoe_cvrp50.json) and [CVRP100 manifest](../../../manifests/mvmoe_cvrp100.json). Server evidence remains `NOT_RUN`.
 
 ```bash
-# Kit environment: prepare exact first five tasks
-python -B methods/mvmoe/cvrp/prepare_instances.py --dataset "$CVRP50_DATASET" \
-  --offset 0 --count 5 --output artifacts/mvmoe_cvrp50/input_first5.npz
+# Set N=50 or N=100, with its matching pinned dataset and checkpoint.
+python -B methods/mvmoe/cvrp/prepare_instances.py \
+  --dataset "$CVRP_DATASET" --problem-size "$N" --offset 0 --count 5 \
+  --output "artifacts/mvmoe_cvrp${N}/input_first5.npz"
 
-# Model environment: official configuration
-python -B methods/mvmoe/cvrp/run.py --input artifacts/mvmoe_cvrp50/input_first5.npz \
+python -B methods/mvmoe/cvrp/run.py \
+  --problem-size "$N" --input "artifacts/mvmoe_cvrp${N}/input_first5.npz" \
   --upstream "$MVMOE_UPSTREAM" --checkpoint "$MVMOE_CHECKPOINT" \
-  --output artifacts/mvmoe_cvrp50/official_aug8_first5.json \
+  --output "artifacts/mvmoe_cvrp${N}/official_search_aug8_first5.json" \
   --aug-factor 8 --seed 2024 --device auto
 
-# Kit environment: secondary validation
 python -B methods/mvmoe/cvrp/validate_with_kit.py \
-  --input artifacts/mvmoe_cvrp50/official_aug8_first5.json \
-  --dataset "$CVRP50_DATASET" \
-  --output artifacts/mvmoe_cvrp50/official_aug8_first5_validated.json
+  --input "artifacts/mvmoe_cvrp${N}/official_search_aug8_first5.json" \
+  --dataset "$CVRP_DATASET" \
+  --output "artifacts/mvmoe_cvrp${N}/official_search_aug8_first5_validated.json"
 ```
+
+The result's per-row `runtime_seconds` is the total rollout time divided by the original batch size. It is an amortized engineering-smoke measurement, not single-instance latency and not paper-comparable.

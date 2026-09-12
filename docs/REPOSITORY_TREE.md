@@ -1,6 +1,6 @@
 # Repository tree
 
-Tracked Phase 0/1 snapshot: `38f794fc19c3aaa988bfa78db0ae51143aab93ef`. This tree also includes the current uncommitted MVMoE/CVRP50 integration. Ignored external/data/artifact directories are summarized only.
+Phase 0/1 snapshot: `38f794fc19c3aaa988bfa78db0ae51143aab93ef`. First committed MVMoE/CVRP50 integration: `54271cf4f97d7bd99784f6e6ee5ce52ee9f5994b`. The tree also includes current CVRP50/100 development changes; ignored external/data/artifact directories are summarized only.
 
 ```text
 neural-routing-baselines/
@@ -19,6 +19,7 @@ neural-routing-baselines/
     DESIGN.md
     ENVIRONMENT_AUDIT.md
     MVMOE_CVRP50_REPORT.md
+    MVMOE_CVRP100_REPORT.md
     NATIVE_IO_AUDIT.md
     REPOSITORY_TREE.md
     SCOPE.md
@@ -33,6 +34,7 @@ neural-routing-baselines/
     environment.yaml
     local_verification.json
     mvmoe_cvrp50.json
+    mvmoe_cvrp100.json
     public_datasets.json
     status.json
     upstreams.yaml
@@ -56,6 +58,7 @@ neural-routing-baselines/
       cvrp/
         README.md
         adapter.py
+        config.py
         decode.py
         prepare_instances.py
         run.py

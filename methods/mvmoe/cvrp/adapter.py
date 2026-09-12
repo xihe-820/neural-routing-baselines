@@ -4,7 +4,7 @@ from __future__ import annotations
 import numpy as np
 
 
-def adapt_batch(depots, points, raw_demands, raw_capacities, *, device):
+def adapt_batch(depots, points, raw_demands, raw_capacities, *, problem_size, device):
     """Normalize demands exactly once; perform no search, repair, or scoring."""
     import torch
 
@@ -19,8 +19,10 @@ def adapt_batch(depots, points, raw_demands, raw_capacities, *, device):
     if customers.ndim != 3 or customers.shape[2] != 2:
         raise ValueError("points must have shape [B,N,2]")
     batch, size = customers.shape[:2]
-    if size != 50:
-        raise ValueError("this integration is intentionally limited to CVRP50")
+    if problem_size not in (50, 100):
+        raise ValueError("problem_size must be 50 or 100")
+    if size != problem_size:
+        raise ValueError("points size does not match requested problem_size")
     if depot.shape[0] != batch or demand.shape != (batch, size):
         raise ValueError("batch dimensions or demand shape do not match")
     if capacity.shape == (batch, 1):
@@ -45,5 +47,6 @@ def adapt_batch(depots, points, raw_demands, raw_capacities, *, device):
         "customer_id_relation": "identity: native 1..N == benchmark 1..N",
         "augmentation_preserves_node_order": True,
         "normalization": "node_demand = raw_demand / raw_capacity exactly once",
+        "problem_size": problem_size,
     }
     return native, mapping
