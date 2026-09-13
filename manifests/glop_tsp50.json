@@ -1,0 +1,50 @@
+{
+  "evidence_class": "BLOCKED_LOCAL_OFFICIAL_ASSETS_AND_REQUIRED_DEPENDENCY_MISSING",
+  "method": "GLOP",
+  "problem": "TSP",
+  "problem_size": 50,
+  "project_base_commit": "b53560d44859d5d28ee261ae052a23851c75c92f",
+  "upstream": {"url": "https://github.com/henry-yeh/GLOP", "commit": "e540bc0153a0598e923e35116deeaecaf9c1cfff", "clean": true, "read_only": true},
+  "dataset": {"filename": "tsp50_concorde_5.688.pkl", "sha256": "1ede2b289d2e6fbfe614219a86d1ba6dfca2a726925a8fe8cef9c8196ee0b213", "count": 1280, "local_verified": true},
+  "source_compatibility": {
+    "classification": "SOURCE_SUPPORTED",
+    "configuration_evidence_class": "official generic inference defaults plus exact size-compatible source path",
+    "evidence": [
+      "README.md:52 permits evaluation on own datasets through --path",
+      "main.py:175-198 defines configurable problem_size and generic inference defaults",
+      "main.py:62-70 explicitly handles every TSP problem_size <=100",
+      "utils/functions.py:308 rejects only revision_len greater than current tour length"
+    ],
+    "formal_configuration": {"problem_type": "tsp", "problem_size": 50, "revision_lens": [20], "revision_iters": [10], "width_requested": 1, "width_after_small_size_branch": 1, "tsp_aug": false, "decode_strategy": "sampling", "no_aug": false, "no_prune": false, "seed": 1},
+    "claim_limit": "not an explicit README TSP50 command and not described as a paper setting"
+  },
+  "official_asset_audit": {
+    "source": "https://drive.google.com/file/d/1u9-GVTMRux3rWGcbipSqyTyBx_V8pm9G/view",
+    "source_status": "SOURCE_CONFIRMED",
+    "bundle_listing_confirmed": true,
+    "formal_required_assets": [
+      {"path": "pretrained/Reviser-stage2/reviser_20/epoch-299.pt", "bundle_member_size_bytes": 25034377, "local_materialized": false, "sha256": null, "torch_deserialize": "NOT_RUN", "strict_model_load": "NOT_RUN"},
+      {"path": "pretrained/Reviser-stage2/reviser_20/args.json", "bundle_member_size_bytes": 1004, "local_materialized": false, "sha256": null, "constructor_args_verified": false}
+    ],
+    "historical_candidate_not_required_by_formal_generic_default": "pretrained/Reviser-stage2/reviser_50/epoch-299.pt"
+  },
+  "local_environment_audit": {
+    "gan": {"python": "3.10.20", "torch": "2.5.1", "random_insertion": false, "scipy": false},
+    "ml4co_venv": {"python": "3.10.20", "torch": "2.12.0+cpu", "random_insertion": false, "scipy": true},
+    "neuopt": {"python": "3.10.21", "torch": "1.13.1+cu117", "random_insertion": false, "scipy": true},
+    "required_dependency_blocker": "no existing environment provides the official random_insertion dependency"
+  },
+  "implemented_foundation": {
+    "neutral_prepare": "LOCAL_VERIFIED",
+    "adapter": "LOCAL_VERIFIED_BY_UNIT_TEST",
+    "exact_solution_decoder": "LOCAL_VERIFIED_BY_UNIT_TEST",
+    "first2_input_npz_sha256": "5d1396804afb0cd60b0ae95c17041ada0db8bd920f440f6d42195639ed3cc3d9",
+    "first5_input_npz_sha256": "4b9b87d8ef48ff91820035fbe40702b771cbd80e30bc7b5f12a49fd79f8f4c1c"
+  },
+  "actual_solution_extraction_design": "official output coordinates are matched by exact float32 bits against the sole identity transform; node IDs are rotated to start at zero without reorder, nearest-neighbor matching, tolerance, or repair",
+  "first2": "NOT_RUN",
+  "first5": "NOT_RUN",
+  "kit_validation": "NOT_RUN",
+  "why_no_inference": "official reviser binary and companion args are not locally materialized, and random_insertion is missing from every existing safe environment",
+  "server_evidence": "NOT_RUN"
+}

@@ -1,0 +1,30 @@
+{
+  "evidence_class": "SERVER_VERIFIED",
+  "method": "NeuOpt",
+  "variant": "GIRE",
+  "problem": "CVRP",
+  "problem_size": 100,
+  "project_commit": "b53560d44859d5d28ee261ae052a23851c75c92f",
+  "upstream_url": "https://github.com/yining043/NeuOpt",
+  "upstream_commit": "ccf6b5f0f6a8fda2792b4be11d4ec35390a8139b",
+  "configuration": {"eval_only": true, "init_val_met": "random", "seed": 6666, "val_m": 1, "stall_limit": 10, "k": 4, "T_max": 1000, "training": false, "backward": false, "optimizer_created": false},
+  "tensorboard_compatibility": {
+    "tensorboard_logger_available": false,
+    "tensorboard_logger_import_shim": true,
+    "compatibility_reason": "official NeuOpt imports tensorboard_logger unconditionally, while formal eval_only/no_tb inference does not instantiate Logger",
+    "official_source_modified": false,
+    "logger_instantiated": false
+  },
+  "total_runtime_seconds": 1219.1778151867911,
+  "runtime_class": "engineering smoke; NOT PAPER-COMPARABLE",
+  "four_gate_counts": {"count": 5, "reported_objective_agrees": 5, "kit_objective_agrees": 5, "independent_feasible": 5, "kit_feasible": 5},
+  "results": [
+    {"index": 0, "reported": 14.708573341370, "independent": 14.708574163231, "kit": 14.708574151620, "reference": 14.605232179165},
+    {"index": 1, "reported": 14.477122306824, "independent": 14.477121590099, "kit": 14.477121583652, "reference": 14.043174288701},
+    {"index": 2, "reported": 14.659826278687, "independent": 14.659826380791, "kit": 14.659826475196, "reference": 14.578952469863},
+    {"index": 3, "reported": 15.350338935852, "independent": 15.350339056345, "kit": 15.350339016877, "reference": 15.096463770606},
+    {"index": 4, "reported": 19.241136550903, "independent": 19.241136025205, "kit": 19.241136052180, "reference": 18.816234965343}
+  ],
+  "validated_artifact_sha256": "2a8537ac423895c1fa4e27193e0207bd9fe91941e7cb89a4a4c6576a94051058",
+  "evidence_origin": "user-executed server validation; raw values supplied to this repository"
+}

@@ -1,0 +1,24 @@
+{
+  "evidence_class": "BLOCKED_OFFICIAL_SMALL_SIZE_CONFIGURATION_UNDEFINED",
+  "method": "GLOP",
+  "problem": "CVRP",
+  "problem_size": 100,
+  "project_base_commit": "b53560d44859d5d28ee261ae052a23851c75c92f",
+  "upstream": {"url": "https://github.com/henry-yeh/GLOP", "commit": "e540bc0153a0598e923e35116deeaecaf9c1cfff", "clean": true, "read_only": true},
+  "dataset": {"filename": "cvrp100_hgs-20s_15.563.pkl", "sha256": "bb47d5a113848e5a404edefc562d5d2ef6b0ade1aafc287828bdf60364e23532", "count": 10000, "capacity": 50, "local_verified": true},
+  "source_evidence": {
+    "README_examples": [1000, 2000, 5000, 7000],
+    "K_SPARSE": {"1000": 100, "2000": 200, "5000": 200, "7000": 200},
+    "load_partitioner": "heatmap/cvrp/infer.py:16-20 indexes K_SPARSE[n] and defaults to cvrp-{n}.pt",
+    "infer": "heatmap/cvrp/infer.py:30-34 independently indexes K_SPARSE[n]",
+    "entry_path": "problems/cvrp.py:39 calls load_partitioner(opts.problem_size, ...) without a small-size override",
+    "missing_target_entries": [50, 100]
+  },
+  "historical_candidate_assets": ["pretrained/Partitioner/cvrp/cvrp-1000.pt", "pretrained/Reviser-stage2/reviser_20/epoch-299.pt"],
+  "asset_conclusion": "the official bundle lists the CVRP1000 partitioner, but it is not evidence for an undocumented CVRP100 k_sparse/architecture",
+  "adapter": "NOT_IMPLEMENTED_BLOCKED",
+  "solution_decoder": "NOT_IMPLEMENTED_BLOCKED",
+  "inference": "NOT_RUN",
+  "why_no_inference": "official pinned source has no K_SPARSE entry or documented small-size partitioner configuration for N=50/100; no k_sparse was invented and no partitioner was bypassed",
+  "server_evidence": "NOT_RUN"
+}

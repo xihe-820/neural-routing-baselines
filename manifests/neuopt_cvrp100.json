@@ -1,5 +1,5 @@
 {
-  "evidence_class": "LOCAL_VERIFIED_INTEGRATION_SERVER_NOT_RUN",
+  "evidence_class": "SERVER_VERIFIED_INTEGRATION",
   "method": "NeuOpt",
   "variant": "GIRE",
   "problem": "CVRP",
@@ -99,5 +99,9 @@
     "guard": "Logger instantiation raises RuntimeError",
     "official_source_modified": false
   },
-  "server_evidence": "NOT_RUN"
+  "server_evidence": {
+    "status": "SERVER_VERIFIED",
+    "manifest": "manifests/server_neuopt_cvrp100.json",
+    "validated_artifact_sha256": "2a8537ac423895c1fa4e27193e0207bd9fe91941e7cb89a4a4c6576a94051058"
+  }
 }

@@ -1,0 +1,50 @@
+{
+  "evidence_class": "BLOCKED_LOCAL_OFFICIAL_ASSETS_AND_REQUIRED_DEPENDENCY_MISSING",
+  "method": "GLOP",
+  "problem": "TSP",
+  "problem_size": 100,
+  "project_base_commit": "b53560d44859d5d28ee261ae052a23851c75c92f",
+  "upstream": {"url": "https://github.com/henry-yeh/GLOP", "commit": "e540bc0153a0598e923e35116deeaecaf9c1cfff", "clean": true, "read_only": true},
+  "dataset": {"filename": "tsp100_concorde_7.756.pkl", "sha256": "a2bfe99857b8072bdba051f6ae402b7e241f01b0462c5f379ed0aa03786406a0", "count": 1280, "local_verified": true},
+  "source_compatibility": {
+    "classification": "SOURCE_SUPPORTED",
+    "configuration_evidence_class": "exact official documented command",
+    "evidence": "README.md:68-69 exact cross-distribution uniform TSP100 evaluation command",
+    "formal_configuration": {"problem_type": "tsp", "problem_size": 100, "revision_lens": [100, 50, 20, 10], "revision_iters": [20, 10, 10, 5], "width_requested": 140, "width_after_small_size_branch": 35, "tsp_aug": true, "top_level_candidate_count": 140, "decode_strategy": "sampling", "no_aug": true, "no_prune": true, "seed": 1},
+    "augmentation_semantics": "--no_aug disables per-revision transformed-seed augmentation; main.py:62-70 and 133-137 independently produce four top-level reflected candidates when width>=4"
+  },
+  "official_asset_audit": {
+    "source": "https://drive.google.com/file/d/1u9-GVTMRux3rWGcbipSqyTyBx_V8pm9G/view",
+    "source_status": "SOURCE_CONFIRMED",
+    "bundle_listing_confirmed": true,
+    "formal_required_assets": [
+      {"reviser_size": 100, "checkpoint_size_bytes": 31434377, "args_size_bytes": 1022, "local_materialized": false},
+      {"reviser_size": 50, "checkpoint_size_bytes": 27594377, "args_size_bytes": 1004, "local_materialized": false},
+      {"reviser_size": 20, "checkpoint_size_bytes": 25034377, "args_size_bytes": 1004, "local_materialized": false},
+      {"reviser_size": 10, "checkpoint_size_bytes": 24394377, "args_size_bytes": 1004, "local_materialized": false}
+    ],
+    "sha256": "NOT_RUN",
+    "torch_deserialize": "NOT_RUN",
+    "strict_model_load": "NOT_RUN",
+    "constructor_args_verified": false
+  },
+  "local_environment_audit": {
+    "gan": {"python": "3.10.20", "torch": "2.5.1", "random_insertion": false, "scipy": false},
+    "ml4co_venv": {"python": "3.10.20", "torch": "2.12.0+cpu", "random_insertion": false, "scipy": true},
+    "neuopt": {"python": "3.10.21", "torch": "1.13.1+cu117", "random_insertion": false, "scipy": true},
+    "required_dependency_blocker": "no existing environment provides the official random_insertion dependency"
+  },
+  "implemented_foundation": {
+    "neutral_prepare": "LOCAL_VERIFIED",
+    "adapter": "LOCAL_VERIFIED_BY_UNIT_TEST",
+    "exact_solution_decoder": "LOCAL_VERIFIED_BY_UNIT_TEST",
+    "first2_input_npz_sha256": "be89f2aa468f89d9b107c737272c18a669bb00f32855975fd41bd41b83d4db5f",
+    "first5_input_npz_sha256": "401f873c7755b3cd73a5bfbab79b0a2038676c4c041b56d610e5849bd00efca0"
+  },
+  "actual_solution_extraction_design": "official returned coordinates remain an exact permutation of one known top-level transform; unique float32-bit set matching identifies identity/x/y/xy reflection and original node IDs, then rotates the cycle to node zero without repair",
+  "first2": "NOT_RUN",
+  "first5": "NOT_RUN",
+  "kit_validation": "NOT_RUN",
+  "why_no_inference": "official reviser binaries and companion args are not locally materialized, and random_insertion is missing from every existing safe environment",
+  "server_evidence": "NOT_RUN"
+}

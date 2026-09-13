@@ -18,7 +18,7 @@ Only problem sizes 50 and 100 are formal targets. Training, fine-tuning and modi
 
 The matrix contains 13 method/problem integrations and 26 independent size rows. See [STATUS](docs/STATUS.md) for current evidence.
 
-MVMoE CVRP/CVRPTW 50/100 is server verified; NeuOpt CVRP50/100 is locally verified with server validation pending.
+MVMoE CVRP/CVRPTW 50/100 and NeuOpt CVRP50/100 are server verified; GLOP 50/100 is blocked by missing local official assets/dependencies for TSP and undefined official small-size partitioner configuration for CVRP.
 
 ## Architecture
 

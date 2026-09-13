@@ -159,6 +159,7 @@ def main():
     adapter_sources = source_provenance([
         Path(__file__), Path(__file__).with_name("adapter.py"),
         Path(__file__).with_name("decode.py"), Path(__file__).with_name("config.py"),
+        Path(__file__).with_name("compat.py"),
         ROOT / "problems/cvrp/validate.py", ROOT / "common/objective_agreement.py",
         ROOT / "common/result_schema.py", ROOT / "common/provenance.py",
     ], root=ROOT)
