@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+import subprocess
 import sys
 
 import numpy as np
@@ -28,9 +29,54 @@ from methods.mvmoe.paper_runtime import (cuda_device, seed_official_inference,
 from problems.cvrptw.validate import validate
 
 
-PROJECT_BASE_COMMIT = "e64db6016a1cb53de53b2ce6d6039186652538f7"
+FORMAL_PIPELINE_BASE_COMMIT = "e64db6016a1cb53de53b2ce6d6039186652538f7"
+AUDIT_CHANGED_PATH_ALLOWLIST = frozenset({
+    "methods/mvmoe/cvrptw/scaling.py",
+    "methods/mvmoe/cvrptw/scaling_audit.py",
+    "tests/test_mvmoe_cvrptw_scaling_audit.py",
+})
 AUDIT_COUNT = 20
 OFFICIAL_ENV_EPSILON = 1e-5
+
+
+def verify_project_provenance(
+        repo, *, formal_base_commit=FORMAL_PIPELINE_BASE_COMMIT,
+        allowed_paths=AUDIT_CHANGED_PATH_ALLOWLIST):
+    """Require a clean descendant whose committed delta is audit-only."""
+    repo = Path(repo).resolve()
+    project = git_provenance(repo)
+    if project["dirty"]:
+        raise ValueError("scaling audit requires a clean project working tree")
+
+    ancestry = subprocess.run(
+        ["git", "-C", str(repo), "merge-base", "--is-ancestor",
+         formal_base_commit, project["commit"]],
+        capture_output=True, text=True, check=False)
+    if ancestry.returncode != 0:
+        detail = ancestry.stderr.strip()
+        raise ValueError(
+            "formal pipeline base commit is not an ancestor of project HEAD" +
+            (f": {detail}" if detail else ""))
+
+    changed = subprocess.run(
+        ["git", "-C", str(repo), "diff", "--name-only",
+         f"{formal_base_commit}..{project['commit']}"],
+        capture_output=True, text=True, check=False)
+    if changed.returncode != 0:
+        detail = changed.stderr.strip() or "git diff --name-only failed"
+        raise ValueError(f"could not verify base-to-HEAD changed paths: {detail}")
+    changed_paths = sorted(line for line in changed.stdout.splitlines() if line)
+    allowed = frozenset(str(path) for path in allowed_paths)
+    unexpected = sorted(set(changed_paths) - allowed)
+    if unexpected:
+        raise ValueError(f"non-audit paths changed after formal pipeline base: {unexpected}")
+    return project, {
+        "formal_pipeline_base_commit": formal_base_commit,
+        "audit_implementation_commit": project["commit"],
+        "project_dirty": project["dirty"],
+        "base_to_head_changed_paths": changed_paths,
+        "changed_path_allowlist": sorted(allowed),
+    }
 
 
 def _load_a_records(chunk_dirs, problem_size, expected):
@@ -199,9 +245,7 @@ def main():
         raise FileExistsError("audit output directory must not already contain files")
 
     expected = get_size_config(args.problem_size)
-    project = git_provenance(ROOT)
-    if project["commit"] != PROJECT_BASE_COMMIT:
-        raise ValueError("project HEAD does not match the fixed audit base commit")
+    project, project_gate = verify_project_provenance(ROOT)
     upstream = git_provenance(args.upstream)
     if (upstream["commit"] != UPSTREAM_COMMIT or upstream["dirty"] or
             normalize_git_repository_identity(upstream["url"]) !=
@@ -385,7 +429,8 @@ def main():
     metadata = {
         "artifact_type": "MVMoE CVRPTW continuous-scaling A/B audit",
         "status": "SCALING_AUDIT_IMPLEMENTED_AND_RUN",
-        "project": project, "upstream": upstream,
+        "project": project, "project_provenance_gate": project_gate,
+        "upstream": upstream,
         "checkpoint": {"path": str(args.checkpoint.resolve()), "sha256": checkpoint_hash,
                        "epoch": 5000, "problem": "Train_ALL", "strict_load": True},
         "dataset": {"path": str(args.dataset.resolve()),

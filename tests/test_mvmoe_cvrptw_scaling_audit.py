@@ -1,3 +1,6 @@
+from pathlib import Path
+import subprocess
+import tempfile
 import unittest
 from types import SimpleNamespace
 
@@ -6,7 +9,8 @@ import numpy as np
 from common.objective_agreement import objective_agrees
 from methods.mvmoe.cvrptw.adapter import adapt_batch
 from methods.mvmoe.cvrptw.scaling import assert_continuous_env, scale_instance
-from methods.mvmoe.cvrptw.scaling_audit import _slack_diagnostics, summarize
+from methods.mvmoe.cvrptw.scaling_audit import (
+    _slack_diagnostics, summarize, verify_project_provenance)
 from problems.cvrp.objective import route_distance
 from problems.cvrptw.validate import validate
 
@@ -24,6 +28,29 @@ def instance(problem_size=2):
     service = np.zeros(problem_size + 1, dtype=np.float32)
     service[1:] = 0.16
     return depot, points, demands, np.float32(40.0), tw, service
+
+
+def git(repo, *args):
+    return subprocess.run(
+        ["git", "-C", str(repo), *args], check=True, capture_output=True,
+        text=True).stdout.strip()
+
+
+def make_git_repo():
+    temporary = tempfile.TemporaryDirectory()
+    repo = Path(temporary.name)
+    git(repo, "init", "-q", "-b", "master")
+    git(repo, "config", "user.email", "audit-test@example.invalid")
+    git(repo, "config", "user.name", "Audit Test")
+    git(repo, "remote", "add", "origin", "https://github.com/test/audit.git")
+    git(repo, "commit", "--allow-empty", "-q", "-m", "formal base")
+    base = git(repo, "rev-parse", "HEAD")
+    allowed = repo / "methods/mvmoe/cvrptw/scaling_audit.py"
+    allowed.parent.mkdir(parents=True)
+    allowed.write_text("audit\n")
+    git(repo, "add", str(allowed.relative_to(repo)))
+    git(repo, "commit", "-q", "-m", "audit implementation")
+    return temporary, repo, base
 
 
 class ContinuousScalingTests(unittest.TestCase):
@@ -130,6 +157,52 @@ class ContinuousScalingTests(unittest.TestCase):
         diagnostic = _slack_diagnostics(validation, 4.6 / 3.0)
         self.assertFalse(diagnostic["uses_positive_official_epsilon_to_pass"])
         self.assertTrue(diagnostic["within_10x_official_epsilon"])
+
+
+class ProjectProvenanceGateTests(unittest.TestCase):
+    ALLOWLIST = {"methods/mvmoe/cvrptw/scaling_audit.py"}
+
+    def test_ancestor_with_only_allowlisted_delta_passes(self):
+        temporary, repo, base = make_git_repo()
+        self.addCleanup(temporary.cleanup)
+        project, gate = verify_project_provenance(
+            repo, formal_base_commit=base, allowed_paths=self.ALLOWLIST)
+        self.assertFalse(project["dirty"])
+        self.assertEqual(gate["formal_pipeline_base_commit"], base)
+        self.assertEqual(gate["audit_implementation_commit"], project["commit"])
+        self.assertEqual(
+            gate["base_to_head_changed_paths"], sorted(self.ALLOWLIST))
+
+    def test_non_audit_changed_path_fails(self):
+        temporary, repo, base = make_git_repo()
+        self.addCleanup(temporary.cleanup)
+        (repo / "README.md").write_text("formal change\n")
+        git(repo, "add", "README.md")
+        git(repo, "commit", "-q", "-m", "non-audit change")
+        with self.assertRaisesRegex(ValueError, "non-audit paths"):
+            verify_project_provenance(
+                repo, formal_base_commit=base, allowed_paths=self.ALLOWLIST)
+
+    def test_dirty_project_fails(self):
+        temporary, repo, base = make_git_repo()
+        self.addCleanup(temporary.cleanup)
+        path = repo / "methods/mvmoe/cvrptw/scaling_audit.py"
+        path.write_text("uncommitted\n")
+        with self.assertRaisesRegex(ValueError, "clean project working tree"):
+            verify_project_provenance(
+                repo, formal_base_commit=base, allowed_paths=self.ALLOWLIST)
+
+    def test_non_ancestor_base_fails(self):
+        temporary, repo, base = make_git_repo()
+        self.addCleanup(temporary.cleanup)
+        git(repo, "branch", "side", base)
+        git(repo, "checkout", "-q", "side")
+        git(repo, "commit", "--allow-empty", "-q", "-m", "side commit")
+        side = git(repo, "rev-parse", "HEAD")
+        git(repo, "checkout", "-q", "master")
+        with self.assertRaisesRegex(ValueError, "not an ancestor"):
+            verify_project_provenance(
+                repo, formal_base_commit=side, allowed_paths=self.ALLOWLIST)
 
 
 if __name__ == "__main__":
