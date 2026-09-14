@@ -149,9 +149,10 @@ export MVMOE_PAPER_ROOT="$BASELINE_PROJECT_ROOT/artifacts/paper/mvmoe"
 mkdir -p "$MVMOE_PAPER_ROOT"
 ```
 
-Run the four two-instance preflights first. Each evaluator prints method,
-problem, size, original batch size, POMO size, augmentation, both asset hashes,
-GPU, objective, reference, gap, runtime and feasibility for every instance.
+The CVRP preflight commands remain unchanged. For the scaled migration, run the
+two CVRPTW preflights before any CVRPTW production chunk. Each evaluator prints
+method, problem, size, original batch size, POMO size, augmentation, both asset
+hashes, GPU, objective, reference, gap, runtime and feasibility per instance.
 
 ```bash
 python -B methods/mvmoe/cvrp/prepare_instances.py --dataset "$CVRP50_DATASET" \
@@ -174,25 +175,42 @@ python -B methods/mvmoe/cvrp/paper_eval.py --problem-size 100 \
 
 python -B methods/mvmoe/cvrptw/prepare_instances.py --dataset "$CVRPTW50_DATASET" \
   --problem-size 50 --offset 0 --count 2 \
-  --output "$MVMOE_PAPER_ROOT/cvrptw50/preflight/input.npz"
+  --output "$MVMOE_PAPER_ROOT/cvrptw50_scaled/preflight/input.npz"
 python -B methods/mvmoe/cvrptw/paper_eval.py --problem-size 50 \
-  --input "$MVMOE_PAPER_ROOT/cvrptw50/preflight/input.npz" \
+  --input "$MVMOE_PAPER_ROOT/cvrptw50_scaled/preflight/input.npz" \
   --upstream "$MVMOE_UPSTREAM" --checkpoint "$MVMOE_N50_CHECKPOINT" \
-  --output-dir "$MVMOE_PAPER_ROOT/cvrptw50/preflight/chunk_00000_00002" \
+  --output-dir "$MVMOE_PAPER_ROOT/cvrptw50_scaled/preflight/chunk_00000_00002" \
   --warmup-instances 2 --device cuda:0
 
 python -B methods/mvmoe/cvrptw/prepare_instances.py --dataset "$CVRPTW100_DATASET" \
   --problem-size 100 --offset 0 --count 2 \
-  --output "$MVMOE_PAPER_ROOT/cvrptw100/preflight/input.npz"
+  --output "$MVMOE_PAPER_ROOT/cvrptw100_scaled/preflight/input.npz"
 python -B methods/mvmoe/cvrptw/paper_eval.py --problem-size 100 \
-  --input "$MVMOE_PAPER_ROOT/cvrptw100/preflight/input.npz" \
+  --input "$MVMOE_PAPER_ROOT/cvrptw100_scaled/preflight/input.npz" \
   --upstream "$MVMOE_UPSTREAM" --checkpoint "$MVMOE_N100_CHECKPOINT" \
-  --output-dir "$MVMOE_PAPER_ROOT/cvrptw100/preflight/chunk_00000_00002" \
+  --output-dir "$MVMOE_PAPER_ROOT/cvrptw100_scaled/preflight/chunk_00000_00002" \
   --warmup-instances 2 --device cuda:0
 ```
 
-After all four preflights pass, run the production chunks. Re-running an exact
-command resumes completed records; changed provenance or configuration fails.
+The existing `cvrptw50` and `cvrptw100` directories are the verified unscaled
+control. The `*_scaled` directories are the canonical scaled paper run. Before
+any full-set run, compare each scaled preflight record for indices 0 and 1 with
+the existing scaling-audit record: canonical solution, best augmentation/POMO
+indices, original objective, gap and scaler must match (apart from serialized
+floating-point representation). Any route mismatch blocks production.
+
+```bash
+python -B scripts/compare_mvmoe_cvrptw_scaled_preflight.py \
+  --paper-chunk "$MVMOE_PAPER_ROOT/cvrptw50_scaled/preflight/chunk_00000_00002" \
+  --scaling-audit-dir "$BASELINE_PROJECT_ROOT/artifacts/audit/mvmoe_cvrptw_scaling/cvrptw50"
+python -B scripts/compare_mvmoe_cvrptw_scaled_preflight.py \
+  --paper-chunk "$MVMOE_PAPER_ROOT/cvrptw100_scaled/preflight/chunk_00000_00002" \
+  --scaling-audit-dir "$BASELINE_PROJECT_ROOT/artifacts/audit/mvmoe_cvrptw_scaling/cvrptw100"
+```
+
+After the required preflights and both scaled comparison gates pass, the future
+production commands are below. Re-running an exact command resumes completed
+records; changed provenance or configuration fails.
 
 ```bash
 for offset in $(seq 0 1000 9000); do
@@ -223,11 +241,11 @@ for offset in $(seq 0 250 750); do
   stop=$((offset + 250))
   python -B methods/mvmoe/cvrptw/prepare_instances.py --dataset "$CVRPTW50_DATASET" \
     --problem-size 50 --offset "$offset" --count 250 \
-    --output "$MVMOE_PAPER_ROOT/cvrptw50/production/input_${offset}_${stop}.npz"
+    --output "$MVMOE_PAPER_ROOT/cvrptw50_scaled/production/input_${offset}_${stop}.npz"
   python -B methods/mvmoe/cvrptw/paper_eval.py --problem-size 50 \
-    --input "$MVMOE_PAPER_ROOT/cvrptw50/production/input_${offset}_${stop}.npz" \
+    --input "$MVMOE_PAPER_ROOT/cvrptw50_scaled/production/input_${offset}_${stop}.npz" \
     --upstream "$MVMOE_UPSTREAM" --checkpoint "$MVMOE_N50_CHECKPOINT" \
-    --output-dir "$MVMOE_PAPER_ROOT/cvrptw50/production/chunk_${offset}_${stop}" \
+    --output-dir "$MVMOE_PAPER_ROOT/cvrptw50_scaled/production/chunk_${offset}_${stop}" \
     --warmup-instances 2 --device cuda:0
 done
 
@@ -235,11 +253,11 @@ for offset in $(seq 0 250 750); do
   stop=$((offset + 250))
   python -B methods/mvmoe/cvrptw/prepare_instances.py --dataset "$CVRPTW100_DATASET" \
     --problem-size 100 --offset "$offset" --count 250 \
-    --output "$MVMOE_PAPER_ROOT/cvrptw100/production/input_${offset}_${stop}.npz"
+    --output "$MVMOE_PAPER_ROOT/cvrptw100_scaled/production/input_${offset}_${stop}.npz"
   python -B methods/mvmoe/cvrptw/paper_eval.py --problem-size 100 \
-    --input "$MVMOE_PAPER_ROOT/cvrptw100/production/input_${offset}_${stop}.npz" \
+    --input "$MVMOE_PAPER_ROOT/cvrptw100_scaled/production/input_${offset}_${stop}.npz" \
     --upstream "$MVMOE_UPSTREAM" --checkpoint "$MVMOE_N100_CHECKPOINT" \
-    --output-dir "$MVMOE_PAPER_ROOT/cvrptw100/production/chunk_${offset}_${stop}" \
+    --output-dir "$MVMOE_PAPER_ROOT/cvrptw100_scaled/production/chunk_${offset}_${stop}" \
     --warmup-instances 2 --device cuda:0
 done
 ```
@@ -253,9 +271,9 @@ python -B scripts/validate_paper_results_with_kit.py --dataset "$CVRP50_DATASET"
 python -B scripts/validate_paper_results_with_kit.py --dataset "$CVRP100_DATASET" \
   --chunk-dirs "$MVMOE_PAPER_ROOT"/cvrp100/production/chunk_*
 python -B scripts/validate_paper_results_with_kit.py --dataset "$CVRPTW50_DATASET" \
-  --chunk-dirs "$MVMOE_PAPER_ROOT"/cvrptw50/production/chunk_*
+  --chunk-dirs "$MVMOE_PAPER_ROOT"/cvrptw50_scaled/production/chunk_*
 python -B scripts/validate_paper_results_with_kit.py --dataset "$CVRPTW100_DATASET" \
-  --chunk-dirs "$MVMOE_PAPER_ROOT"/cvrptw100/production/chunk_*
+  --chunk-dirs "$MVMOE_PAPER_ROOT"/cvrptw100_scaled/production/chunk_*
 
 python -B scripts/summarize_paper_results.py \
   --chunk-dirs "$MVMOE_PAPER_ROOT"/cvrp50/production/chunk_* \
@@ -264,11 +282,11 @@ python -B scripts/summarize_paper_results.py \
   --chunk-dirs "$MVMOE_PAPER_ROOT"/cvrp100/production/chunk_* \
   --output "$MVMOE_PAPER_ROOT/cvrp100/summary.json"
 python -B scripts/summarize_paper_results.py \
-  --chunk-dirs "$MVMOE_PAPER_ROOT"/cvrptw50/production/chunk_* \
-  --output "$MVMOE_PAPER_ROOT/cvrptw50/summary.json"
+  --chunk-dirs "$MVMOE_PAPER_ROOT"/cvrptw50_scaled/production/chunk_* \
+  --output "$MVMOE_PAPER_ROOT/cvrptw50_scaled/summary.json"
 python -B scripts/summarize_paper_results.py \
-  --chunk-dirs "$MVMOE_PAPER_ROOT"/cvrptw100/production/chunk_* \
-  --output "$MVMOE_PAPER_ROOT/cvrptw100/summary.json"
+  --chunk-dirs "$MVMOE_PAPER_ROOT"/cvrptw100_scaled/production/chunk_* \
+  --output "$MVMOE_PAPER_ROOT/cvrptw100_scaled/summary.json"
 ```
 
 Only the four complete summaries may report `PAPER_READY`; preflight chunks are

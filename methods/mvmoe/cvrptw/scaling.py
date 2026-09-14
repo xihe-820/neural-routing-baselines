@@ -1,4 +1,4 @@
-"""Continuous unit scaling used only by the MVMoE CVRPTW A/B audit."""
+"""Continuous unit scaling shared by MVMoE CVRPTW audit and formal inference."""
 from __future__ import annotations
 
 import numpy as np
@@ -41,7 +41,7 @@ def scale_instance(depot, points, raw_demands, raw_capacity, time_windows,
 
     # Float32 matches the official environment boundary. Demand and node order are
     # copied without scaling; adapt_batch performs the sole capacity normalization.
-    return {
+    result = {
         "depot": (depot.astype(np.float64) / scaler).astype(np.float32),
         "points": (points.astype(np.float64) / scaler).astype(np.float32),
         "raw_demands": demands.copy(),
@@ -53,9 +53,30 @@ def scale_instance(depot, points, raw_demands, raw_capacity, time_windows,
         "depot_tw_start": depot_start,
         "depot_tw_end": depot_end,
     }
+    scaled_coordinates = np.concatenate(
+        (result["depot"][None, :], result["points"]), axis=0)
+    scaled_values = (
+        scaled_coordinates, result["time_windows"], result["service_times"])
+    if not all(np.isfinite(value).all() for value in scaled_values):
+        raise ValueError("scaled coordinates/time windows/service times must be finite")
+    result["scaled_coordinate_max"] = float(scaled_coordinates.max())
+    result["scaled_depot_tw_end"] = float(result["time_windows"][0, 1])
+    if (result["scaled_coordinate_max"] > 1.0 + 1e-6 or
+            result["scaled_depot_tw_end"] <= 0.0 or
+            result["scaled_depot_tw_end"] > 3.0 + 1e-6):
+        raise ValueError("scaled coordinate/depot-horizon bounds are invalid")
+    return result
+
+
+def scale_prepared_instance(arrays, index):
+    """Apply the shared scaler to one original-domain prepared NPZ row."""
+    return scale_instance(
+        arrays["depots"][index], arrays["points"][index],
+        arrays["demands"][index], arrays["capacities"][index],
+        arrays["time_windows"][index], arrays["service_times"][index])
 
 
 def assert_continuous_env(env):
     """Fail closed if official per-edge distance rounding could be active."""
     if not hasattr(env, "loc_scaler") or env.loc_scaler is not None:
-        raise RuntimeError("scaling audit requires env.loc_scaler is None")
+        raise RuntimeError("continuous CVRPTW scaling requires env.loc_scaler is None")

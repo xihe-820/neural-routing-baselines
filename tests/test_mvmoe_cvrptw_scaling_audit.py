@@ -8,11 +8,15 @@ import numpy as np
 
 from common.objective_agreement import objective_agrees
 from methods.mvmoe.cvrptw.adapter import adapt_batch
-from methods.mvmoe.cvrptw.scaling import assert_continuous_env, scale_instance
+from methods.mvmoe.cvrptw.paper_eval import (require_scaled_artifact_path,
+                                             validate_scaled_solution)
+from methods.mvmoe.cvrptw.scaling import (assert_continuous_env, scale_instance,
+                                          scale_prepared_instance)
 from methods.mvmoe.cvrptw.scaling_audit import (
     _slack_diagnostics, summarize, verify_project_provenance)
 from problems.cvrp.objective import route_distance
 from problems.cvrptw.validate import validate
+from scripts.compare_mvmoe_cvrptw_scaled_preflight import compare_records
 
 
 def instance(problem_size=2):
@@ -54,6 +58,19 @@ def make_git_repo():
 
 
 class ContinuousScalingTests(unittest.TestCase):
+    @staticmethod
+    def prepared_arrays(data):
+        depot, points, demands, capacity, tw, service = data
+        return {
+            "depots": depot[None],
+            "points": points[None],
+            "demands": demands[None],
+            "capacities": np.asarray([capacity]),
+            "time_windows": tw[None],
+            "service_times": service[None],
+            "time_tolerances": np.asarray([0.0]),
+        }
+
     def test_uniform_scaling_and_depot_horizon(self):
         data = instance()
         scaled = scale_instance(*data)
@@ -76,6 +93,15 @@ class ContinuousScalingTests(unittest.TestCase):
             problem_size=50, device="cpu")
         np.testing.assert_allclose(native[2].numpy(), np.full((1, 50), 0.2))
         self.assertIn("exactly once", mapping["normalization"])
+
+    def test_formal_prepared_helper_matches_audit_scaler(self):
+        data = instance()
+        audit = scale_instance(*data)
+        formal = scale_prepared_instance(self.prepared_arrays(data), 0)
+        self.assertEqual(formal["scaler"], audit["scaler"])
+        for field in ("depot", "points", "raw_demands", "time_windows",
+                      "service_times"):
+            np.testing.assert_array_equal(formal[field], audit[field])
 
     def test_loc_scaler_must_be_none(self):
         assert_continuous_env(SimpleNamespace(loc_scaler=None))
@@ -115,6 +141,65 @@ class ContinuousScalingTests(unittest.TestCase):
         self.assertGreater(
             original_result["constraint_details"]["route_timelines"][0]["events"][0]["waiting"],
             0.0)
+
+        arrays = self.prepared_arrays(
+            (depot, points, demands, np.float32(10.0), tw, service))
+        domain_result = validate_scaled_solution(
+            arrays, 0, scaled, route,
+            (float(scaled["time_windows"][0, 0]),
+             float(scaled["time_windows"][0, 1])))
+        self.assertTrue(domain_result["scaled_validation"]["feasible"])
+        self.assertTrue(domain_result["original_validation"]["feasible"])
+        self.assertTrue(domain_result["scaled_to_original_objective_agrees"])
+
+    def test_formal_scaled_objective_converts_to_original(self):
+        data = instance()
+        arrays = self.prepared_arrays(data)
+        scaled = scale_prepared_instance(arrays, 0)
+        result = validate_scaled_solution(
+            arrays, 0, scaled, [0, 1, 0, 2, 0],
+            (float(scaled["time_windows"][0, 0]),
+             float(scaled["time_windows"][0, 1])))
+        self.assertTrue(objective_agrees(
+            result["scaled_objective_times_s"], result["original_objective"]))
+
+    def test_scaled_formal_artifact_path_is_isolated(self):
+        require_scaled_artifact_path(
+            "/tmp/artifacts/paper/mvmoe/cvrptw50_scaled/preflight/chunk", 50)
+        with self.assertRaisesRegex(ValueError, "cvrptw50_scaled"):
+            require_scaled_artifact_path(
+                "/tmp/artifacts/paper/mvmoe/cvrptw50/preflight/chunk", 50)
+
+    def test_first_two_formal_audit_comparison_is_fail_closed(self):
+        paper = []
+        audit = []
+        for index in range(20):
+            if index < 2:
+                paper.append({
+                    "dataset_instance_index": index,
+                    "canonical_solution": [0, index + 1, 0],
+                    "selection": {
+                        "best_aug_idx": index, "best_pomo_idx": index + 2},
+                    "independent_objective": 10.0 + index,
+                    "gap_percent": 1.0 + index,
+                    "scaler": 2.0 + index,
+                })
+            audit.append({
+                "dataset_instance_index": index,
+                "decode": {
+                    "canonical_solution": [0, index + 1, 0],
+                    "best_aug_idx": index, "best_pomo_idx": index + 2,
+                },
+                "objectives": {
+                    "independent_original_objective": 10.0 + index,
+                    "original_domain_gap_percent": 1.0 + index,
+                },
+                "scaler": 2.0 + index,
+            })
+        self.assertEqual(len(compare_records(paper, audit)), 2)
+        paper[1]["canonical_solution"] = [0, 2, 1, 0]
+        with self.assertRaisesRegex(ValueError, "canonical_solution"):
+            compare_records(paper, audit)
 
     def test_official_coordinate_maximum_dominates_when_larger(self):
         data = list(instance())

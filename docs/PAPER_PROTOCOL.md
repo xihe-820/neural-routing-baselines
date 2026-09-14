@@ -20,6 +20,36 @@ CVRPTW50 and CVRPTW100. It is separate from the integration evidence in
 POMO starts and augmentation are candidates inside one solver invocation for
 one original instance. They do not increase the original-instance batch size.
 
+## Canonical CVRPTW input scaling
+
+MVMoE CVRPTW formal evaluation uses the canonical continuous official-style
+input scaling established by the isolated A/B audit. For each original ML4CO
+instance it computes
+
+```
+s = max(max(original depot/customer coordinates), original depot TW end / 3)
+```
+
+and divides coordinates, time windows and service times uniformly by `s` for
+model inference. Raw demand is not scaled; the adapter applies
+`raw_demand/raw_capacity` exactly once. Speed remains 1.0, `loc_scaler` is
+disabled, and no distance or Solomon integer-coordinate rounding is applied.
+The external CVRPTWLib rounding path is unsuitable here because it changes the
+continuous ML4CO geometry instead of making a uniform unit conversion.
+
+The chosen route is validated and scored again on the original ML4CO instance.
+Reference gap, independent objective and ML4CO-Kit validation therefore remain
+in the original domain. The evaluator also requires the selected route's
+scaled objective multiplied by `s` to agree with its original-domain objective.
+Scaling is input adaptation before the formal timer. Warm-up uses scaled input,
+writes no record, and each warmed instance is rerun under the formal timer.
+
+The existing `cvrptw50` and `cvrptw100` full-set artifacts are preserved as the
+verified unscaled control and engineering evidence. They are not the canonical
+MVMoE CVRPTW paper result. Canonical scaled chunks use the separate
+`cvrptw50_scaled` and `cvrptw100_scaled` paths and a distinct resume/protocol
+identity.
+
 ## Datasets and assets
 
 | Problem | Size | Expected instances | Dataset |
@@ -84,8 +114,8 @@ inconsistency to resolve later. This repository does not modify the paper.
 |---|---|
 | MVMoE/4E CVRP50 | `READY_FOR_SERVER_PREFLIGHT` |
 | MVMoE/4E CVRP100 | `READY_FOR_SERVER_PREFLIGHT` |
-| MVMoE/4E CVRPTW50 | `READY_FOR_SERVER_PREFLIGHT` |
-| MVMoE/4E CVRPTW100 | `READY_FOR_SERVER_PREFLIGHT` |
+| MVMoE/4E CVRPTW50 | `READY_FOR_SCALED_FORMAL_PREFLIGHT` |
+| MVMoE/4E CVRPTW100 | `READY_FOR_SCALED_FORMAL_PREFLIGHT` |
 
 These states describe the executable pipeline only. No row is `PAPER_READY`
 until the complete server run passes both validation gates and strict summary.

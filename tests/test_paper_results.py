@@ -11,12 +11,16 @@ from common.paper_results import (METADATA_FILE, RECORDS_FILE, SCHEMA_VERSION,
 from methods.mvmoe.cvrp.config import supported_config
 from methods.mvmoe.cvrp.run import MODEL_CONFIG as CVRP_INTEGRATION_MODEL_CONFIG
 from methods.mvmoe.cvrptw.config import get_size_config
+from methods.mvmoe.cvrptw.paper_protocol import (
+    scaled_paper_inference_config, unscaled_control_inference_config)
 from methods.mvmoe.cvrptw.run import MODEL_CONFIG as CVRPTW_INTEGRATION_MODEL_CONFIG
 from methods.mvmoe.paper_config import MODEL_CONFIG, paper_inference_config
+from scripts.summarize_paper_results import summarize_for_protocol
 
 
-def record(index, independent, reference, *, feasible=True, runtime=0.1):
-    return {
+def record(index, independent, reference, *, feasible=True, runtime=0.1,
+           scaled=False):
+    value = {
         "dataset_instance_index": index,
         "instance_id": f"instance-{index}",
         "canonical_solution": [0, 1, 0],
@@ -32,13 +36,30 @@ def record(index, independent, reference, *, feasible=True, runtime=0.1):
         "kit_objective": independent,
         "kit_objective_agrees": True,
     }
+    if scaled:
+        value.update(
+            input_scaling_protocol="continuous_official_style",
+            scaler=2.0,
+            original_depot_tw_end=6.0,
+            original_coordinate_max=1.0,
+            scaled_depot_tw_end=3.0,
+            scaled_coordinate_max=0.5,
+            scaled_reported_objective=independent / 2.0,
+            scaled_route_objective=independent / 2.0,
+            scaled_objective_times_s=independent,
+            scaled_reported_objective_agrees=True,
+            scaled_to_original_objective_agrees=True,
+        )
+    return value
 
 
-def identity(indices, *, dataset_count=10000):
+def identity(indices, *, dataset_count=10000, problem="CVRP", problem_size=50):
+    protocol = (paper_inference_config(problem_size, problem="CVRP")
+                if problem == "CVRP" else scaled_paper_inference_config(problem_size))
     return {
-        "method": "MVMoE", "variant": "MVMoE/4E", "problem": "CVRP",
-        "problem_size": 50,
-        "paper_protocol": paper_inference_config(50, problem="CVRP"),
+        "method": "MVMoE", "variant": "MVMoE/4E", "problem": problem,
+        "problem_size": problem_size,
+        "paper_protocol": protocol,
         "project": {"commit": "a" * 40, "dirty": False, "url": "project"},
         "upstream": {"commit": "b" * 40, "dirty": False, "url": "upstream"},
         "checkpoint": {"path": "/checkpoint", "sha256": "c" * 64},
@@ -56,12 +77,13 @@ def identity(indices, *, dataset_count=10000):
 
 
 def write_chunk(root, name, records, *, mutate_identity=None, expected_indices=None,
-                dataset_count=10000):
+                dataset_count=10000, problem="CVRP", problem_size=50):
     directory = root / name
     directory.mkdir()
     indices = expected_indices if expected_indices is not None else [
         item["dataset_instance_index"] for item in records]
-    value = identity(indices, dataset_count=dataset_count)
+    value = identity(indices, dataset_count=dataset_count, problem=problem,
+                     problem_size=problem_size)
     if mutate_identity:
         mutate_identity(value)
     records_path = directory / VALIDATED_RECORDS_FILE
@@ -81,11 +103,21 @@ def write_chunk(root, name, records, *, mutate_identity=None, expected_indices=N
 
 
 class MVMoEPaperProtocolTests(unittest.TestCase):
+    def test_cvrp_protocol_fingerprints_are_unchanged(self):
+        self.assertEqual(
+            json_fingerprint(paper_inference_config(50, problem="CVRP")),
+            "41850bd8205727b523e1ba6ffc0a19dc15ad1a87a5daff16e7216e266ac4524e")
+        self.assertEqual(
+            json_fingerprint(paper_inference_config(100, problem="CVRP")),
+            "844d315d9ccb2bdce5f9373aa7745e0dd0d9fca0719958f6ae80f7a86f977688")
+
     def test_exact_formal_configuration_for_both_problems_and_sizes(self):
         for problem in ("CVRP", "CVRPTW"):
             for size in (50, 100):
                 with self.subTest(problem=problem, size=size):
-                    config = paper_inference_config(size, problem=problem)
+                    config = (paper_inference_config(size, problem="CVRP")
+                              if problem == "CVRP"
+                              else scaled_paper_inference_config(size))
                     self.assertEqual(config["variant"], "MVMoE/4E")
                     self.assertEqual(config["model_type"], "MOE")
                     self.assertEqual(config["num_experts"], 4)
@@ -101,6 +133,28 @@ class MVMoEPaperProtocolTests(unittest.TestCase):
                     self.assertFalse(config["backward"])
                     self.assertFalse(config["optimizer_created"])
                     self.assertEqual(config["model"], MODEL_CONFIG)
+
+    def test_cvrptw_scaled_protocol_is_explicit_for_both_sizes(self):
+        expected = {
+            "input_scaling": "continuous_official_style",
+            "scaler_rule": "s=max(max(original coordinates), original_depot_tw_end/3.0)",
+            "fields_scaled": ["coordinates", "time_windows", "service_times"],
+            "demand_normalization": "raw_demand/raw_capacity exactly once",
+            "loc_scaler": None,
+            "distance_rounding": False,
+            "model_inference_domain": "scaled_continuous",
+            "final_validation_domain": "original_ml4co",
+            "final_objective_domain": "original_ml4co",
+            "speed": 1.0,
+        }
+        for size in (50, 100):
+            with self.subTest(size=size):
+                config = scaled_paper_inference_config(size)
+                for key, value in expected.items():
+                    self.assertEqual(config[key], value)
+                old = unscaled_control_inference_config(size)
+                self.assertNotIn("input_scaling", old)
+                self.assertNotEqual(config, old)
 
     def test_full_dataset_counts(self):
         self.assertEqual(supported_config(50)["dataset_count"], 10000)
@@ -135,10 +189,14 @@ class PaperAggregationTests(unittest.TestCase):
                        for index in range(5000, 10000))
         chunk = write_chunk(self.root, "chunk", records)
         summary = summarize_chunks([chunk])
+        dispatched = summarize_for_protocol([chunk])
         self.assertEqual(summary["status"], "PAPER_READY")
         self.assertAlmostEqual(summary["obj_mean_independent_objective"], 51.0)
         self.assertAlmostEqual(summary["drop_mean_per_instance_gap_percent"], 50.0)
         self.assertAlmostEqual(summary["time_mean_single_instance_seconds"], 0.3)
+        self.assertEqual(
+            {key: value for key, value in dispatched.items() if key != "created_at"},
+            {key: value for key, value in summary.items() if key != "created_at"})
 
     def test_resume_accepts_exact_identity_and_rejects_changed_identity(self):
         directory = self.root / "resume"
@@ -157,6 +215,15 @@ class PaperAggregationTests(unittest.TestCase):
         changed["paper_protocol"]["aug_factor"] = 1
         with self.assertRaisesRegex(ValueError, "resume refused"):
             initialize_chunk(directory, changed)
+
+    def test_unscaled_control_cannot_resume_as_scaled_cvrptw(self):
+        directory = self.root / "cvrptw-resume"
+        old = identity([0], dataset_count=1000, problem="CVRPTW")
+        old["paper_protocol"] = unscaled_control_inference_config(50)
+        initialize_chunk(directory, old)
+        scaled = identity([0], dataset_count=1000, problem="CVRPTW")
+        with self.assertRaisesRegex(ValueError, "resume refused"):
+            initialize_chunk(directory, scaled)
 
     def test_kit_validated_resume_rejects_valid_post_finalization_mutation(self):
         directory = self.root / "kit-validated-resume"
@@ -216,6 +283,58 @@ class PaperAggregationTests(unittest.TestCase):
                                      mutate_identity=mutation)
                 with self.assertRaisesRegex(ValueError, "mixed paper"):
                     summarize_chunks([first, second])
+
+    def test_mixed_unscaled_and_scaled_cvrptw_chunks_are_rejected(self):
+        def make_unscaled(value):
+            value["paper_protocol"] = unscaled_control_inference_config(50)
+
+        first = write_chunk(
+            self.root, "unscaled", [record(0, 2.0, 1.0)],
+            mutate_identity=make_unscaled, dataset_count=1000, problem="CVRPTW")
+        second = write_chunk(
+            self.root, "scaled", [record(1, 2.0, 1.0, scaled=True)],
+            dataset_count=1000, problem="CVRPTW")
+        with self.assertRaisesRegex(ValueError, "mixed paper"):
+            summarize_for_protocol([second, first])
+
+    def test_unscaled_cvrptw_is_recognized_as_control_not_paper_result(self):
+        def make_unscaled(value):
+            value["paper_protocol"] = unscaled_control_inference_config(50)
+
+        chunk = write_chunk(
+            self.root, "unscaled-only", [record(0, 2.0, 1.0)],
+            mutate_identity=make_unscaled, dataset_count=1000, problem="CVRPTW")
+        with self.assertRaisesRegex(ValueError, "unscaled CVRPTW control"):
+            summarize_for_protocol([chunk])
+
+    def test_synthetic_scaled_cvrptw_full_set_is_paper_ready(self):
+        records = [record(index, 2.0, 1.0, scaled=True)
+                   for index in range(1000)]
+        chunk = write_chunk(
+            self.root, "scaled-full", records,
+            dataset_count=1000, problem="CVRPTW")
+        summary = summarize_for_protocol([chunk])
+        self.assertEqual(summary["status"], "PAPER_READY")
+        self.assertEqual(
+            summary["consistency_identity"]["paper_protocol"]["input_scaling"],
+            "continuous_official_style")
+
+    def test_scaled_record_conversion_or_identity_mismatch_is_rejected(self):
+        for name, mutation in (
+                ("conversion", lambda item: item.update(
+                    scaled_objective_times_s=3.0)),
+                ("identity", lambda item: item.pop("input_scaling_protocol"))):
+            with self.subTest(name=name):
+                case = self.root / name
+                case.mkdir()
+                items = [record(index, 2.0, 1.0, scaled=True)
+                         for index in range(1000)]
+                mutation(items[0])
+                chunk = write_chunk(
+                    case, "chunk", items,
+                    dataset_count=1000, problem="CVRPTW")
+                with self.assertRaisesRegex(ValueError, "scaled|scaling"):
+                    summarize_for_protocol([chunk])
 
     def test_infeasible_record_cannot_be_paper_ready(self):
         chunk = write_chunk(self.root, "chunk", [record(0, 2.0, 1.0, feasible=False),
