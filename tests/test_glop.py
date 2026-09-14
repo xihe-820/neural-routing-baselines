@@ -6,10 +6,11 @@ import numpy as np
 
 from methods.glop.tsp.adapter import (adapt_points, apply_top_level_transform,
                                       validate_initial_permutations)
-from methods.glop.tsp.config import (supported_config,
+from methods.glop.tsp.config import (REVISER_ASSETS, reviser_paths, supported_config,
                                      validate_reviser_schedule)
 from methods.glop.tsp.decode import (decode_coordinate_tour,
                                      select_best_candidates)
+from common.hashing import sha256_file
 from problems.tsp.objective import cycle_length
 from problems.tsp.validate import validate
 
@@ -31,6 +32,37 @@ class GLOPTSPConfigAdapterTests(unittest.TestCase):
                          ([100, 50, 20, 10], [20, 10, 10, 5], 140, 35, True, True, True))
         self.assertEqual(n100["dataset_sha256"],
                          "a2bfe99857b8072bdba051f6ae402b7e241f01b0462c5f379ed0aa03786406a0")
+        self.assertEqual(n50["required_revisers"], [20])
+        self.assertEqual(n100["required_revisers"], [100, 50, 20, 10])
+        self.assertEqual(n100["width_after_small_size_branch"] *
+                         len(n100["top_level_transforms"]), 140)
+
+    def test_exact_checkpoint_and_args_identities(self):
+        expected = {
+            10: ("41bd9e05d5f623a6a7978be0063354d75f6f8df62e0ed368789ca449f41922f4",
+                 "e21195ed71321b91ca2517e49b4a7556c27239ed1017d603e34d25a49742879c"),
+            20: ("6771bf6b955fe26004f378c1ab0a2068c3048d717325a62b85a279e0ec22a865",
+                 "66171fc5178ee7fc2b8ddcda8a7c90e804a0e9c9eb960375f82df40cbc228ef6"),
+            50: ("25189e74e1e0323ced3016e9c7495c2c8d8ae082961e8696dffff79f5db1d4a6",
+                 "ae311d53fe1e36573a609cc7bab75be1f346a577576c36a1d30ff799cbdcc76c"),
+            100: ("3810b460f210de35b5d4bd1f680f505ff4619823880652be1c7f35f320584451",
+                  "b99400a52c2dd4b6bdbd221f17432ad65d0e9d585207032ee65126b78c0354d9"),
+        }
+        asset_root = ROOT / "checkpoints/glop/pretrained"
+        for size, hashes in expected.items():
+            with self.subTest(size=size):
+                identity = REVISER_ASSETS[size]
+                self.assertEqual(
+                    (identity["checkpoint_sha256"], identity["args_sha256"]), hashes)
+                checkpoint, args = reviser_paths(asset_root, size)
+                self.assertEqual(checkpoint.name, "epoch-299.pt")
+                self.assertEqual(args.name, "args.json")
+                if checkpoint.exists():
+                    self.assertEqual(checkpoint.stat().st_size,
+                                     identity["checkpoint_size_bytes"])
+                    self.assertEqual(args.stat().st_size, identity["args_size_bytes"])
+                    self.assertEqual(sha256_file(checkpoint), hashes[0])
+                    self.assertEqual(sha256_file(args), hashes[1])
 
     def test_reviser_larger_than_instance_is_rejected(self):
         self.assertTrue(validate_reviser_schedule(50, [20], [10]))
@@ -78,6 +110,25 @@ class GLOPTSPDecoderTests(unittest.TestCase):
         output[-1] = output[-2]
         with self.assertRaisesRegex(ValueError, "no unique exact"):
             decode_coordinate_tour(output, self.points, allowed_transforms=("identity",))
+
+    def test_ambiguous_transform_mapping_is_rejected(self):
+        points = np.asarray([[0.25, 0.125], [0.75, 0.125],
+                             [0.125, 0.75], [0.875, 0.75]],
+                            dtype=np.float32)
+        with self.assertRaisesRegex(ValueError, "no unique exact"):
+            decode_coordinate_tour(
+                points, points, allowed_transforms=("identity", "reflect_x"))
+
+    def test_canonicalization_only_rotates_to_node_zero(self):
+        permutation = np.asarray([2, 1, 0, 3] + list(range(4, 100)))
+        route, metadata = decode_coordinate_tour(
+            self.points[permutation], self.points, allowed_transforms=("identity",))
+        expected = permutation.tolist()
+        zero = expected.index(0)
+        expected = expected[zero:] + expected[:zero] + [0]
+        self.assertEqual(route, expected)
+        self.assertEqual(metadata["rotation_to_node_zero"], zero)
+        self.assertFalse(metadata["repair"])
 
     def test_objective_correspondence_after_reflection_and_rotation(self):
         output = apply_top_level_transform(self.points, "reflect_xy")[self.permutation]

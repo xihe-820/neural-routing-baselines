@@ -139,6 +139,141 @@ python -B methods/mvmoe/cvrptw/validate_with_kit.py --problem-size 100 \
 
 Every row must have `evidence_status=LOCAL_VERIFIED` and all four completion gates true.
 
+## Paper evaluation / MVMoE
+
+These commands create batch-one paper evidence under the ignored
+`artifacts/paper/mvmoe` directory. Keep the fixed project checkout clean.
+
+```bash
+export MVMOE_PAPER_ROOT="$BASELINE_PROJECT_ROOT/artifacts/paper/mvmoe"
+mkdir -p "$MVMOE_PAPER_ROOT"
+```
+
+Run the four two-instance preflights first. Each evaluator prints method,
+problem, size, original batch size, POMO size, augmentation, both asset hashes,
+GPU, objective, reference, gap, runtime and feasibility for every instance.
+
+```bash
+python -B methods/mvmoe/cvrp/prepare_instances.py --dataset "$CVRP50_DATASET" \
+  --problem-size 50 --offset 0 --count 2 \
+  --output "$MVMOE_PAPER_ROOT/cvrp50/preflight/input.npz"
+python -B methods/mvmoe/cvrp/paper_eval.py --problem-size 50 \
+  --input "$MVMOE_PAPER_ROOT/cvrp50/preflight/input.npz" \
+  --upstream "$MVMOE_UPSTREAM" --checkpoint "$MVMOE_N50_CHECKPOINT" \
+  --output-dir "$MVMOE_PAPER_ROOT/cvrp50/preflight/chunk_00000_00002" \
+  --warmup-instances 2 --device cuda:0
+
+python -B methods/mvmoe/cvrp/prepare_instances.py --dataset "$CVRP100_DATASET" \
+  --problem-size 100 --offset 0 --count 2 \
+  --output "$MVMOE_PAPER_ROOT/cvrp100/preflight/input.npz"
+python -B methods/mvmoe/cvrp/paper_eval.py --problem-size 100 \
+  --input "$MVMOE_PAPER_ROOT/cvrp100/preflight/input.npz" \
+  --upstream "$MVMOE_UPSTREAM" --checkpoint "$MVMOE_N100_CHECKPOINT" \
+  --output-dir "$MVMOE_PAPER_ROOT/cvrp100/preflight/chunk_00000_00002" \
+  --warmup-instances 2 --device cuda:0
+
+python -B methods/mvmoe/cvrptw/prepare_instances.py --dataset "$CVRPTW50_DATASET" \
+  --problem-size 50 --offset 0 --count 2 \
+  --output "$MVMOE_PAPER_ROOT/cvrptw50/preflight/input.npz"
+python -B methods/mvmoe/cvrptw/paper_eval.py --problem-size 50 \
+  --input "$MVMOE_PAPER_ROOT/cvrptw50/preflight/input.npz" \
+  --upstream "$MVMOE_UPSTREAM" --checkpoint "$MVMOE_N50_CHECKPOINT" \
+  --output-dir "$MVMOE_PAPER_ROOT/cvrptw50/preflight/chunk_00000_00002" \
+  --warmup-instances 2 --device cuda:0
+
+python -B methods/mvmoe/cvrptw/prepare_instances.py --dataset "$CVRPTW100_DATASET" \
+  --problem-size 100 --offset 0 --count 2 \
+  --output "$MVMOE_PAPER_ROOT/cvrptw100/preflight/input.npz"
+python -B methods/mvmoe/cvrptw/paper_eval.py --problem-size 100 \
+  --input "$MVMOE_PAPER_ROOT/cvrptw100/preflight/input.npz" \
+  --upstream "$MVMOE_UPSTREAM" --checkpoint "$MVMOE_N100_CHECKPOINT" \
+  --output-dir "$MVMOE_PAPER_ROOT/cvrptw100/preflight/chunk_00000_00002" \
+  --warmup-instances 2 --device cuda:0
+```
+
+After all four preflights pass, run the production chunks. Re-running an exact
+command resumes completed records; changed provenance or configuration fails.
+
+```bash
+for offset in $(seq 0 1000 9000); do
+  stop=$((offset + 1000))
+  python -B methods/mvmoe/cvrp/prepare_instances.py --dataset "$CVRP50_DATASET" \
+    --problem-size 50 --offset "$offset" --count 1000 \
+    --output "$MVMOE_PAPER_ROOT/cvrp50/production/input_${offset}_${stop}.npz"
+  python -B methods/mvmoe/cvrp/paper_eval.py --problem-size 50 \
+    --input "$MVMOE_PAPER_ROOT/cvrp50/production/input_${offset}_${stop}.npz" \
+    --upstream "$MVMOE_UPSTREAM" --checkpoint "$MVMOE_N50_CHECKPOINT" \
+    --output-dir "$MVMOE_PAPER_ROOT/cvrp50/production/chunk_${offset}_${stop}" \
+    --warmup-instances 2 --device cuda:0
+done
+
+for offset in $(seq 0 1000 9000); do
+  stop=$((offset + 1000))
+  python -B methods/mvmoe/cvrp/prepare_instances.py --dataset "$CVRP100_DATASET" \
+    --problem-size 100 --offset "$offset" --count 1000 \
+    --output "$MVMOE_PAPER_ROOT/cvrp100/production/input_${offset}_${stop}.npz"
+  python -B methods/mvmoe/cvrp/paper_eval.py --problem-size 100 \
+    --input "$MVMOE_PAPER_ROOT/cvrp100/production/input_${offset}_${stop}.npz" \
+    --upstream "$MVMOE_UPSTREAM" --checkpoint "$MVMOE_N100_CHECKPOINT" \
+    --output-dir "$MVMOE_PAPER_ROOT/cvrp100/production/chunk_${offset}_${stop}" \
+    --warmup-instances 2 --device cuda:0
+done
+
+for offset in $(seq 0 250 750); do
+  stop=$((offset + 250))
+  python -B methods/mvmoe/cvrptw/prepare_instances.py --dataset "$CVRPTW50_DATASET" \
+    --problem-size 50 --offset "$offset" --count 250 \
+    --output "$MVMOE_PAPER_ROOT/cvrptw50/production/input_${offset}_${stop}.npz"
+  python -B methods/mvmoe/cvrptw/paper_eval.py --problem-size 50 \
+    --input "$MVMOE_PAPER_ROOT/cvrptw50/production/input_${offset}_${stop}.npz" \
+    --upstream "$MVMOE_UPSTREAM" --checkpoint "$MVMOE_N50_CHECKPOINT" \
+    --output-dir "$MVMOE_PAPER_ROOT/cvrptw50/production/chunk_${offset}_${stop}" \
+    --warmup-instances 2 --device cuda:0
+done
+
+for offset in $(seq 0 250 750); do
+  stop=$((offset + 250))
+  python -B methods/mvmoe/cvrptw/prepare_instances.py --dataset "$CVRPTW100_DATASET" \
+    --problem-size 100 --offset "$offset" --count 250 \
+    --output "$MVMOE_PAPER_ROOT/cvrptw100/production/input_${offset}_${stop}.npz"
+  python -B methods/mvmoe/cvrptw/paper_eval.py --problem-size 100 \
+    --input "$MVMOE_PAPER_ROOT/cvrptw100/production/input_${offset}_${stop}.npz" \
+    --upstream "$MVMOE_UPSTREAM" --checkpoint "$MVMOE_N100_CHECKPOINT" \
+    --output-dir "$MVMOE_PAPER_ROOT/cvrptw100/production/chunk_${offset}_${stop}" \
+    --warmup-instances 2 --device cuda:0
+done
+```
+
+Load each full dataset once to apply the secondary Kit gate across its chunks,
+then create one strict full-set summary per paper row.
+
+```bash
+python -B scripts/validate_paper_results_with_kit.py --dataset "$CVRP50_DATASET" \
+  --chunk-dirs "$MVMOE_PAPER_ROOT"/cvrp50/production/chunk_*
+python -B scripts/validate_paper_results_with_kit.py --dataset "$CVRP100_DATASET" \
+  --chunk-dirs "$MVMOE_PAPER_ROOT"/cvrp100/production/chunk_*
+python -B scripts/validate_paper_results_with_kit.py --dataset "$CVRPTW50_DATASET" \
+  --chunk-dirs "$MVMOE_PAPER_ROOT"/cvrptw50/production/chunk_*
+python -B scripts/validate_paper_results_with_kit.py --dataset "$CVRPTW100_DATASET" \
+  --chunk-dirs "$MVMOE_PAPER_ROOT"/cvrptw100/production/chunk_*
+
+python -B scripts/summarize_paper_results.py \
+  --chunk-dirs "$MVMOE_PAPER_ROOT"/cvrp50/production/chunk_* \
+  --output "$MVMOE_PAPER_ROOT/cvrp50/summary.json"
+python -B scripts/summarize_paper_results.py \
+  --chunk-dirs "$MVMOE_PAPER_ROOT"/cvrp100/production/chunk_* \
+  --output "$MVMOE_PAPER_ROOT/cvrp100/summary.json"
+python -B scripts/summarize_paper_results.py \
+  --chunk-dirs "$MVMOE_PAPER_ROOT"/cvrptw50/production/chunk_* \
+  --output "$MVMOE_PAPER_ROOT/cvrptw50/summary.json"
+python -B scripts/summarize_paper_results.py \
+  --chunk-dirs "$MVMOE_PAPER_ROOT"/cvrptw100/production/chunk_* \
+  --output "$MVMOE_PAPER_ROOT/cvrptw100/summary.json"
+```
+
+Only the four complete summaries may report `PAPER_READY`; preflight chunks are
+never paper results.
+
 ## 8. NeuOpt CVRP50 and CVRP100
 
 Run both sizes from the same integration. These commands keep the official checkout read-only and use the official 1000-step configuration.
@@ -189,13 +324,74 @@ sha256sum "$BASELINE_ARTIFACT_ROOT/neuopt_cvrp50/official_first5_validated.json"
 
 Every result row must report all four completion gates as true. Return both validated artifacts, their SHA256 lines, the environment audit and both repository clean-state outputs.
 
-## 9. Regression tests
+## 9. GLOP TSP50 and TSP100
+
+Use a fixed project commit containing this integration. The official asset root must contain Reviser-stage2/reviser_{10,20,50,100} from the official GLOP bundle.
+
+```bash
+test "$(git -C "$BASELINE_PROJECT_ROOT" rev-parse HEAD)" = "$BASELINE_PROJECT_COMMIT"
+export GLOP_UPSTREAM="$BASELINE_UPSTREAM_ROOT/GLOP"
+read -r -p 'Official GLOP pretrained root: ' GLOP_ASSET_ROOT
+read -r -p 'Exact TSP50 benchmark pickle: ' TSP50_DATASET
+read -r -p 'Exact TSP100 benchmark pickle: ' TSP100_DATASET
+export GLOP_UPSTREAM GLOP_ASSET_ROOT TSP50_DATASET TSP100_DATASET
+mkdir -p "$BASELINE_ARTIFACT_ROOT/audit"
+
+test "$(git -C "$GLOP_UPSTREAM" rev-parse HEAD)" = "e540bc0153a0598e923e35116deeaecaf9c1cfff"
+test -z "$(git -C "$GLOP_UPSTREAM" status --porcelain)"
+test "$(sha256sum "$TSP50_DATASET" | cut -d' ' -f1)" = "1ede2b289d2e6fbfe614219a86d1ba6dfca2a726925a8fe8cef9c8196ee0b213"
+test "$(sha256sum "$TSP100_DATASET" | cut -d' ' -f1)" = "a2bfe99857b8072bdba051f6ae402b7e241f01b0462c5f379ed0aa03786406a0"
+test "$(sha256sum "$GLOP_ASSET_ROOT/Reviser-stage2/reviser_10/epoch-299.pt" | cut -d' ' -f1)" = "41bd9e05d5f623a6a7978be0063354d75f6f8df62e0ed368789ca449f41922f4"
+test "$(sha256sum "$GLOP_ASSET_ROOT/Reviser-stage2/reviser_10/args.json" | cut -d' ' -f1)" = "e21195ed71321b91ca2517e49b4a7556c27239ed1017d603e34d25a49742879c"
+test "$(sha256sum "$GLOP_ASSET_ROOT/Reviser-stage2/reviser_20/epoch-299.pt" | cut -d' ' -f1)" = "6771bf6b955fe26004f378c1ab0a2068c3048d717325a62b85a279e0ec22a865"
+test "$(sha256sum "$GLOP_ASSET_ROOT/Reviser-stage2/reviser_20/args.json" | cut -d' ' -f1)" = "66171fc5178ee7fc2b8ddcda8a7c90e804a0e9c9eb960375f82df40cbc228ef6"
+test "$(sha256sum "$GLOP_ASSET_ROOT/Reviser-stage2/reviser_50/epoch-299.pt" | cut -d' ' -f1)" = "25189e74e1e0323ced3016e9c7495c2c8d8ae082961e8696dffff79f5db1d4a6"
+test "$(sha256sum "$GLOP_ASSET_ROOT/Reviser-stage2/reviser_50/args.json" | cut -d' ' -f1)" = "ae311d53fe1e36573a609cc7bab75be1f346a577576c36a1d30ff799cbdcc76c"
+test "$(sha256sum "$GLOP_ASSET_ROOT/Reviser-stage2/reviser_100/epoch-299.pt" | cut -d' ' -f1)" = "3810b460f210de35b5d4bd1f680f505ff4619823880652be1c7f35f320584451"
+test "$(sha256sum "$GLOP_ASSET_ROOT/Reviser-stage2/reviser_100/args.json" | cut -d' ' -f1)" = "b99400a52c2dd4b6bdbd221f17432ad65d0e9d585207032ee65126b78c0354d9"
+
+python -B -c "import importlib.metadata as m, platform, torch, numpy, scipy, tqdm, random_insertion; print({'python': platform.python_version(), 'torch': torch.__version__, 'numpy': numpy.__version__, 'scipy': scipy.__version__, 'tqdm': tqdm.__version__, 'cuda': torch.cuda.is_available(), 'gpu': torch.cuda.get_device_name(0) if torch.cuda.is_available() else None, 'random_insertion': m.version('random-insertion'), 'random_insertion_module': random_insertion.__file__})" \
+  | tee "$BASELINE_ARTIFACT_ROOT/audit/glop_dependency_environment.txt"
+
+python -B methods/glop/tsp/prepare_instances.py \
+  --dataset "$TSP50_DATASET" --problem-size 50 --offset 0 --count 5 \
+  --output "$BASELINE_ARTIFACT_ROOT/glop_tsp50/input_first5.npz"
+python -B methods/glop/tsp/run.py --problem-size 50 \
+  --input "$BASELINE_ARTIFACT_ROOT/glop_tsp50/input_first5.npz" \
+  --upstream "$GLOP_UPSTREAM" --asset-root "$GLOP_ASSET_ROOT" \
+  --output "$BASELINE_ARTIFACT_ROOT/glop_tsp50/formal_first5.json" --device cuda:0
+python -B methods/glop/tsp/validate_with_kit.py --problem-size 50 \
+  --input "$BASELINE_ARTIFACT_ROOT/glop_tsp50/formal_first5.json" \
+  --dataset "$TSP50_DATASET" \
+  --output "$BASELINE_ARTIFACT_ROOT/glop_tsp50/formal_first5_validated.json"
+
+python -B methods/glop/tsp/prepare_instances.py \
+  --dataset "$TSP100_DATASET" --problem-size 100 --offset 0 --count 5 \
+  --output "$BASELINE_ARTIFACT_ROOT/glop_tsp100/input_first5.npz"
+python -B methods/glop/tsp/run.py --problem-size 100 \
+  --input "$BASELINE_ARTIFACT_ROOT/glop_tsp100/input_first5.npz" \
+  --upstream "$GLOP_UPSTREAM" --asset-root "$GLOP_ASSET_ROOT" \
+  --output "$BASELINE_ARTIFACT_ROOT/glop_tsp100/formal_first5.json" --device cuda:0
+python -B methods/glop/tsp/validate_with_kit.py --problem-size 100 \
+  --input "$BASELINE_ARTIFACT_ROOT/glop_tsp100/formal_first5.json" \
+  --dataset "$TSP100_DATASET" \
+  --output "$BASELINE_ARTIFACT_ROOT/glop_tsp100/formal_first5_validated.json"
+
+test "$(git -C "$BASELINE_PROJECT_ROOT" rev-parse HEAD)" = "$BASELINE_PROJECT_COMMIT"
+test -z "$(git -C "$GLOP_UPSTREAM" status --porcelain)"
+sha256sum "$BASELINE_ARTIFACT_ROOT/glop_tsp50/formal_first5_validated.json" \
+  "$BASELINE_ARTIFACT_ROOT/glop_tsp100/formal_first5_validated.json"
+```
+
+Every result row must have all four completion gates true. Return both validated artifacts, the dependency/environment audit, both artifact SHA256 lines, and both clean-state outputs.
+
+## 10. Regression tests
 
 ```bash
 ML4CO_REFERENCE_TESTS=1 python -B -m unittest discover -s tests -v
 ```
 
-## 10. Return evidence
+## 11. Return evidence
 
 Return these files without editing their values:
 
@@ -205,6 +401,8 @@ Return these files without editing their values:
 - `artifacts/server/audit/server_checkpoints.json`
 - each requested `official_search_aug8_first5_validated.json`
 - each requested NeuOpt `official_first5_validated.json`
+- each requested GLOP TSP formal_first5_validated.json
+- artifacts/server/audit/glop_dependency_environment.txt
 - the regression-test terminal output
 
 Also return SHA256 for each validated result artifact. No password, private key or SSH access is required.

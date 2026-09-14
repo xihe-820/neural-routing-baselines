@@ -1,50 +1,115 @@
 {
-  "evidence_class": "BLOCKED_LOCAL_OFFICIAL_ASSETS_AND_REQUIRED_DEPENDENCY_MISSING",
+  "evidence_class": "LOCAL_VERIFIED_INTEGRATION_SERVER_NOT_RUN",
   "method": "GLOP",
   "problem": "TSP",
   "problem_size": 100,
-  "project_base_commit": "b53560d44859d5d28ee261ae052a23851c75c92f",
-  "upstream": {"url": "https://github.com/henry-yeh/GLOP", "commit": "e540bc0153a0598e923e35116deeaecaf9c1cfff", "clean": true, "read_only": true},
-  "dataset": {"filename": "tsp100_concorde_7.756.pkl", "sha256": "a2bfe99857b8072bdba051f6ae402b7e241f01b0462c5f379ed0aa03786406a0", "count": 1280, "local_verified": true},
+  "project_base_commit": "a5cbe161c4e3074593f54dff78bb2ee7b3f227e4",
+  "upstream": {
+    "url": "https://github.com/henry-yeh/GLOP",
+    "commit": "e540bc0153a0598e923e35116deeaecaf9c1cfff",
+    "clean": true,
+    "read_only": true
+  },
+  "dataset": {
+    "filename": "tsp100_concorde_7.756.pkl",
+    "sha256": "a2bfe99857b8072bdba051f6ae402b7e241f01b0462c5f379ed0aa03786406a0",
+    "count": 1280,
+    "local_verified": true
+  },
   "source_compatibility": {
     "classification": "SOURCE_SUPPORTED",
     "configuration_evidence_class": "exact official documented command",
     "evidence": "README.md:68-69 exact cross-distribution uniform TSP100 evaluation command",
-    "formal_configuration": {"problem_type": "tsp", "problem_size": 100, "revision_lens": [100, 50, 20, 10], "revision_iters": [20, 10, 10, 5], "width_requested": 140, "width_after_small_size_branch": 35, "tsp_aug": true, "top_level_candidate_count": 140, "decode_strategy": "sampling", "no_aug": true, "no_prune": true, "seed": 1},
+    "formal_configuration": {
+      "problem_type": "tsp",
+      "problem_size": 100,
+      "revision_lens": [100, 50, 20, 10],
+      "revision_iters": [20, 10, 10, 5],
+      "width_requested": 140,
+      "width_after_small_size_branch": 35,
+      "tsp_aug": true,
+      "top_level_candidate_count": 140,
+      "decode_strategy": "sampling",
+      "no_aug": true,
+      "no_prune": true,
+      "seed": 1
+    },
     "augmentation_semantics": "--no_aug disables per-revision transformed-seed augmentation; main.py:62-70 and 133-137 independently produce four top-level reflected candidates when width>=4"
   },
   "official_asset_audit": {
     "source": "https://drive.google.com/file/d/1u9-GVTMRux3rWGcbipSqyTyBx_V8pm9G/view",
-    "source_status": "SOURCE_CONFIRMED",
-    "bundle_listing_confirmed": true,
+    "source_status": "SOURCE_CONFIRMED_AND_LOCAL_MATERIALIZED",
+    "archive_path": "/home/xihe/projects/pretrained.zip",
+    "archive_size_bytes": 97277466,
+    "archive_sha256": "8fe0834ba0f8515ea5a006fffdba6a5eadb3466539295046e05c86e96d006056",
+    "materialized_root": "checkpoints/glop/pretrained",
+    "tracked_binary": false,
     "formal_required_assets": [
-      {"reviser_size": 100, "checkpoint_size_bytes": 31434377, "args_size_bytes": 1022, "local_materialized": false},
-      {"reviser_size": 50, "checkpoint_size_bytes": 27594377, "args_size_bytes": 1004, "local_materialized": false},
-      {"reviser_size": 20, "checkpoint_size_bytes": 25034377, "args_size_bytes": 1004, "local_materialized": false},
-      {"reviser_size": 10, "checkpoint_size_bytes": 24394377, "args_size_bytes": 1004, "local_materialized": false}
+      {"reviser_size": 100, "checkpoint_path": "checkpoints/glop/pretrained/Reviser-stage2/reviser_100/epoch-299.pt", "checkpoint_size_bytes": 31434377, "checkpoint_sha256": "3810b460f210de35b5d4bd1f680f505ff4619823880652be1c7f35f320584451", "args_path": "checkpoints/glop/pretrained/Reviser-stage2/reviser_100/args.json", "args_size_bytes": 1022, "args_sha256": "b99400a52c2dd4b6bdbd221f17432ad65d0e9d585207032ee65126b78c0354d9", "torch_deserialize": true, "strict_model_load": true, "missing_keys": [], "unexpected_keys": [], "parameter_count": 1301888, "model_eval": true, "args_problem": "local", "args_graph_size": 100},
+      {"reviser_size": 50, "checkpoint_path": "checkpoints/glop/pretrained/Reviser-stage2/reviser_50/epoch-299.pt", "checkpoint_size_bytes": 27594377, "checkpoint_sha256": "25189e74e1e0323ced3016e9c7495c2c8d8ae082961e8696dffff79f5db1d4a6", "args_path": "checkpoints/glop/pretrained/Reviser-stage2/reviser_50/args.json", "args_size_bytes": 1004, "args_sha256": "ae311d53fe1e36573a609cc7bab75be1f346a577576c36a1d30ff799cbdcc76c", "torch_deserialize": true, "strict_model_load": true, "missing_keys": [], "unexpected_keys": [], "parameter_count": 1301888, "model_eval": true, "args_problem": "local", "args_graph_size": 50},
+      {"reviser_size": 20, "checkpoint_path": "checkpoints/glop/pretrained/Reviser-stage2/reviser_20/epoch-299.pt", "checkpoint_size_bytes": 25034377, "checkpoint_sha256": "6771bf6b955fe26004f378c1ab0a2068c3048d717325a62b85a279e0ec22a865", "args_path": "checkpoints/glop/pretrained/Reviser-stage2/reviser_20/args.json", "args_size_bytes": 1004, "args_sha256": "66171fc5178ee7fc2b8ddcda8a7c90e804a0e9c9eb960375f82df40cbc228ef6", "torch_deserialize": true, "strict_model_load": true, "missing_keys": [], "unexpected_keys": [], "parameter_count": 1301888, "model_eval": true, "args_problem": "local", "args_graph_size": 20},
+      {"reviser_size": 10, "checkpoint_path": "checkpoints/glop/pretrained/Reviser-stage2/reviser_10/epoch-299.pt", "checkpoint_size_bytes": 24394377, "checkpoint_sha256": "41bd9e05d5f623a6a7978be0063354d75f6f8df62e0ed368789ca449f41922f4", "args_path": "checkpoints/glop/pretrained/Reviser-stage2/reviser_10/args.json", "args_size_bytes": 1004, "args_sha256": "e21195ed71321b91ca2517e49b4a7556c27239ed1017d603e34d25a49742879c", "torch_deserialize": true, "strict_model_load": true, "missing_keys": [], "unexpected_keys": [], "parameter_count": 1301888, "model_eval": true, "args_problem": "local", "args_graph_size": 10}
     ],
-    "sha256": "NOT_RUN",
-    "torch_deserialize": "NOT_RUN",
-    "strict_model_load": "NOT_RUN",
-    "constructor_args_verified": false
+    "official_constructor": "nets.attention_local.AttentionModel via utils.functions.load_model"
   },
-  "local_environment_audit": {
-    "gan": {"python": "3.10.20", "torch": "2.5.1", "random_insertion": false, "scipy": false},
-    "ml4co_venv": {"python": "3.10.20", "torch": "2.12.0+cpu", "random_insertion": false, "scipy": true},
-    "neuopt": {"python": "3.10.21", "torch": "1.13.1+cu117", "random_insertion": false, "scipy": true},
-    "required_dependency_blocker": "no existing environment provides the official random_insertion dependency"
+  "dependency_and_environment": {
+    "environment": "neuopt",
+    "python": "3.10.21",
+    "torch": "1.13.1+cu117",
+    "torch_cuda_build": "11.7",
+    "cuda_available_at_run": false,
+    "numpy": "1.23.5",
+    "scipy": "1.15.3",
+    "tqdm": "4.66.5",
+    "random_insertion_before": "NOT_INSTALLED",
+    "random_insertion_after": "0.3.0.post1",
+    "random_insertion_pip_freeze": "random-insertion==0.3.0.post1",
+    "random_insertion_module": "/home/xihe/miniconda3/envs/neuopt/lib/python3.10/site-packages/random_insertion/__init__.py",
+    "explicit_order_determinism": "package metadata states deterministic for identical instances and insertion orders; repeated API calls were identical across changed Python/NumPy/Torch RNG states",
+    "tsp_import_graph": {"torch_geometric_loaded": false, "torch_scatter_loaded": false, "torch_sparse_loaded": false, "heatmap_loaded": false}
   },
-  "implemented_foundation": {
-    "neutral_prepare": "LOCAL_VERIFIED",
-    "adapter": "LOCAL_VERIFIED_BY_UNIT_TEST",
-    "exact_solution_decoder": "LOCAL_VERIFIED_BY_UNIT_TEST",
-    "first2_input_npz_sha256": "be89f2aa468f89d9b107c737272c18a669bb00f32855975fd41bd41b83d4db5f",
-    "first5_input_npz_sha256": "401f873c7755b3cd73a5bfbab79b0a2038676c4c041b56d610e5849bd00efca0"
+  "rng_semantics": {
+    "torch_manual_seed": 1,
+    "initial_orders": "35 calls to torch.randperm(100)",
+    "python_random_seed": null,
+    "numpy_random_seed": null,
+    "random_insertion_internal_randomness_after_explicit_order": false
   },
-  "actual_solution_extraction_design": "official returned coordinates remain an exact permutation of one known top-level transform; unique float32-bit set matching identifies identity/x/y/xy reflection and original node IDs, then rotates the cycle to node zero without repair",
-  "first2": "NOT_RUN",
-  "first5": "NOT_RUN",
-  "kit_validation": "NOT_RUN",
-  "why_no_inference": "official reviser binaries and companion args are not locally materialized, and random_insertion is missing from every existing safe environment",
+  "actual_solution_extraction": {
+    "method": "unique exact float32-bit set matching identifies identity/x/y/xy, followed by exact inverse node mapping",
+    "canonicalization": "cycle rotation to start at node 0 only",
+    "selected_candidate_recorded": true,
+    "tolerance_matching": false,
+    "nearest_neighbor": false,
+    "hungarian": false,
+    "repair": false
+  },
+  "runs": {
+    "first2": {
+      "input_npz_sha256": "be89f2aa468f89d9b107c737272c18a669bb00f32855975fd41bd41b83d4db5f",
+      "validated_artifact": "artifacts/local/glop_tsp100/formal_first2_validated.json",
+      "validated_artifact_sha256": "1b4e8eb31fd6136a7c7b3df47b4ff76e7400e9f599c62412eeadeaa2095abb77",
+      "runtime_seconds": 61.160381602996495,
+      "execution_batch_size": 2,
+      "actual_solution_count": 2,
+      "gate_counts": {"independent_feasible": 2, "kit_feasible": 2, "reported_objective_agrees": 2, "kit_objective_agrees": 2},
+      "selected_candidates": [{"index": 79, "transform": "reflect_y", "insertion_order_slot": 9}, {"index": 19, "transform": "identity", "insertion_order_slot": 19}]
+    },
+    "first5": {
+      "input_npz_sha256": "401f873c7755b3cd73a5bfbab79b0a2038676c4c041b56d610e5849bd00efca0",
+      "validated_artifact": "artifacts/local/glop_tsp100/formal_first5_validated.json",
+      "validated_artifact_sha256": "6641698eb69a6925737c35b142b2b94419709e80bd5db195551f2671cbe264a6",
+      "runtime_seconds": 158.60204248999798,
+      "execution_batch_size": 5,
+      "actual_solution_count": 5,
+      "gate_counts": {"independent_feasible": 5, "kit_feasible": 5, "reported_objective_agrees": 5, "kit_objective_agrees": 5},
+      "reported_objectives": [7.7970356941223145, 7.837152481079102, 7.865433692932129, 8.144524574279785, 8.045570373535156],
+      "independent_objectives": [7.797036008477865, 7.83715323746566, 7.865434558507398, 8.14452531919821, 8.045571350470901],
+      "kit_objectives": [7.797036170959473, 7.83715295791626, 7.865434646606445, 8.144526481628418, 8.04556941986084],
+      "gap_percent": [0.000004031731581223601, 0.0000035669764520115353, 0.24749057976863684, 0.46612124705601393, 0.000023995940627717257],
+      "selected_candidates": [{"index": 77, "transform": "reflect_y", "insertion_order_slot": 7}, {"index": 2, "transform": "identity", "insertion_order_slot": 2}, {"index": 70, "transform": "reflect_y", "insertion_order_slot": 0}, {"index": 8, "transform": "identity", "insertion_order_slot": 8}, {"index": 70, "transform": "reflect_y", "insertion_order_slot": 0}],
+      "actual_route_example": [0, 98, 83, 12, 71, 52, 45, 62, 70, 48, 29, 50, 97, 26, 87, 37, 61, 79, 3, 72, 21, 24, 74, 2, 36, 59, 42, 41, 92, 60, 20, 10, 40, 22, 32, 35, 4, 56, 8, 85, 13, 76, 34, 33, 81, 28, 53, 49, 80, 57, 15, 78, 95, 44, 77, 93, 84, 54, 89, 18, 31, 38, 19, 46, 66, 58, 1, 55, 17, 7, 91, 30, 23, 27, 14, 6, 67, 90, 39, 5, 99, 73, 11, 63, 25, 9, 65, 82, 96, 68, 86, 51, 69, 47, 94, 43, 16, 75, 88, 64, 0]
+    }
+  },
   "server_evidence": "NOT_RUN"
 }

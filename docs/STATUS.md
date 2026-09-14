@@ -4,8 +4,8 @@ Source of truth: [status.json](../manifests/status.json). LV=LOCAL_VERIFIED; SV=
 
 | method | problem | size | source_audit | official_asset_identified | local_asset_verified | local_checkpoint_load | local_model_smoke | dataset_available_local | adapter | solution_decoder | independent_validator | local_small_smoke | kit_validation | server_asset_match | server_env_verified | server_gpu_smoke | server_small_smoke | final_status |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| GLOP | TSP | 50 | LV | SC | B | B | B | LV | LV | LV | LV | B | NR | NR | NR | NR | NR | Assets + dependency blocked |
-| GLOP | TSP | 100 | LV | SC | B | B | B | LV | LV | LV | LV | B | NR | NR | NR | NR | NR | Assets + dependency blocked |
+| GLOP | TSP | 50 | LV | SC | LV | LV | LV | LV | LV | LV | LV | LV | LV | NR | NR | NR | NR | LOCAL_VERIFIED_INTEGRATION_SERVER_NOT_RUN |
+| GLOP | TSP | 100 | LV | SC | LV | LV | LV | LV | LV | LV | LV | LV | LV | NR | NR | NR | NR | LOCAL_VERIFIED_INTEGRATION_SERVER_NOT_RUN |
 | GLOP | CVRP | 50 | LV | SC | B | B | B | LV | B | B | LV | B | NR | NR | NR | NR | NR | Official small-size config undefined |
 | GLOP | CVRP | 100 | LV | SC | B | B | B | LV | B | B | LV | B | NR | NR | NR | NR | NR | Official small-size config undefined |
 | UDC | TSP | 50 | LV | SC | NR | NR | NR | LV | NI | NI | LV | NR | NR | NR | NR | NR | NR | Default config blocked |

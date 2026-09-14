@@ -1,11 +1,21 @@
 {
-  "evidence_class": "BLOCKED_LOCAL_OFFICIAL_ASSETS_AND_REQUIRED_DEPENDENCY_MISSING",
+  "evidence_class": "LOCAL_VERIFIED_INTEGRATION_SERVER_NOT_RUN",
   "method": "GLOP",
   "problem": "TSP",
   "problem_size": 50,
-  "project_base_commit": "b53560d44859d5d28ee261ae052a23851c75c92f",
-  "upstream": {"url": "https://github.com/henry-yeh/GLOP", "commit": "e540bc0153a0598e923e35116deeaecaf9c1cfff", "clean": true, "read_only": true},
-  "dataset": {"filename": "tsp50_concorde_5.688.pkl", "sha256": "1ede2b289d2e6fbfe614219a86d1ba6dfca2a726925a8fe8cef9c8196ee0b213", "count": 1280, "local_verified": true},
+  "project_base_commit": "a5cbe161c4e3074593f54dff78bb2ee7b3f227e4",
+  "upstream": {
+    "url": "https://github.com/henry-yeh/GLOP",
+    "commit": "e540bc0153a0598e923e35116deeaecaf9c1cfff",
+    "clean": true,
+    "read_only": true
+  },
+  "dataset": {
+    "filename": "tsp50_concorde_5.688.pkl",
+    "sha256": "1ede2b289d2e6fbfe614219a86d1ba6dfca2a726925a8fe8cef9c8196ee0b213",
+    "count": 1280,
+    "local_verified": true
+  },
   "source_compatibility": {
     "classification": "SOURCE_SUPPORTED",
     "configuration_evidence_class": "official generic inference defaults plus exact size-compatible source path",
@@ -15,36 +25,103 @@
       "main.py:62-70 explicitly handles every TSP problem_size <=100",
       "utils/functions.py:308 rejects only revision_len greater than current tour length"
     ],
-    "formal_configuration": {"problem_type": "tsp", "problem_size": 50, "revision_lens": [20], "revision_iters": [10], "width_requested": 1, "width_after_small_size_branch": 1, "tsp_aug": false, "decode_strategy": "sampling", "no_aug": false, "no_prune": false, "seed": 1},
+    "formal_configuration": {
+      "problem_type": "tsp",
+      "problem_size": 50,
+      "revision_lens": [20],
+      "revision_iters": [10],
+      "width_requested": 1,
+      "width_after_small_size_branch": 1,
+      "tsp_aug": false,
+      "top_level_candidate_count": 1,
+      "decode_strategy": "sampling",
+      "no_aug": false,
+      "no_prune": false,
+      "seed": 1
+    },
     "claim_limit": "not an explicit README TSP50 command and not described as a paper setting"
   },
   "official_asset_audit": {
     "source": "https://drive.google.com/file/d/1u9-GVTMRux3rWGcbipSqyTyBx_V8pm9G/view",
-    "source_status": "SOURCE_CONFIRMED",
-    "bundle_listing_confirmed": true,
+    "source_status": "SOURCE_CONFIRMED_AND_LOCAL_MATERIALIZED",
+    "archive_path": "/home/xihe/projects/pretrained.zip",
+    "archive_size_bytes": 97277466,
+    "archive_sha256": "8fe0834ba0f8515ea5a006fffdba6a5eadb3466539295046e05c86e96d006056",
+    "materialized_root": "checkpoints/glop/pretrained",
+    "tracked_binary": false,
     "formal_required_assets": [
-      {"path": "pretrained/Reviser-stage2/reviser_20/epoch-299.pt", "bundle_member_size_bytes": 25034377, "local_materialized": false, "sha256": null, "torch_deserialize": "NOT_RUN", "strict_model_load": "NOT_RUN"},
-      {"path": "pretrained/Reviser-stage2/reviser_20/args.json", "bundle_member_size_bytes": 1004, "local_materialized": false, "sha256": null, "constructor_args_verified": false}
+      {
+        "reviser_size": 20,
+        "checkpoint_path": "checkpoints/glop/pretrained/Reviser-stage2/reviser_20/epoch-299.pt",
+        "checkpoint_size_bytes": 25034377,
+        "checkpoint_sha256": "6771bf6b955fe26004f378c1ab0a2068c3048d717325a62b85a279e0ec22a865",
+        "args_path": "checkpoints/glop/pretrained/Reviser-stage2/reviser_20/args.json",
+        "args_size_bytes": 1004,
+        "args_sha256": "66171fc5178ee7fc2b8ddcda8a7c90e804a0e9c9eb960375f82df40cbc228ef6",
+        "torch_deserialize": true,
+        "official_constructor": "nets.attention_local.AttentionModel via utils.functions.load_model",
+        "strict_model_load": true,
+        "missing_keys": [],
+        "unexpected_keys": [],
+        "parameter_count": 1301888,
+        "model_eval": true,
+        "args_problem": "local",
+        "args_graph_size": 20
+      }
     ],
-    "historical_candidate_not_required_by_formal_generic_default": "pretrained/Reviser-stage2/reviser_50/epoch-299.pt"
+    "reviser50_not_used_by_formal_path": true
   },
-  "local_environment_audit": {
-    "gan": {"python": "3.10.20", "torch": "2.5.1", "random_insertion": false, "scipy": false},
-    "ml4co_venv": {"python": "3.10.20", "torch": "2.12.0+cpu", "random_insertion": false, "scipy": true},
-    "neuopt": {"python": "3.10.21", "torch": "1.13.1+cu117", "random_insertion": false, "scipy": true},
-    "required_dependency_blocker": "no existing environment provides the official random_insertion dependency"
+  "dependency_and_environment": {
+    "environment": "neuopt",
+    "python": "3.10.21",
+    "torch": "1.13.1+cu117",
+    "torch_cuda_build": "11.7",
+    "cuda_available_at_run": false,
+    "numpy": "1.23.5",
+    "scipy": "1.15.3",
+    "tqdm": "4.66.5",
+    "random_insertion_before": "NOT_INSTALLED",
+    "random_insertion_after": "0.3.0.post1",
+    "random_insertion_pip_freeze": "random-insertion==0.3.0.post1",
+    "random_insertion_module": "/home/xihe/miniconda3/envs/neuopt/lib/python3.10/site-packages/random_insertion/__init__.py",
+    "explicit_order_determinism": "package metadata states deterministic for identical instances and insertion orders; repeated API calls were identical across changed Python/NumPy/Torch RNG states",
+    "tsp_import_graph": {
+      "torch_geometric_loaded": false,
+      "torch_scatter_loaded": false,
+      "torch_sparse_loaded": false,
+      "heatmap_loaded": false
+    }
   },
-  "implemented_foundation": {
-    "neutral_prepare": "LOCAL_VERIFIED",
-    "adapter": "LOCAL_VERIFIED_BY_UNIT_TEST",
-    "exact_solution_decoder": "LOCAL_VERIFIED_BY_UNIT_TEST",
-    "first2_input_npz_sha256": "5d1396804afb0cd60b0ae95c17041ada0db8bd920f440f6d42195639ed3cc3d9",
-    "first5_input_npz_sha256": "4b9b87d8ef48ff91820035fbe40702b771cbd80e30bc7b5f12a49fd79f8f4c1c"
+  "actual_solution_extraction": {
+    "method": "exact float32 coordinate-bit identity against the sole identity transform",
+    "canonicalization": "cycle rotation to start at node 0 only",
+    "tolerance_matching": false,
+    "nearest_neighbor": false,
+    "hungarian": false,
+    "repair": false
   },
-  "actual_solution_extraction_design": "official output coordinates are matched by exact float32 bits against the sole identity transform; node IDs are rotated to start at zero without reorder, nearest-neighbor matching, tolerance, or repair",
-  "first2": "NOT_RUN",
-  "first5": "NOT_RUN",
-  "kit_validation": "NOT_RUN",
-  "why_no_inference": "official reviser binary and companion args are not locally materialized, and random_insertion is missing from every existing safe environment",
+  "runs": {
+    "first2": {
+      "input_npz_sha256": "5d1396804afb0cd60b0ae95c17041ada0db8bd920f440f6d42195639ed3cc3d9",
+      "validated_artifact": "artifacts/local/glop_tsp50/formal_first2_validated.json",
+      "validated_artifact_sha256": "9d40323c8b1efe6ab7a471b6bf6c89d8a1887ca57b38e78d3692cb0567cff288",
+      "runtime_seconds": 0.3995685539994156,
+      "actual_solution_count": 2,
+      "gate_counts": {"independent_feasible": 2, "kit_feasible": 2, "reported_objective_agrees": 2, "kit_objective_agrees": 2}
+    },
+    "first5": {
+      "input_npz_sha256": "4b9b87d8ef48ff91820035fbe40702b771cbd80e30bc7b5f12a49fd79f8f4c1c",
+      "validated_artifact": "artifacts/local/glop_tsp50/formal_first5_validated.json",
+      "validated_artifact_sha256": "b8d87576b8f6e2019fcbad0081042648db3ea6bd2bd47075bcc4be3221807804",
+      "runtime_seconds": 0.4949347090005176,
+      "actual_solution_count": 5,
+      "gate_counts": {"independent_feasible": 5, "kit_feasible": 5, "reported_objective_agrees": 5, "kit_objective_agrees": 5},
+      "reported_objectives": [5.878881454467773, 5.901564121246338, 6.029549598693848, 5.841125011444092, 5.682927131652832],
+      "independent_objectives": [5.8788818927857305, 5.901563532842498, 6.029549232325906, 5.84112440509749, 5.682926983574846],
+      "kit_objectives": [5.878880977630615, 5.9015631675720215, 6.029550075531006, 5.841124534606934, 5.682926177978516],
+      "gap_percent": [0.9068169464415679, 2.600220098090773, 1.7949916689193193, 0.06995845981788525, 3.713379864902009],
+      "actual_route_example": [0, 40, 26, 10, 15, 28, 1, 11, 30, 48, 47, 27, 32, 8, 22, 44, 9, 36, 7, 23, 39, 13, 45, 29, 34, 41, 49, 17, 14, 43, 31, 24, 5, 6, 21, 18, 2, 16, 46, 42, 33, 35, 4, 20, 38, 12, 3, 25, 37, 19, 0]
+    }
+  },
   "server_evidence": "NOT_RUN"
 }

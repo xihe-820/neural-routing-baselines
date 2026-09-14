@@ -7,6 +7,7 @@ SUPPORTED = {
         "capacity": 40.0,
         "checkpoint_relative_path": "pretrained/mvmoe_4e_n50/epoch-5000.pt",
         "dataset_filename": "cvrp50_hgs-1s_10.366.pkl",
+        "dataset_count": 10000,
     },
     100: {
         "dataset_sha256": "bb47d5a113848e5a404edefc562d5d2ef6b0ade1aafc287828bdf60364e23532",
@@ -14,6 +15,7 @@ SUPPORTED = {
         "capacity": 50.0,
         "checkpoint_relative_path": "pretrained/mvmoe_4e_n100/epoch-5000.pt",
         "dataset_filename": "cvrp100_hgs-20s_15.563.pkl",
+        "dataset_count": 10000,
     },
 }
 
