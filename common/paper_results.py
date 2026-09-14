@@ -114,6 +114,7 @@ def initialize_chunk(output_dir, resume_identity):
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     metadata_path = output_dir / METADATA_FILE
+    records_path = output_dir / RECORDS_FILE
     fingerprint = json_fingerprint(resume_identity)
     if metadata_path.exists():
         metadata = json.loads(metadata_path.read_text())
@@ -121,6 +122,13 @@ def initialize_chunk(output_dir, resume_identity):
             raise ValueError("existing paper artifact has an unsupported schema")
         if metadata.get("resume_fingerprint") != fingerprint:
             raise ValueError("resume refused: provenance or configuration differs")
+        finalized_hash = metadata.get("inference_records_sha256")
+        if finalized_hash is not None:
+            if not records_path.exists():
+                raise ValueError("resume refused: finalized inference records are missing")
+            if sha256_file(records_path) != finalized_hash:
+                raise ValueError(
+                    "resume refused: inference records changed after finalization")
     else:
         metadata = {
             "schema_version": SCHEMA_VERSION,
@@ -135,7 +143,6 @@ def initialize_chunk(output_dir, resume_identity):
         }
         write_json(metadata_path, metadata)
     expected = set(resume_identity["chunk"]["expected_indices"])
-    records_path = output_dir / RECORDS_FILE
     records = read_jsonl(records_path) if records_path.exists() else []
     completed = set()
     for record in records:

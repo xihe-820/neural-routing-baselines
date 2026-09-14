@@ -4,10 +4,10 @@ import tempfile
 import unittest
 
 from common.hashing import sha256_file
-from common.paper_results import (METADATA_FILE, SCHEMA_VERSION, TIMING_SEMANTICS,
-                                  VALIDATED_RECORDS_FILE, append_record,
+from common.paper_results import (METADATA_FILE, RECORDS_FILE, SCHEMA_VERSION,
+                                  TIMING_SEMANTICS, VALIDATED_RECORDS_FILE, append_record,
                                   finalize_chunk, initialize_chunk,
-                                  json_fingerprint, summarize_chunks)
+                                  json_fingerprint, summarize_chunks, write_json)
 from methods.mvmoe.cvrp.config import supported_config
 from methods.mvmoe.cvrp.run import MODEL_CONFIG as CVRP_INTEGRATION_MODEL_CONFIG
 from methods.mvmoe.cvrptw.config import get_size_config
@@ -157,6 +157,37 @@ class PaperAggregationTests(unittest.TestCase):
         changed["paper_protocol"]["aug_factor"] = 1
         with self.assertRaisesRegex(ValueError, "resume refused"):
             initialize_chunk(directory, changed)
+
+    def test_kit_validated_resume_rejects_valid_post_finalization_mutation(self):
+        directory = self.root / "kit-validated-resume"
+        value = identity([0], dataset_count=1)
+        initialize_chunk(directory, value)
+        item = record(0, 2.0, 1.0)
+        item.pop("kit_feasible")
+        item.pop("kit_objective")
+        item.pop("kit_objective_agrees")
+        append_record(directory, item)
+        metadata = finalize_chunk(directory)
+
+        validated = dict(item, kit_feasible=True, kit_objective=2.0,
+                         kit_objective_agrees=True)
+        validated_path = directory / VALIDATED_RECORDS_FILE
+        validated_path.write_text(json.dumps(validated) + "\n")
+        metadata.update(
+            state="KIT_VALIDATED",
+            validated_records_sha256=sha256_file(validated_path),
+        )
+        write_json(directory / METADATA_FILE, metadata)
+        validated_hash = sha256_file(validated_path)
+
+        _, completed = initialize_chunk(directory, value)
+        self.assertEqual(completed, {0})
+        mutated = dict(item, runtime_seconds=0.2)
+        (directory / RECORDS_FILE).write_text(json.dumps(mutated) + "\n")
+        with self.assertRaisesRegex(
+                ValueError, "inference records changed after finalization"):
+            initialize_chunk(directory, value)
+        self.assertEqual(sha256_file(validated_path), validated_hash)
 
     def test_missing_index_is_rejected(self):
         chunk = write_chunk(self.root, "chunk", [record(0, 2.0, 1.0)],
