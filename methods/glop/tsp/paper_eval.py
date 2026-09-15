@@ -17,9 +17,10 @@ from common.hashing import sha256_file
 from common.objective_agreement import objective_agrees
 from common.provenance import environment_provenance, git_provenance, source_provenance
 from methods.glop.paper_protocol import formal_protocol
-from methods.glop.paper_results import (TIMING_SEMANTICS, append_record,
+from methods.glop.paper_results import (TSP_TIMING_SEMANTICS, append_record,
                                         finalize_chunk, fingerprint,
-                                        initialize_chunk)
+                                        initialize_chunk,
+                                        tsp_runtime_accounting)
 from methods.glop.runtime import (activate_upstream, cuda_device,
                                   load_revisers, make_shared_tsp_orders,
                                   official_seeded_setup,
@@ -123,9 +124,12 @@ def main():
         lambda: load_revisers(
             args.asset_root, protocol, device=device, torch=torch,
             load_model=load_model))
+    shared_order_started = time.perf_counter()
     orders = make_shared_tsp_orders(
         torch, problem_size=args.problem_size,
         width=protocol["internal_width"])
+    shared_ri_order_generation_seconds = (
+        time.perf_counter() - shared_order_started)
     environment = environment_provenance(device)
     environment["random_insertion"] = insertion
     sources = source_provenance([
@@ -165,7 +169,7 @@ def main():
                 [order.tolist() for order in orders]),
         },
         "environment": environment, "source_provenance": sources,
-        "timing_semantics": TIMING_SEMANTICS,
+        "timing_semantics": TSP_TIMING_SEMANTICS,
     }
     _, completed = initialize_chunk(args.output_dir, identity)
     if completed == set(indices):
@@ -189,6 +193,8 @@ def main():
             device=device, torch=torch, reconnect=reconnect,
             load_problem=load_problem,
             random_insertion_parallel=random_insertion_parallel, timed=True)
+        runtime, runtime_components = tsp_runtime_accounting(
+            dataset_index, runtime, shared_ri_order_generation_seconds)
         checked = validate(points[local], canonical)
         independent = checked["independent_objective"]
         agrees = independent is not None and objective_agrees(reported, independent)
@@ -202,6 +208,7 @@ def main():
             "gap_percent": (independent - reference) / reference * 100.0
             if independent is not None else None,
             "runtime_seconds": runtime,
+            "runtime_components": runtime_components,
             "independent_feasible": bool(checked["feasible"]),
             "reported_objective_agrees": bool(agrees),
             "selection": {"internal_width": protocol["internal_width"],

@@ -24,6 +24,9 @@ class GLOPPaperProtocolTests(unittest.TestCase):
         self.assertEqual(standard["revision_iters"], [20, 25, 5])
         self.assertEqual((standard["internal_width"], more["internal_width"]), (1, 10))
         self.assertEqual(more["revision_iters"], [20, 25, 5])
+        self.assertEqual(
+            standard["shared_ri_order_timing_policy"],
+            "charged exactly once to dataset index 0")
 
     def test_tsp1k_standard_and_more_are_exact(self):
         standard = formal_protocol("TSP", 1000, "official_standard")

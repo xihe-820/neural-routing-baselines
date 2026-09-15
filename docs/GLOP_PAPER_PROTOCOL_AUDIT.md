@@ -140,13 +140,16 @@ remains pending server verification.
 
 ## Formal timing boundary
 
-Formal Time is mean wall-clock solve latency per original instance. After
-models, dataset record, and neutral adapter output are ready, synchronize CUDA,
-start the timer, and include RI initialization, top-level augmentation,
-partition heatmap and greedy route construction for CVRP, SHPP preparation,
-all revisions, pruning/candidate selection, final synchronization, D2H of the
-selected coordinate solution, and exact node-ID decoding. Stop after the
-canonical solution is available.
+Formal Time is mean wall-clock solve latency per original instance. For TSP,
+measure the one shared RI-order generation after model setup and charge it
+exactly once through dataset index 0; each record also includes its own random
+insertion, all revisions, augmentation/pruning/selection, final synchronization,
+D2H, and exact node-ID decoding. Nonzero-offset chunks reconstruct the same
+orders but record zero shared-order cost. CVRP keeps its existing per-instance
+boundary: after models, dataset record, and neutral adapter output are ready,
+synchronize CUDA and include partition heatmap, greedy route construction, SHPP
+preparation, all revisions, pruning/candidate selection, final synchronization,
+D2H, and exact node-ID decoding. Stop after the canonical solution is available.
 
 Exclude dataset/checkpoint loading, model construction, warm-up, artifact I/O,
 independent validation, Kit validation, and summary aggregation. RI and CVRP

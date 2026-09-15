@@ -12,7 +12,8 @@ from methods.glop.runtime import (completed_prefix_length,
                                   replay_completed_prefix,
                                   require_cvrp_dataset_prefix,
                                   run_warmup_isolated)
-from methods.glop.tsp.paper_eval import _solve_one as solve_tsp
+from methods.glop.tsp.paper_eval import (_solve_one as solve_tsp,
+                                         main as tsp_main)
 
 
 def _fake_stochastic_result(index):
@@ -82,6 +83,20 @@ class GLOPTSPRNGTests(unittest.TestCase):
         self.assertEqual(tuple(setup_value.shape), (17,))
         for left, right in zip(expected, actual):
             self.assertTrue(torch.equal(left, right))
+
+    def test_runner_generates_one_shared_order_set_after_model_setup(self):
+        source = inspect.getsource(tsp_main)
+        setup = source.index("official_seeded_setup(")
+        timing_start = source.index("shared_order_started = time.perf_counter()")
+        generation = source.index("orders = make_shared_tsp_orders(")
+        timing_stop = source.index(
+            "time.perf_counter() - shared_order_started")
+        warmup = source.index("run_warmup_isolated(")
+        self.assertLess(setup, timing_start)
+        self.assertLess(timing_start, generation)
+        self.assertLess(generation, timing_stop)
+        self.assertLess(timing_stop, warmup)
+        self.assertEqual(source.count("orders = make_shared_tsp_orders("), 1)
 
     def test_tsp_warmup_does_not_change_formal_output(self):
         def formal_output():

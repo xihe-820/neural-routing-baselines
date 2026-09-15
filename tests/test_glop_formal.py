@@ -9,20 +9,32 @@ from common.hashing import sha256_file
 from methods.glop.cvrp.adapter import validate_instance
 from methods.glop.cvrp.decode import decode_subtour_coordinates
 from methods.glop.paper_protocol import formal_protocol
-from methods.glop.paper_results import (METADATA_FILE, SCHEMA_VERSION,
-                                        VALIDATED_RECORDS_FILE, fingerprint,
-                                        summarize_chunks)
+from methods.glop.paper_results import (METADATA_FILE, RECORDS_FILE,
+                                        SCHEMA_VERSION,
+                                        TSP_TIMING_SEMANTICS,
+                                        VALIDATED_RECORDS_FILE, append_record,
+                                        finalize_chunk, fingerprint,
+                                        initialize_chunk, read_jsonl,
+                                        summarize_chunks,
+                                        tsp_runtime_accounting)
 from methods.glop.tsp.adapter import adapt_points
 from problems.cvrp.validate import validate as validate_cvrp
 from problems.tsp.validate import validate as validate_tsp
 
 
-def _record(index):
+def _record(index, *, shared_setup=None, runtime=0.1):
+    if shared_setup is None:
+        shared_setup = 0.025 if index == 0 else 0.0
+    solve = runtime - shared_setup
     return {
         "dataset_instance_index": index, "instance_id": f"i{index}",
         "canonical_solution": [0, 1, 0], "reported_objective": 2.0,
         "independent_objective": 2.0, "reference_objective": 1.0,
-        "gap_percent": 100.0, "runtime_seconds": 0.1,
+        "gap_percent": 100.0, "runtime_seconds": runtime,
+        "runtime_components": {
+            "per_instance_solve_seconds": solve,
+            "shared_ri_order_generation_seconds": shared_setup,
+        },
         "independent_feasible": True, "reported_objective_agrees": True,
         "evidence_status": "INDEPENDENT_VERIFIED", "kit_feasible": True,
         "kit_objective": 2.0, "kit_objective_agrees": True,
@@ -69,14 +81,15 @@ def _identity(root, name, indices, prepared, *, gpu="NVIDIA GeForce RTX 4090"):
                 Path(__file__).resolve().parents[1] /
                 "methods/glop/paper_results.py"),
         }],
-        "timing_semantics": "single-original-instance test",
+        "timing_semantics": TSP_TIMING_SEMANTICS,
     }
 
 
-def _chunk(root, name, protocol, index, *, gpu="NVIDIA GeForce RTX 4090"):
+def _chunk(root, name, protocol, index, *, gpu="NVIDIA GeForce RTX 4090",
+           shared_setup=None, runtime=0.1):
     directory = root / name
     directory.mkdir()
-    record = _record(index)
+    record = _record(index, shared_setup=shared_setup, runtime=runtime)
     path = directory / VALIDATED_RECORDS_FILE
     path.write_text(json.dumps(record) + "\n")
     prepared = root / f"{name}.npz"
@@ -132,6 +145,16 @@ class GLOPExactMappingTests(unittest.TestCase):
 
 
 class GLOPAggregationTests(unittest.TestCase):
+    def test_tsp_runtime_accounting_charges_only_index_zero(self):
+        zero_runtime, zero_components = tsp_runtime_accounting(0, 0.8, 0.2)
+        later_runtime, later_components = tsp_runtime_accounting(1, 0.8, 0.2)
+        self.assertEqual(zero_runtime, 1.0)
+        self.assertEqual(
+            zero_components["shared_ri_order_generation_seconds"], 0.2)
+        self.assertEqual(later_runtime, 0.8)
+        self.assertEqual(
+            later_components["shared_ri_order_generation_seconds"], 0.0)
+
     def test_mixed_standard_and_more_chunks_fail(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -149,6 +172,54 @@ class GLOPAggregationTests(unittest.TestCase):
             self.assertEqual(result["status"], "PAPER_READY")
             self.assertNotIn("manuscript_hardware_consistency", result)
             self.assertEqual(result["drop_mean_per_instance_gap_percent"], 100.0)
+            self.assertEqual(result["time_mean_single_instance_seconds"], 0.1)
+
+    def test_nonzero_chunk_shared_order_charge_fails_closed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            first = _chunk(root, "first", "official_standard", 0)
+            second = _chunk(
+                root, "second", "official_standard", 1,
+                shared_setup=0.01)
+            with self.assertRaisesRegex(ValueError, "only be charged"):
+                summarize_chunks([first, second])
+
+    def test_runtime_component_sum_mismatch_fails_closed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            first = _chunk(root, "first", "official_standard", 0)
+            second = _chunk(root, "second", "official_standard", 1)
+            path = second / VALIDATED_RECORDS_FILE
+            record = json.loads(path.read_text())
+            record["runtime_components"]["per_instance_solve_seconds"] = 0.2
+            path.write_text(json.dumps(record) + "\n")
+            metadata_path = second / METADATA_FILE
+            metadata = json.loads(metadata_path.read_text())
+            metadata["validated_records_sha256"] = sha256_file(path)
+            metadata_path.write_text(json.dumps(metadata) + "\n")
+            with self.assertRaisesRegex(ValueError, "runtime_components sum"):
+                summarize_chunks([first, second])
+
+    def test_resume_with_completed_index_zero_preserves_runtime(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            prepared = root / "prepared.npz"
+            prepared.write_bytes(b"prepared")
+            identity = _identity(
+                root, "official_standard", [0], prepared)
+            output = root / "output"
+            initialize_chunk(output, identity)
+            append_record(output, _record(0, shared_setup=0.03, runtime=0.11))
+            before = (output / RECORDS_FILE).read_bytes()
+            _, completed = initialize_chunk(output, identity)
+            self.assertEqual(completed, {0})
+            finalize_chunk(output)
+            self.assertEqual((output / RECORDS_FILE).read_bytes(), before)
+            resumed = read_jsonl(output / RECORDS_FILE)[0]
+            self.assertEqual(resumed["runtime_seconds"], 0.11)
+            self.assertEqual(
+                resumed["runtime_components"][
+                    "shared_ri_order_generation_seconds"], 0.03)
 
     def test_non_rtx4090_hardware_fails_closed(self):
         with tempfile.TemporaryDirectory() as directory:

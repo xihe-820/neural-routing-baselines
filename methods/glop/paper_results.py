@@ -22,6 +22,13 @@ TIMING_SEMANTICS = (
     "decode and CUDA synchronization; excludes warm-up, provenance, independent/Kit "
     "validation, artifact I/O and aggregation"
 )
+TSP_TIMING_SEMANTICS = (
+    "single-original-instance wall-clock seconds after checkpoint/model/prepared-input "
+    "loading; includes one shared RI-order generation cost amortized through dataset "
+    "index 0, per-instance random insertion, all revisions/augmentation/pruning/selection, "
+    "final D2H, exact node-ID decode and CUDA synchronization; excludes warm-up, "
+    "provenance, independent/Kit validation, artifact I/O and aggregation"
+)
 
 
 def utc_now():
@@ -67,6 +74,45 @@ def _number(value, name, *, positive=False, nonnegative=False):
     if nonnegative and value < 0:
         raise ValueError(f"{name} must be nonnegative")
     return value
+
+
+def tsp_runtime_accounting(dataset_index, per_instance_solve_seconds,
+                           shared_ri_order_generation_seconds):
+    """Charge the one TSP shared-order setup cost to global index zero."""
+    solve = _number(per_instance_solve_seconds,
+                    "per_instance_solve_seconds", nonnegative=True)
+    shared = _number(shared_ri_order_generation_seconds,
+                     "shared_ri_order_generation_seconds", nonnegative=True)
+    charged_shared = shared if dataset_index == 0 else 0.0
+    components = {
+        "per_instance_solve_seconds": solve,
+        "shared_ri_order_generation_seconds": charged_shared,
+    }
+    return solve + charged_shared, components
+
+
+def _validate_tsp_runtime_components(record, *, required):
+    components = record.get("runtime_components")
+    if components is None:
+        if required:
+            raise ValueError("TSP record lacks runtime_components")
+        return None
+    expected = {
+        "per_instance_solve_seconds",
+        "shared_ri_order_generation_seconds",
+    }
+    if not isinstance(components, dict) or set(components) != expected:
+        raise ValueError("TSP runtime_components fields differ from protocol")
+    solve = _number(components["per_instance_solve_seconds"],
+                    "per_instance_solve_seconds", nonnegative=True)
+    shared = _number(components["shared_ri_order_generation_seconds"],
+                     "shared_ri_order_generation_seconds", nonnegative=True)
+    runtime = _number(record["runtime_seconds"], "runtime_seconds",
+                      nonnegative=True)
+    if not math.isclose(runtime, solve + shared,
+                        rel_tol=1e-9, abs_tol=1e-12):
+        raise ValueError("TSP runtime_seconds differs from runtime_components sum")
+    return shared
 
 
 def validate_record(record, *, require_kit=False):
@@ -271,6 +317,22 @@ def summarize_chunks(chunk_dirs):
     indices = [record["dataset_instance_index"] for record in records]
     if len(indices) != len(set(indices)) or set(indices) != set(range(count)):
         raise ValueError("GLOP full-set coverage is incomplete or duplicated")
+    if baseline["problem"] == "TSP":
+        if 0 not in indices:
+            raise ValueError("TSP full-set timing requires dataset index 0")
+        if baseline["timing_semantics"] != TSP_TIMING_SEMANTICS:
+            raise ValueError("TSP timing semantics differ from formal protocol")
+        index_zero_charges = 0
+        for record in records:
+            shared = _validate_tsp_runtime_components(record, required=True)
+            if record["dataset_instance_index"] == 0:
+                index_zero_charges += 1
+            elif shared != 0.0:
+                raise ValueError(
+                    "TSP shared RI-order setup may only be charged to dataset index 0")
+        if index_zero_charges != 1:
+            raise ValueError(
+                "TSP full-set timing must contain exactly one index-0 shared setup charge")
     objective = sum(float(row["independent_objective"]) for row in records) / count
     drop = sum(float(row["gap_percent"]) for row in records) / count
     runtime = sum(float(row["runtime_seconds"]) for row in records) / count

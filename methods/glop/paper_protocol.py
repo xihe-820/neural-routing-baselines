@@ -37,6 +37,8 @@ def _tsp(name, revision_iters, width):
             "per_instance_reseed": False,
             "warmup_rng_restored": True,
         },
+        "shared_ri_order_timing_policy": (
+            "charged exactly once to dataset index 0"),
         "random_insertion_min_version": "0.3.0",
         "original_batch_size": ORIGINAL_BATCH_SIZE,
         "training": False, "fine_tuning": False,
