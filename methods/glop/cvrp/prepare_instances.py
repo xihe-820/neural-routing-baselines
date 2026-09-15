@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prepare an explicit formal GLOP CVRP1K/2K dataset slice."""
+"""Prepare an explicit formal GLOP manuscript CVRP dataset slice."""
 from __future__ import annotations
 
 import argparse
@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 from common.hashing import sha256_file
 from methods.glop.cvrp.adapter import validate_instance
-from methods.glop.paper_protocol import formal_protocol
+from methods.glop.paper_protocol import expected_dataset_filename, formal_protocol
 
 
 def main():
@@ -29,6 +29,10 @@ def main():
         parser.error(
             "formal CVRP preparation requires offset=0 and a positive count")
     protocol = formal_protocol("CVRP", args.problem_size, args.protocol)
+    expected_name = expected_dataset_filename("CVRP", args.problem_size)
+    if args.dataset.name != expected_name:
+        raise ValueError(
+            f"formal CVRP dataset filename must be exactly {expected_name}")
 
     import ml4co_kit as kit
     wrapper = kit.CVRPWrapper()
@@ -63,6 +67,7 @@ def main():
         "format": "glop-paper-cvrp-input-v1", "problem": "CVRP",
         "problem_size": args.problem_size,
         "official_protocol_name": protocol["official_protocol_name"],
+        "expected_dataset_filename": expected_name,
         "dataset_path": str(args.dataset.resolve()), "dataset_sha256": dataset_hash,
         "dataset_size_bytes": args.dataset.stat().st_size,
         "dataset_count": dataset_count,

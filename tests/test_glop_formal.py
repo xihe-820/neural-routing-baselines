@@ -11,6 +11,7 @@ from methods.glop.cvrp.decode import decode_subtour_coordinates
 from methods.glop.paper_protocol import formal_protocol
 from methods.glop.paper_results import (METADATA_FILE, RECORDS_FILE,
                                         SCHEMA_VERSION,
+                                        TIMING_SEMANTICS,
                                         TSP_TIMING_SEMANTICS,
                                         VALIDATED_RECORDS_FILE, append_record,
                                         finalize_chunk, fingerprint,
@@ -103,6 +104,22 @@ def _chunk(root, name, protocol, index, *, gpu="NVIDIA GeForce RTX 4090",
         "validated_records_sha256": sha256_file(path),
     }
     (directory / METADATA_FILE).write_text(json.dumps(metadata) + "\n")
+    return directory
+
+
+def _cvrp_chunk(root, name, protocol, index):
+    directory = _chunk(root, name, "official_standard", index)
+    metadata_path = directory / METADATA_FILE
+    metadata = json.loads(metadata_path.read_text())
+    identity = metadata["resume_identity"]
+    frozen = formal_protocol("CVRP", 1000, protocol)
+    identity.update(
+        variant=protocol, problem="CVRP", problem_size=1000,
+        official_protocol_name=protocol, paper_protocol=frozen,
+        timing_semantics=TIMING_SEMANTICS,
+        rng=dict(frozen["rng_semantics"]))
+    metadata["resume_fingerprint"] = fingerprint(identity)
+    metadata_path.write_text(json.dumps(metadata) + "\n")
     return directory
 
 
@@ -214,6 +231,15 @@ class GLOPAggregationTests(unittest.TestCase):
             root = Path(directory)
             standard = _chunk(root, "standard", "official_standard", 0)
             more = _chunk(root, "more", "official_more", 1)
+            with self.assertRaisesRegex(ValueError, "mixed GLOP protocol"):
+                summarize_chunks([standard, more])
+
+    def test_mixed_cvrp_standard_and_project_more_chunks_fail(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            standard = _cvrp_chunk(root, "standard", "official_standard", 0)
+            more = _cvrp_chunk(
+                root, "more", "project_more_revisions", 1)
             with self.assertRaisesRegex(ValueError, "mixed GLOP protocol"):
                 summarize_chunks([standard, more])
 

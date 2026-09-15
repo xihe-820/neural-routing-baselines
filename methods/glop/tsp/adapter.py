@@ -33,6 +33,34 @@ def validate_initial_permutations(permutations, *, problem_size, width, batch_si
     return True
 
 
+def apply_top_level_reflections(seeds, *, transforms, expected_candidate_count):
+    """Apply the pinned main.py reflection order without changing RI seeds."""
+    if seeds.ndim != 3 or seeds.shape[-1] != 2:
+        raise ValueError("TSP seed tensor has an unexpected shape")
+    reflected = []
+    for transform in transforms:
+        if transform == "identity":
+            candidate = seeds
+        elif transform == "reflect_x":
+            candidate = seeds.clone()
+            candidate[..., 0] = 1 - candidate[..., 0]
+        elif transform == "reflect_y":
+            candidate = seeds.clone()
+            candidate[..., 1] = 1 - candidate[..., 1]
+        elif transform == "reflect_xy":
+            candidate = 1 - seeds
+        else:
+            raise ValueError(f"unknown GLOP top-level transform: {transform}")
+        reflected.append(candidate)
+    if not reflected:
+        raise ValueError("at least one top-level transform is required")
+    import torch
+    candidates = torch.cat(reflected, dim=0)
+    if len(candidates) != expected_candidate_count:
+        raise ValueError("effective TSP candidate count differs from protocol")
+    return candidates
+
+
 def adapt_points(points, *, problem_size, device="cpu", top_level_transforms=None):
     import torch
 

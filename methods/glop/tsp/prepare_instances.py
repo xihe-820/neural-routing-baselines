@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prepare an explicit formal GLOP TSP500/1K/10K dataset slice."""
+"""Prepare an explicit formal GLOP manuscript TSP dataset slice."""
 from __future__ import annotations
 
 import argparse
@@ -12,7 +12,7 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 from common.hashing import sha256_file
-from methods.glop.paper_protocol import formal_protocol
+from methods.glop.paper_protocol import expected_dataset_filename, formal_protocol
 from methods.glop.tsp.adapter import adapt_points
 from methods.glop.tsp.config import supported_config
 
@@ -75,6 +75,10 @@ def main():
         _prepare_legacy(args)
         return
     protocol = formal_protocol("TSP", args.problem_size, args.protocol)
+    expected_name = expected_dataset_filename("TSP", args.problem_size)
+    if args.dataset.name != expected_name:
+        raise ValueError(
+            f"formal TSP dataset filename must be exactly {expected_name}")
 
     import ml4co_kit as kit
     wrapper = kit.TSPWrapper()
@@ -90,7 +94,8 @@ def main():
             raise ValueError("dataset contains non-finite coordinates")
     points = np.stack([task.points for task in tasks]).astype(np.float32, copy=False)
     adapt_points(points, problem_size=args.problem_size,
-                 top_level_transforms=("identity",), device="cpu")
+                 top_level_transforms=protocol["top_level_transforms"],
+                 device="cpu")
     dataset_hash = sha256_file(args.dataset)
     references = np.asarray(
         [task.evaluate(task.ref_sol) for task in tasks], dtype=np.float64)
@@ -106,6 +111,7 @@ def main():
         "format": "glop-paper-tsp-input-v1", "problem": "TSP",
         "problem_size": args.problem_size,
         "official_protocol_name": protocol["official_protocol_name"],
+        "expected_dataset_filename": expected_name,
         "dataset_path": str(args.dataset.resolve()), "dataset_sha256": dataset_hash,
         "dataset_size_bytes": args.dataset.stat().st_size,
         "dataset_count": dataset_count,

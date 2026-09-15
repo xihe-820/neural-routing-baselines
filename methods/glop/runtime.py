@@ -47,7 +47,7 @@ def run_warmup_isolated(torch, device, warmup):
 
 
 def replay_completed_prefix(records, expected_indices, replay):
-    """Replay a CVRP prefix to advance its sequential sampling RNG exactly."""
+    """Replay a completed prefix to advance a sequential sampling RNG exactly."""
     prefix_length = completed_prefix_length(records, expected_indices)
     fields = ("canonical_solution", "canonical_routes", "reported_objective",
               "independent_objective", "selection")
@@ -55,7 +55,7 @@ def replay_completed_prefix(records, expected_indices, replay):
         observed = replay(record["dataset_instance_index"])
         if any(observed.get(field) != record.get(field) for field in fields):
             raise ValueError(
-                "CVRP prefix replay differs from the recorded stochastic result")
+                "prefix replay differs from the recorded stochastic result")
     return prefix_length
 
 
@@ -64,7 +64,7 @@ def completed_prefix_length(records, expected_indices):
     actual = [record["dataset_instance_index"] for record in records]
     expected_prefix = list(expected_indices[:len(actual)])
     if actual != expected_prefix:
-        raise ValueError("CVRP resume records must be a contiguous ordered prefix")
+        raise ValueError("sampling resume records must be a contiguous ordered prefix")
     return len(actual)
 
 

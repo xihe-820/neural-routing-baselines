@@ -55,8 +55,10 @@ class GLOPTSPRNGTests(unittest.TestCase):
                 return None
 
         protocol = {
-            "internal_width": 2, "revision_lens": [], "revision_iters": [],
-            "local_augmentation": True, "pruning": True,
+            "ri_order_width": 2, "effective_candidate_count": 2,
+            "top_level_transforms": ["identity"],
+            "revision_lens": [], "revision_iters": [],
+            "local_reconnect_augmentation": True, "pruning": True,
         }
         first = np.asarray(
             [[0, 0], [1, 0], [2, 0], [3, 0], [4, 0]], dtype=np.float32)
@@ -157,7 +159,7 @@ class GLOPCVRPRNGTests(unittest.TestCase):
 
     def test_seed_and_rng_identity_are_frozen(self):
         tsp = formal_protocol("TSP", 500, "official_standard")
-        cvrp = formal_protocol("CVRP", 1000, "official_single")
+        cvrp = formal_protocol("CVRP", 1000, "official_standard")
         self.assertEqual((tsp["seed"], cvrp["seed"]), (1, 1))
         self.assertFalse(tsp["rng_semantics"]["per_instance_reseed"])
         self.assertFalse(cvrp["rng_semantics"]["per_instance_reseed"])

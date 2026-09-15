@@ -8,12 +8,12 @@ import json
 import os
 from pathlib import Path
 import platform
-import re
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from scripts.audit_datasets import audit
+from methods.glop.paper_protocol import PAPER_DATASET_FILENAMES
 
 SCOPE = (("TSP", 100), ("TSP", 500), ("TSP", 1000), ("TSP", 2000),
          ("TSP", 5000), ("TSP", 10000), ("CVRP", 500),
@@ -24,12 +24,8 @@ def discover(dataset_root):
     found = {}
     if not dataset_root.is_dir():
         return found
-    for path in sorted(dataset_root.rglob("*.pkl")):
-        lower = str(path).lower()
-        for problem, size in SCOPE:
-            pattern = rf"(?:^|[^a-z]){problem.lower()}[_-]?{size}(?![0-9])"
-            if re.search(pattern, lower):
-                found.setdefault((problem, size), []).append(path)
+    for key, filename in PAPER_DATASET_FILENAMES.items():
+        found[key] = sorted(dataset_root.rglob(filename))
     return found
 
 
@@ -51,6 +47,10 @@ def main():
         key = (problem.upper(), int(size))
         if key not in SCOPE:
             parser.error(f"outside GLOP paper scope: {key}")
+        if Path(path).name != PAPER_DATASET_FILENAMES[key]:
+            parser.error(
+                f"formal dataset for {key} must be named "
+                f"{PAPER_DATASET_FILENAMES[key]}")
         explicit.setdefault(key, []).append(Path(path))
     # Explicit paths override filename discovery for that problem/size. This
     # prevents similarly named archives or copies from entering a formal audit.
@@ -61,11 +61,17 @@ def main():
     for problem, size in SCOPE:
         paths = list(dict.fromkeys(candidates.get((problem, size), [])))
         audited = [audit(path, problem, size) for path in paths]
+        for row in audited:
+            row["expected_filename"] = PAPER_DATASET_FILENAMES[(problem, size)]
+            row["filename_matches"] = (
+                Path(row["path"]).name == row["expected_filename"])
         rows.extend(audited)
         valid = [row["realpath"] for row in audited
                  if row.get("all_expected_size") and row.get("all_expected_task_class")
-                 and not row.get("error")]
+                 and row.get("filename_matches") and not row.get("error")]
         coverage.append({"problem": problem, "size": size,
+                         "expected_filename":
+                         PAPER_DATASET_FILENAMES[(problem, size)],
                          "candidate_count": len(paths), "verified_files": valid,
                          "status": "VERIFIED" if len(valid) == 1 else
                                    "AMBIGUOUS" if len(valid) > 1 else "MISSING"})

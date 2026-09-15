@@ -17,25 +17,29 @@ from common.hashing import sha256_file
 from common.objective_agreement import objective_agrees
 from common.provenance import environment_provenance, git_provenance, source_provenance
 from methods.glop.paper_protocol import formal_protocol
-from methods.glop.paper_results import (TSP_TIMING_SEMANTICS, append_record,
-                                        finalize_chunk, fingerprint,
-                                        initialize_chunk,
+from methods.glop.paper_results import (RECORDS_FILE, TSP_TIMING_SEMANTICS,
+                                        append_record, finalize_chunk,
+                                        fingerprint, initialize_chunk,
+                                        read_jsonl,
                                         tsp_runtime_accounting)
 from methods.glop.runtime import (activate_upstream, cuda_device,
+                                  completed_prefix_length,
                                   load_revisers, make_shared_tsp_orders,
                                   official_seeded_setup,
                                   random_insertion_identity,
+                                  replay_completed_prefix,
                                   run_warmup_isolated, verify_upstream)
-from methods.glop.tsp.adapter import adapt_points, validate_initial_permutations
+from methods.glop.tsp.adapter import (adapt_points, apply_top_level_reflections,
+                                      validate_initial_permutations)
 from methods.glop.tsp.decode import decode_coordinate_tour
 from problems.tsp.validate import validate
 
 
 def _solve_one(points, *, protocol, orders, revisers, device, torch, reconnect,
                load_problem, random_insertion_parallel, timed):
-    width = protocol["internal_width"]
+    width = protocol["ri_order_width"]
     if len(orders) != width:
-        raise ValueError("shared TSP RI order count differs from internal width")
+        raise ValueError("shared TSP RI order count differs from ri_order_width")
     if timed:
         torch.cuda.synchronize(device)
         started = time.perf_counter()
@@ -48,11 +52,14 @@ def _solve_one(points, *, protocol, orders, revisers, device, torch, reconnect,
     repeated = batched.repeat(width, 1, 1)
     pi = torch.as_tensor(permutations.reshape(width, len(points)), dtype=torch.long)
     seeds = repeated.gather(1, pi.unsqueeze(-1).repeat(1, 1, 2)).to(device)
+    seeds = apply_top_level_reflections(
+        seeds, transforms=protocol["top_level_transforms"],
+        expected_candidate_count=protocol["effective_candidate_count"])
     problem = load_problem("tsp")
     opts = SimpleNamespace(
         revision_lens=protocol["revision_lens"],
         revision_iters=protocol["revision_iters"],
-        no_aug=not protocol["local_augmentation"],
+        no_aug=not protocol["local_reconnect_augmentation"],
         no_prune=not protocol["pruning"], eval_batch_size=1)
     with torch.no_grad():
         tours, costs = reconnect(
@@ -64,13 +71,25 @@ def _solve_one(points, *, protocol, orders, revisers, device, torch, reconnect,
     coordinates = tours[0].detach().cpu().numpy()
     reported = float(costs[0].detach().cpu())
     canonical, decoding = decode_coordinate_tour(
-        coordinates, points, allowed_transforms=("identity",))
+        coordinates, points,
+        allowed_transforms=protocol["top_level_transforms"])
     if timed:
         torch.cuda.synchronize(device)
         runtime = time.perf_counter() - started
     else:
         runtime = None
     return canonical, reported, decoding, runtime
+
+
+def _selection(protocol, decoding):
+    return {
+        "paper_nominal_width": protocol["paper_nominal_width"],
+        "ri_order_width": protocol["ri_order_width"],
+        "top_level_reflection_factor":
+        protocol["top_level_reflection_factor"],
+        "effective_candidate_count": protocol["effective_candidate_count"],
+        "decoding": decoding,
+    }
 
 
 def main():
@@ -92,10 +111,13 @@ def main():
     if (prepared.get("format") != "glop-paper-tsp-input-v1" or
             prepared.get("problem_size") != args.problem_size or
             prepared.get("official_protocol_name") != args.protocol or
+            prepared.get("expected_dataset_filename") !=
+            protocol["expected_dataset_filename"] or
             prepared.get("input_npz_sha256") != input_hash):
         raise ValueError("prepared TSP input identity/protocol mismatch")
     dataset_path = Path(prepared["dataset_path"])
-    if (not dataset_path.is_file() or sha256_file(dataset_path) !=
+    if (dataset_path.name != protocol["expected_dataset_filename"] or
+            not dataset_path.is_file() or sha256_file(dataset_path) !=
             prepared["dataset_sha256"]):
         raise ValueError("prepared TSP source dataset is missing or changed")
     upstream = verify_upstream(args.upstream)
@@ -113,7 +135,8 @@ def main():
             prepared.get("dataset_indices") != indices or len(points) != len(indices)):
         raise ValueError("prepared TSP chunk must be nonempty, contiguous, and consistent")
     adapt_points(points, problem_size=args.problem_size,
-                 top_level_transforms=("identity",), device="cpu")
+                 top_level_transforms=protocol["top_level_transforms"],
+                 device="cpu")
 
     activate_upstream(args.upstream)
     from utils.functions import load_model, load_problem, reconnect
@@ -127,7 +150,7 @@ def main():
     shared_order_started = time.perf_counter()
     orders = make_shared_tsp_orders(
         torch, problem_size=args.problem_size,
-        width=protocol["internal_width"])
+        width=protocol["ri_order_width"])
     shared_ri_order_generation_seconds = (
         time.perf_counter() - shared_order_started)
     environment = environment_provenance(device)
@@ -172,6 +195,12 @@ def main():
         "timing_semantics": TSP_TIMING_SEMANTICS,
     }
     _, completed = initialize_chunk(args.output_dir, identity)
+    records_path = Path(args.output_dir) / RECORDS_FILE
+    existing_records = read_jsonl(records_path) if records_path.exists() else []
+    if protocol["decode_strategy"] == "sampling":
+        prefix_length = completed_prefix_length(existing_records, indices)
+        if completed != set(indices[:prefix_length]):
+            raise ValueError("TSP sampling resume metadata and prefix records disagree")
     if completed == set(indices):
         finalize_chunk(args.output_dir)
         return
@@ -185,6 +214,29 @@ def main():
                 timed=False)
 
     run_warmup_isolated(torch, device, warmup)
+    if protocol["decode_strategy"] == "sampling":
+        def replay(dataset_index):
+            local = dataset_index - indices[0]
+            canonical, reported, decoding, _ = _solve_one(
+                points[local], protocol=protocol, orders=orders,
+                revisers=revisers, device=device, torch=torch,
+                reconnect=reconnect, load_problem=load_problem,
+                random_insertion_parallel=random_insertion_parallel,
+                timed=False)
+            checked = validate(points[local], canonical)
+            independent = checked["independent_objective"]
+            if (not checked["feasible"] or independent is None or
+                    not objective_agrees(reported, independent)):
+                raise RuntimeError(
+                    f"TSP replay gate failed at index {dataset_index}")
+            return {
+                "canonical_solution": canonical,
+                "reported_objective": reported,
+                "independent_objective": independent,
+                "selection": _selection(protocol, decoding),
+            }
+
+        replay_completed_prefix(existing_records, indices, replay)
     for local, dataset_index in enumerate(indices):
         if dataset_index in completed:
             continue
@@ -211,8 +263,7 @@ def main():
             "runtime_components": runtime_components,
             "independent_feasible": bool(checked["feasible"]),
             "reported_objective_agrees": bool(agrees),
-            "selection": {"internal_width": protocol["internal_width"],
-                          "decoding": decoding},
+            "selection": _selection(protocol, decoding),
             "constraint_details": checked["constraint_details"],
             "evidence_status": "INDEPENDENT_VERIFIED" if passed else "FAILED",
         }

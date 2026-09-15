@@ -1,7 +1,7 @@
 # GLOP official/paper protocol audit
 
-Audit date: 2026-09-15. RNG-fidelity project base:
-`daeb6258daae8593949bbb65f0b46ec2dd9b731a`.
+Audit date: 2026-09-15. Protocol-expansion project base:
+`41885a89b4a8e0ad168ab03bf3168f0486fbdcf6`.
 Official source: `https://github.com/henry-yeh/GLOP` at
 `e540bc0153a0598e923e35116deeaecaf9c1cfff`, clean when inspected. This
 document records protocol evidence and blockers. It does not authorize formal
@@ -9,23 +9,18 @@ inference.
 
 ## Paper row mapping audit
 
-The GLOP paper names two TSP budgets: plain **GLOP** and **GLOP (more
-revisions)**. Its Table 9 specifies both at TSP100/500/1K/10K. This supports the
-main-table hypothesis `fewer = plain GLOP` and `more = GLOP (more revisions)`.
-The current manuscript never states that mapping for external baselines.
+The project mapping is now frozen. For TSP, paper `GLOP (fewer)` maps to
+`official_standard`, the original-paper plain GLOP budget; paper `GLOP (more)`
+maps to `official_more`, the original-paper more-revisions budget. A single
+Appendix `GLOP` row uses `official_standard`.
 
-The manuscript is internally inconsistent. `main/tsp_main.tex` has two GLOP
-rows at all six sizes. `appendix/tsp_full.tex` has a single plain GLOP row for
-100/500/1K, but a single `GLOP (fewer)` row for 2K/5K/10K. The CVRP main table
-has fewer/more rows at 1K/2K, while the appendix has one plain GLOP row at
-500/1K/2K. The official CVRP protocol has one neural GLOP-G budget and no
-fewer/more nomenclature. Therefore:
+For CVRP, `GLOP (fewer)` maps to the released neural budget represented by
+`official_standard`. `GLOP (more)` maps to `project_more_revisions`, whose only
+algorithm change is doubling every released revision iteration count. A single
+Appendix `GLOP` row uses `official_standard`. The CVRP more variant is explicitly
+project-defined and is never represented as an official released configuration.
 
-`MAIN/APPENDIX FEWER-MORE MAPPING = UNRESOLVED_MANUSCRIPT_MAPPING`.
-
-The likely TSP mapping above is a hypothesis, not the frozen manuscript
-protocol. An author must select the appendix budget and decide whether CVRP
-should have one official row or two newly defined adaptations.
+`MAIN/APPENDIX FEWER-MORE MAPPING = PROJECT_FROZEN`.
 
 ## Source review and execution semantics
 
@@ -41,19 +36,27 @@ Reviewed official paths include `README.md`, `main.py`, `eval_cvrp.py`,
   `random-insertion` 0.3.0.post1 receives the points and that order. After all
   revisions, the first minimum-cost candidate is retained.
 - For TSP sizes above 100, width is exactly the number of independent RI
-  candidates. With pruning enabled, all but the best candidate are removed
+  candidates. With pruning enabled, all but the best candidate is removed
   after the first reviser. `--no_prune` retains candidates through every
   reviser and selects the best at the end.
 - Every local revision min-max normalizes each SHPP. Unless `--no_aug` is set,
   it evaluates identity, x reflection, y reflection and xy reflection; each is
   decoded in both directions, so the local choice is best of eight.
-- The special `N<=100` branch divides CLI width by four using integer division
-  and then adds four top-level coordinate reflections. Thus CLI `--width 140`
-  becomes 35 RI orders and 140 top-level candidates. Table 9's standard
-  TSP100 `W=35` would become 8 orders and 32 candidates if passed literally.
-  The original cross-distribution experiment includes Uniform TSP100 as its
-  in-distribution column, so an official Uniform-100 configuration does exist.
-  The code/paper width and top-level augmentation ambiguity blocks execution.
+- Paper Algorithm 1 defines `W` as the number of initial tours, while Table 9
+  gives TSP100 nominal widths 35 and 140. The released TSP100 command passes
+  CLI width 140 with `--no_aug --no_prune`. The special `N<=100` branch divides
+  CLI width by four and adds four top-level coordinate reflections, so it
+  executes 35 RI orders and 140 reflected candidates. Passing CLI width 35
+  through that branch would instead execute 8 orders and 32 candidates.
+- The frozen paper-faithful orchestration preserves the exact nominal budget:
+  standard uses 35 RI orders and identity only; more uses 35 RI orders and the
+  released identity/x/y/xy reflection order, producing 140 candidates. Both
+  use sampling, disable reconnect-local augmentation, and disable pruning.
+  The mechanical standard `35 // 4 * 4 = 32` path remains recorded as
+  `released_code_alternative` and is excluded from the formal registry.
+- Top-level reflections and reconnect-local augmentation are separate. The
+  former expands whole-tour RI seeds before `reconnect`; `opts.no_aug` controls
+  four-way normalized SHPP augmentation inside each local revision.
 - Reviser list order is executable order. A schedule `100 50 20` loads and
   runs Reviser-100, then Reviser-50, then Reviser-20. No schedule entry is
   ignored.
@@ -80,15 +83,15 @@ checkpoint set follows `revision_lens` exactly.
 
 | Size | Manuscript locations/labels | Official source | Plain GLOP `(lens; iters; W)` | More revisions `(lens; iters; W)` | Decode | Aug / Prune | Config class | Paper status / blocker |
 |---:|---|---|---|---|---|---|---|---|
-| 100 | main fewer+more; appendix plain GLOP | paper Table 9; README cross-distribution more command | `100,50,20,10; 20,10,10,5; 35` | same; `W=140` | sampling | paper says augmentation off; released small-size branch adds top-level reflections | E | `OFFICIAL_CONFIG_EXISTS_EXECUTION_AMBIGUOUS`; manuscript mapping also unresolved |
-| 500 | main fewer+more; appendix plain GLOP | paper Tables 1/9; README more command | `100,50,20; 20,25,5; 1` | same; `W=10` | greedy | on / on | B after BS1 | `FROZEN_OFFICIAL`; manuscript mapping unresolved |
-| 1K | main fewer+more; appendix plain GLOP | paper Tables 1/9; README more command | `100,50,20; 20,25,5; 1` | same; `W=10` | greedy | on / on | B after BS1 | `FROZEN_OFFICIAL`; manuscript mapping unresolved |
-| 2K | main fewer+more; appendix fewer | no primary protocol; Table 16 is complexity-only | — | — | — | — | D | `NO_OFFICIAL_PRIMARY_CONFIG` |
-| 5K | main fewer+more; appendix fewer | no primary protocol; Table 16 is complexity-only | — | — | — | — | D | `NO_OFFICIAL_PRIMARY_CONFIG` |
-| 10K | main fewer+more; appendix fewer | paper Tables 1/9; README more command | `100,50,20; 10,20,5; 1` | `100,50,20; 50,25,5; 1` | greedy | on / on | B after BS1 | `FROZEN_OFFICIAL`; manuscript mapping unresolved |
+| 100 | main fewer+more; appendix plain GLOP | paper Table 9/A.6; README command; released branch | `100,50,20,10; 20,10,10,5; 35×1=35` | same; `35×4=140` | sampling | local off / prune off; top-level 1 or 4 | E resolved by paper-faithful wrapper | `PROJECT_FROZEN_PAPER_FAITHFUL` |
+| 500 | main fewer+more; appendix plain GLOP | paper Tables 1/9; README more command | `100,50,20; 20,25,5; 1` | same; `W=10` | greedy | on / on | B after BS1 | `FROZEN_OFFICIAL` |
+| 1K | main fewer+more; appendix plain GLOP | paper Tables 1/9; README more command | `100,50,20; 20,25,5; 1` | same; `W=10` | greedy | on / on | B after BS1 | `FROZEN_OFFICIAL` |
+| 2K | main fewer+more; appendix fewer | author decision: follow TSP1K | `100,50,20; 20,25,5; 1` | same; `W=10` | greedy | on / on | C | `AUTHOR_APPROVED_ADAPTATION`, `adapted_from_size=1000` |
+| 5K | main fewer+more; appendix fewer | author decision: follow TSP10K | `100,50,20; 10,20,5; 1` | `100,50,20; 50,25,5; 1` | greedy | on / on | C | `AUTHOR_APPROVED_ADAPTATION`, `adapted_from_size=10000` |
+| 10K | main fewer+more; appendix fewer | paper Tables 1/9; README more command | `100,50,20; 10,20,5; 1` | `100,50,20; 50,25,5; 1` | greedy | on / on | B after BS1 | `FROZEN_OFFICIAL` |
 
 Classes are: A exact official, B official config with original BS changed to 1,
-C legitimate size adaptation, D no official mapping, E author decision needed.
+C author-approved size adaptation, and E project-frozen paper/code orchestration.
 Changing `eval_batch_size` to one changes the DataLoader slice only. It retains
 RI width, augmentation, revisions, pruning, and per-instance selection. The
 same precomputed RI orders are sliced for each instance. It is therefore a
@@ -98,14 +101,17 @@ valid paper batching adaptation; width remains internal search parallelism.
 
 | Size | Manuscript locations/labels | Official source | Partitioner | Local revisers / iters | Global / local decode | Aug / Prune | W / partitions / original BS | Config class | Paper status / blocker |
 |---:|---|---|---|---|---|---|---|---|---|
-| 500 | appendix plain GLOP | none | none | none | none | none | none | D | `BLOCKED`: `K_SPARSE[500]` and `cvrp-500.pt` do not exist; using 1K is unsupported |
-| 1K | main fewer+more; appendix plain GLOP | paper Tables 6/10; README neural command | `cvrp-1000.pt`, k=100 | `20 / 5` | greedy / sampling | on / on | `1 / 1 / 1` | A | `FROZEN_OFFICIAL_SINGLE_CONFIG`; manuscript mapping unresolved |
-| 2K | main fewer+more; appendix plain GLOP | paper Tables 6/10; README neural command | `cvrp-2000.pt`, k=200 | `50,20 / 5,5` | greedy / sampling | on / on | `1 / 1 / 1` | A | `FROZEN_OFFICIAL_SINGLE_CONFIG`; manuscript mapping unresolved |
+| 500 | appendix plain GLOP | author decision: follow CVRP1K | source 1K: `cvrp-1000.pt`, k=100 | fewer `20 / 5`; project-more `20 / 10` | greedy / sampling | on / on | `1 / 1 / 1` | C | `AUTHOR_APPROVED_ADAPTATION_WITH_PROJECT_MORE` |
+| 1K | main fewer+more; appendix plain GLOP | paper Tables 6/10; README neural command | source 1K: `cvrp-1000.pt`, k=100 | fewer `20 / 5`; project-more `20 / 10` | greedy / sampling | on / on | `1 / 1 / 1` | A + project budget | `FROZEN_OFFICIAL_BASE_WITH_PROJECT_MORE` |
+| 2K | main fewer+more; appendix plain GLOP | paper Tables 6/10; README neural command | source 2K: `cvrp-2000.pt`, k=200 | fewer `50,20 / 5,5`; project-more `50,20 / 10,10` | greedy / sampling | on / on | `1 / 1 / 1` | A + project budget | `FROZEN_OFFICIAL_BASE_WITH_PROJECT_MORE` |
 
-The partitioner network is not size-agnostic in the released execution path:
-both model selection and graph sparsity index `problem_size`; inference indexes
-the actual customer count again. CVRP500 therefore cannot follow CVRP1K merely
-by supplying its checkpoint.
+CVRP500 explicitly separates `problem_size=500` from
+`partitioner_source_size=1000`. Model construction, checkpoint identity,
+`k_sparse=100`, and depth 12 come from the released 1K asset; inference still
+receives the actual 500-customer tensors. No `PARTITIONER_ASSETS[500]` lookup is
+performed. All three `project_more_revisions` protocols retain every algorithm
+field from `official_standard` except `revision_iters`, and record the rule
+`double every official revision iteration count`.
 
 ## Checkpoint inventory
 
@@ -144,9 +150,12 @@ Formal Time is mean wall-clock solve latency per original instance. For TSP,
 measure the one shared RI-order generation after model setup and charge it
 exactly once through dataset index 0; each record also includes its own random
 insertion, all revisions, augmentation/pruning/selection, final synchronization,
-D2H, and exact node-ID decoding. Nonzero-offset chunks reconstruct the same
-orders but record zero shared-order cost. CVRP keeps its existing per-instance
-boundary: after models, dataset record, and neutral adapter output are ready,
+D2H, and exact node-ID decoding. Formal TSP production uses one offset-zero
+full-set chunk. The current cross-chunk consistency identity contains a
+chunk-local coordinate range, so multi-chunk TSP aggregation remains a known
+infrastructure limitation and is not relaxed here. CVRP keeps its existing
+per-instance boundary: after models, dataset record, and neutral adapter output
+are ready,
 synchronize CUDA and include partition heatmap, greedy route construction, SHPP
 preparation, all revisions, pruning/candidate selection, final synchronization,
 D2H, and exact node-ID decoding. Stop after the canonical solution is available.
@@ -187,7 +196,18 @@ TSP2K/5K/10K, and HGS for all CVRP sizes.
 
 ## Dataset audit and remaining evidence
 
-The local checkout contains only the manuscript-scope TSP100 file; its prior
+The exact paper-target registry is:
+
+- TSP: `tsp100_concorde_7.756.pkl`, `tsp500_concorde_16.546.pkl`,
+  `tsp1000_concorde_23.118.pkl`, `tsp2000_lkh_500_32.436.pkl`,
+  `tsp5000_lkh_500_50.968.pkl`, `tsp10000_lkh_500_71.782.pkl`.
+- CVRP: `cvrp500_hgs-300s_37.154.pkl`,
+  `cvrp1000_hgs-360s_41.171.pkl`, and
+  `cvrp2000_hgs-360s_57.181.pkl`.
+
+Formal preparation and dataset audit reject a different basename, including
+older approximate files. The local checkout contains only the manuscript-scope
+TSP100 file; its prior
 audit established 1,280 TSP tasks and SHA256
 `a2bfe99857b8072bdba051f6ae402b7e241f01b0462c5f379ed0aa03786406a0`.
 The other eight manuscript-scope files are absent locally. This is not evidence
@@ -209,8 +229,8 @@ paper hardware. These values are sanity anchors only.
 Pinned `main.py` calls `torch.manual_seed(seed)` once before `eval_dataset`.
 `eval_dataset` then constructs and loads revisers. For TSP, dataset loading is
 followed by one set of `width` `torch.randperm` orders shared by every original
-instance. The enabled TSP revisers use greedy decoding and do not call
-`multinomial`.
+instance. TSP100 uses sampling decode; the other enabled TSP sizes use greedy
+decode.
 
 For CVRP, revisers are constructed and loaded first, followed by partitioner
 construction/loading. Global partitioning is greedy and sub-TSP insertion uses
@@ -220,10 +240,10 @@ RNG stream across sequential original instances.
 
 Formal runners reproduce that placement and never reseed per instance. Warm-up
 saves and restores the CPU and target-CUDA RNG states. TSP warm-up reuses the
-shared RI orders. CVRP resume accepts only an ordered completed prefix, replays
-that prefix without timing or artifact writes, checks its routes, objectives,
-and selection against existing records, and then continues the stochastic
-stream. CVRP prepared inputs must start at dataset index zero; independent
+shared RI orders. Sampling TSP100 and CVRP resume accept only an ordered
+completed prefix, replay it without timing or artifact writes, check the
+solution, objective, and selection against existing records, and then continue
+the stochastic stream. CVRP prepared inputs must start at dataset index zero; independent
 nonzero-offset chunks are rejected until an approved RNG-state chaining design
 exists.
 
@@ -238,8 +258,11 @@ ML4CO-Kit, coverage, hash, and RTX4090 gates is `PAPER_READY`; Obj, Drop, and
 Time are all formal paper results. The manuscript's current hardware wording is
 a separate editorial fact and does not block this repository pipeline.
 
-Formal infrastructure and count-two server commands are ready for
-TSP500/1K/10K `official_standard` and `official_more`, and CVRP1K/2K
-`official_single`. Their algorithm identities do not use manuscript labels.
-TSP100, TSP2K/5K and CVRP500 remain fail-closed. Manuscript row mapping remains
-a separate author decision.
+Formal infrastructure and count-two server commands are ready for all TSP
+sizes under `official_standard` and `official_more`, and CVRP500/1K/2K under
+`official_standard` and `project_more_revisions`. New CVRP evidence must start
+at index zero under the decoder-fixed project commit and use a new artifact
+root. Historical ff39 artifacts remain immutable regression controls. New
+TSP100/2K/5K and CVRP500 preflights still require independent official-shadow
+equivalence after inference; for CVRP more, that check establishes wrapper
+equivalence to official primitives under the project-defined budget.

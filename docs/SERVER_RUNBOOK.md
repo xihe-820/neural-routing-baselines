@@ -413,22 +413,36 @@ Every result row must have all four completion gates true. Return both validated
 
 ## 10. GLOP formal paper preflights
 
-Supply explicit dataset paths. Filename discovery is not used by formal
-preparation. The formal device is one NVIDIA GeForce RTX 4090 with CUDA.
+Use exact paper-target dataset paths. These commands create count-two evidence
+under a decoder-fixed/new-protocol root and never append to the historical ff39
+artifact directories. Formal TSP production remains one offset-zero full-set
+chunk; formal CVRP remains one offset-zero sequential stream with completed-prefix
+replay.
 
 ```bash
 export GLOP_UPSTREAM="$BASELINE_UPSTREAM_ROOT/GLOP"
 read -r -p 'Official GLOP pretrained root: ' GLOP_ASSET_ROOT
-read -r -p 'TSP100 dataset: ' GLOP_TSP100_DATASET
-read -r -p 'TSP500 dataset: ' GLOP_TSP500_DATASET
-read -r -p 'TSP1K dataset: ' GLOP_TSP1K_DATASET
-read -r -p 'TSP2K dataset: ' GLOP_TSP2K_DATASET
-read -r -p 'TSP5K dataset: ' GLOP_TSP5K_DATASET
-read -r -p 'TSP10K dataset: ' GLOP_TSP10K_DATASET
-read -r -p 'CVRP500 dataset: ' GLOP_CVRP500_DATASET
-read -r -p 'CVRP1K dataset: ' GLOP_CVRP1K_DATASET
-read -r -p 'CVRP2K dataset: ' GLOP_CVRP2K_DATASET
-export GLOP_ASSET_ROOT GLOP_PAPER_ROOT="$BASELINE_ARTIFACT_ROOT/paper/glop"
+read -r -p 'tsp100_concorde_7.756.pkl path: ' GLOP_TSP100_DATASET
+read -r -p 'tsp500_concorde_16.546.pkl path: ' GLOP_TSP500_DATASET
+read -r -p 'tsp1000_concorde_23.118.pkl path: ' GLOP_TSP1K_DATASET
+read -r -p 'tsp2000_lkh_500_32.436.pkl path: ' GLOP_TSP2K_DATASET
+read -r -p 'tsp5000_lkh_500_50.968.pkl path: ' GLOP_TSP5K_DATASET
+read -r -p 'tsp10000_lkh_500_71.782.pkl path: ' GLOP_TSP10K_DATASET
+read -r -p 'cvrp500_hgs-300s_37.154.pkl path: ' GLOP_CVRP500_DATASET
+read -r -p 'cvrp1000_hgs-360s_41.171.pkl path: ' GLOP_CVRP1K_DATASET
+read -r -p 'cvrp2000_hgs-360s_57.181.pkl path: ' GLOP_CVRP2K_DATASET
+export GLOP_ASSET_ROOT
+export GLOP_PROTOCOL_ROOT="$BASELINE_ARTIFACT_ROOT/paper/glop/decoder_fixed_new_protocols"
+
+test "$(basename "$GLOP_TSP100_DATASET")" = "tsp100_concorde_7.756.pkl"
+test "$(basename "$GLOP_TSP500_DATASET")" = "tsp500_concorde_16.546.pkl"
+test "$(basename "$GLOP_TSP1K_DATASET")" = "tsp1000_concorde_23.118.pkl"
+test "$(basename "$GLOP_TSP2K_DATASET")" = "tsp2000_lkh_500_32.436.pkl"
+test "$(basename "$GLOP_TSP5K_DATASET")" = "tsp5000_lkh_500_50.968.pkl"
+test "$(basename "$GLOP_TSP10K_DATASET")" = "tsp10000_lkh_500_71.782.pkl"
+test "$(basename "$GLOP_CVRP500_DATASET")" = "cvrp500_hgs-300s_37.154.pkl"
+test "$(basename "$GLOP_CVRP1K_DATASET")" = "cvrp1000_hgs-360s_41.171.pkl"
+test "$(basename "$GLOP_CVRP2K_DATASET")" = "cvrp2000_hgs-360s_57.181.pkl"
 
 python -B scripts/audit_glop_paper_datasets.py \
   --dataset TSP 100 "$GLOP_TSP100_DATASET" \
@@ -440,82 +454,67 @@ python -B scripts/audit_glop_paper_datasets.py \
   --dataset CVRP 500 "$GLOP_CVRP500_DATASET" \
   --dataset CVRP 1000 "$GLOP_CVRP1K_DATASET" \
   --dataset CVRP 2000 "$GLOP_CVRP2K_DATASET" \
-  --output "$BASELINE_ARTIFACT_ROOT/audit/glop_paper_datasets.json"
+  --output "$GLOP_PROTOCOL_ROOT/audit/glop_paper_datasets.json"
 ```
 
-For each of TSP500, TSP1K and TSP10K, run both official protocol names:
+Prepare and run the new TSP100/2K/5K protocols:
 
 ```bash
-for size in 500 1000 10000; do
+for size in 100 2000 5000; do
   case "$size" in
-    500) dataset="$GLOP_TSP500_DATASET" ;;
-    1000) dataset="$GLOP_TSP1K_DATASET" ;;
-    10000) dataset="$GLOP_TSP10K_DATASET" ;;
+    100) dataset="$GLOP_TSP100_DATASET" ;;
+    2000) dataset="$GLOP_TSP2K_DATASET" ;;
+    5000) dataset="$GLOP_TSP5K_DATASET" ;;
   esac
   for protocol in official_standard official_more; do
+    run_root="$GLOP_PROTOCOL_ROOT/tsp$size/$protocol/count2"
     python -B methods/glop/tsp/prepare_instances.py \
       --dataset "$dataset" --problem-size "$size" --protocol "$protocol" \
-      --offset 0 --count 2 \
-      --output "$GLOP_PAPER_ROOT/tsp$size/$protocol/input.npz"
+      --offset 0 --count 2 --output "$run_root/input.npz"
     python -B methods/glop/tsp/paper_eval.py \
-      --input "$GLOP_PAPER_ROOT/tsp$size/$protocol/input.npz" \
-      --problem-size "$size" --protocol "$protocol" \
-      --upstream "$GLOP_UPSTREAM" --asset-root "$GLOP_ASSET_ROOT" \
-      --output-dir "$GLOP_PAPER_ROOT/tsp$size/$protocol/preflight" \
+      --input "$run_root/input.npz" --problem-size "$size" \
+      --protocol "$protocol" --upstream "$GLOP_UPSTREAM" \
+      --asset-root "$GLOP_ASSET_ROOT" --output-dir "$run_root/inference" \
       --device cuda:0
+    python -B methods/glop/validate_with_kit.py \
+      --dataset "$dataset" --chunk-dirs "$run_root/inference"
   done
 done
 ```
 
-```bash
-python -B methods/glop/cvrp/prepare_instances.py \
-  --dataset "$GLOP_CVRP1K_DATASET" --problem-size 1000 \
-  --protocol official_single --offset 0 --count 2 \
-  --output "$GLOP_PAPER_ROOT/cvrp1000/official_single/input.npz"
-python -B methods/glop/cvrp/paper_eval.py \
-  --input "$GLOP_PAPER_ROOT/cvrp1000/official_single/input.npz" \
-  --problem-size 1000 --protocol official_single --upstream "$GLOP_UPSTREAM" \
-  --asset-root "$GLOP_ASSET_ROOT" \
-  --output-dir "$GLOP_PAPER_ROOT/cvrp1000/official_single/preflight" \
-  --device cuda:0
-
-python -B methods/glop/cvrp/prepare_instances.py \
-  --dataset "$GLOP_CVRP2K_DATASET" --problem-size 2000 \
-  --protocol official_single --offset 0 --count 2 \
-  --output "$GLOP_PAPER_ROOT/cvrp2000/official_single/input.npz"
-python -B methods/glop/cvrp/paper_eval.py \
-  --input "$GLOP_PAPER_ROOT/cvrp2000/official_single/input.npz" \
-  --problem-size 2000 --protocol official_single --upstream "$GLOP_UPSTREAM" \
-  --asset-root "$GLOP_ASSET_ROOT" \
-  --output-dir "$GLOP_PAPER_ROOT/cvrp2000/official_single/preflight" \
-  --device cuda:0
-```
-
-Do not prepare or run formal preflights for TSP100, TSP2K, TSP5K, or
-CVRP500. CVRP preflight must keep `--offset 0`. Formal CVRP production must use
-one sequential offset-zero stream covering the full dataset; independent
-nonzero-offset chunks are forbidden unless an exact RNG-state chaining design
-is approved later. After inference, apply the Kit gate:
+Prepare and run decoder-fixed CVRP500/1K/2K count-two protocols from index
+zero. Both budgets get separate provenance and output directories:
 
 ```bash
-for protocol in official_standard official_more; do
-  python -B methods/glop/validate_with_kit.py \
-    --dataset "$GLOP_TSP500_DATASET" \
-    --chunk-dirs "$GLOP_PAPER_ROOT/tsp500/$protocol/preflight"
-  python -B methods/glop/validate_with_kit.py \
-    --dataset "$GLOP_TSP1K_DATASET" \
-    --chunk-dirs "$GLOP_PAPER_ROOT/tsp1000/$protocol/preflight"
-  python -B methods/glop/validate_with_kit.py \
-    --dataset "$GLOP_TSP10K_DATASET" \
-    --chunk-dirs "$GLOP_PAPER_ROOT/tsp10000/$protocol/preflight"
+for size in 500 1000 2000; do
+  case "$size" in
+    500) dataset="$GLOP_CVRP500_DATASET" ;;
+    1000) dataset="$GLOP_CVRP1K_DATASET" ;;
+    2000) dataset="$GLOP_CVRP2K_DATASET" ;;
+  esac
+  for protocol in official_standard project_more_revisions; do
+    run_root="$GLOP_PROTOCOL_ROOT/cvrp$size/$protocol/count2"
+    python -B methods/glop/cvrp/prepare_instances.py \
+      --dataset "$dataset" --problem-size "$size" --protocol "$protocol" \
+      --offset 0 --count 2 --output "$run_root/input.npz"
+    python -B methods/glop/cvrp/paper_eval.py \
+      --input "$run_root/input.npz" --problem-size "$size" \
+      --protocol "$protocol" --upstream "$GLOP_UPSTREAM" \
+      --asset-root "$GLOP_ASSET_ROOT" --output-dir "$run_root/inference" \
+      --device cuda:0
+    python -B methods/glop/validate_with_kit.py \
+      --dataset "$dataset" --chunk-dirs "$run_root/inference"
+  done
 done
-python -B methods/glop/validate_with_kit.py \
-  --dataset "$GLOP_CVRP1K_DATASET" \
-  --chunk-dirs "$GLOP_PAPER_ROOT/cvrp1000/official_single/preflight"
-python -B methods/glop/validate_with_kit.py \
-  --dataset "$GLOP_CVRP2K_DATASET" \
-  --chunk-dirs "$GLOP_PAPER_ROOT/cvrp2000/official_single/preflight"
 ```
+
+Existing ff39 TSP500/1K/10K and CVRP evidence is immutable control evidence.
+Do not overwrite, append, or resummarize it. Before any new full-set run, return
+the count-two metadata, inference records, Kit-validated records, and hashes.
+TSP100/2K/5K and CVRP500 also require an independent official-shadow comparison.
+For CVRP `project_more_revisions`, shadow equivalence means matching pinned
+official primitives under the project-defined iteration budget; it does not
+claim that this budget was released by GLOP.
 
 ## 11. Regression tests
 

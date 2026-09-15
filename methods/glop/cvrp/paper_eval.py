@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Formal BS1 neural GLOP-G evaluation for CVRP1K/2K official_single."""
+"""Formal BS1 neural GLOP-G evaluation for frozen CVRP protocols."""
 from __future__ import annotations
 
 import argparse
@@ -56,7 +56,7 @@ def _solve_one(depot, points, demands, capacity, *, protocol, partitioner,
     subtsps, n_tsps_per_route = trans_tsp(coordinates.cpu(), partitions)
     if (len(n_tsps_per_route) != protocol["n_partition"] or
             sum(n_tsps_per_route) != subtsps.shape[0]):
-        raise ValueError("official_single produced unexpected partition accounting")
+        raise ValueError("formal CVRP produced unexpected partition accounting")
     n_subtsps, max_len, _ = subtsps.shape
     if any(length > max_len for length in protocol["revision_lens"]):
         raise ValueError("official reviser is larger than materialized CVRP sub-TSP")
@@ -80,7 +80,7 @@ def _solve_one(depot, points, demands, capacity, *, protocol, partitioner,
     reported, best_partition = totals.min(dim=0)
     best_partition = int(best_partition)
     if best_partition != 0:
-        raise ValueError("official_single selected an impossible partition index")
+        raise ValueError("formal CVRP selected an impossible partition index")
     subtour_start = sum(n_tsps_per_route[:best_partition])
     subtour_count = n_tsps_per_route[best_partition]
     selected = tours[subtour_start:subtour_start + subtour_count]
@@ -119,10 +119,13 @@ def main():
     if (prepared.get("format") != "glop-paper-cvrp-input-v1" or
             prepared.get("problem_size") != args.problem_size or
             prepared.get("official_protocol_name") != args.protocol or
+            prepared.get("expected_dataset_filename") !=
+            protocol["expected_dataset_filename"] or
             prepared.get("input_npz_sha256") != input_hash):
         raise ValueError("prepared CVRP input identity/protocol mismatch")
     dataset_path = Path(prepared["dataset_path"])
-    if (not dataset_path.is_file() or sha256_file(dataset_path) !=
+    if (dataset_path.name != protocol["expected_dataset_filename"] or
+            not dataset_path.is_file() or sha256_file(dataset_path) !=
             prepared["dataset_sha256"]):
         raise ValueError("prepared CVRP source dataset is missing or changed")
     upstream = verify_upstream(args.upstream)
@@ -153,7 +156,7 @@ def main():
     from utils.functions import load_model, load_problem, reconnect
     from utils.insertion import random_insertion_parallel
     insertion = random_insertion_identity()
-    partition_spec = PARTITIONER_ASSETS[args.problem_size]
+    partition_spec = PARTITIONER_ASSETS[protocol["partitioner_source_size"]]
     partition_path = args.asset_root / partition_spec["path"]
     partition_hash = verify_file(partition_path, partition_spec)
 
@@ -162,7 +165,8 @@ def main():
             args.asset_root, protocol, device=device, torch=torch,
             load_model=load_model)
         partitioner = load_partitioner(
-            args.problem_size, device, str(partition_path.resolve()),
+            protocol["partitioner_source_size"], device,
+            str(partition_path.resolve()),
             protocol["k_sparse"], protocol["partitioner_depth"])
         payload = torch.load(partition_path, map_location="cpu")
         state = payload.get("model_state_dict", payload)
@@ -194,6 +198,8 @@ def main():
         "paper_protocol": protocol, "project": project, "upstream": upstream,
         "assets": {
             "partitioner": {"path": str(partition_path.resolve()),
+                            "partitioner_source_size":
+                            protocol["partitioner_source_size"],
                             "sha256": partition_hash,
                             "size_bytes": partition_path.stat().st_size,
                             "strict_load": True,
