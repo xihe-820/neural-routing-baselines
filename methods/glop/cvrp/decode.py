@@ -6,19 +6,27 @@ import numpy as np
 from methods.glop.tsp.adapter import _coordinate_keys
 
 
-def _cyclic_zero_run(ids):
-    nonzero = np.flatnonzero(ids != 0)
-    if not len(nonzero):
+def _cyclic_customer_runs(ids):
+    """Split a depot-separated node-ID cycle without reordering customers."""
+    customers = np.flatnonzero(ids != 0)
+    if not len(customers):
         raise ValueError("official sub-tour contains no customer")
-    starts = [index for index in nonzero if ids[(index - 1) % len(ids)] == 0]
-    if len(starts) != 1:
-        raise ValueError("depot padding does not form one cyclic contiguous run")
-    start = int(starts[0])
-    rotated = np.roll(ids, -start)
-    customer_count = int((rotated != 0).sum())
-    if (rotated[:customer_count] == 0).any() or (rotated[customer_count:] != 0).any():
-        raise ValueError("depot padding does not form one cyclic contiguous run")
-    return rotated[:customer_count].astype(int).tolist()
+    depots = np.flatnonzero(ids == 0)
+    if not len(depots):
+        raise ValueError("official CVRP sub-tour contains no depot")
+    rotated = np.roll(ids, -int(depots[0]))
+    runs = []
+    current = []
+    for node in rotated:
+        if node == 0:
+            if current:
+                runs.append(current)
+                current = []
+        else:
+            current.append(int(node))
+    if current:
+        runs.append(current)
+    return runs
 
 
 def decode_subtour_coordinates(subtours, depot, points):
@@ -39,8 +47,8 @@ def decode_subtour_coordinates(subtours, depot, points):
                              dtype=np.int64)
         except KeyError as exc:
             raise ValueError("official output coordinate has no exact node identity") from exc
-        customers = _cyclic_zero_run(ids)
-        routes.append([0, *customers, 0])
+        customer_runs = _cyclic_customer_runs(ids)
+        routes.extend([0, *customers, 0] for customers in customer_runs)
     canonical = [0]
     for route in routes:
         canonical.extend(route[1:])

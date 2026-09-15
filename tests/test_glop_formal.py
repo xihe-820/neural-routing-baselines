@@ -18,6 +18,7 @@ from methods.glop.paper_results import (METADATA_FILE, RECORDS_FILE,
                                         summarize_chunks,
                                         tsp_runtime_accounting)
 from methods.glop.tsp.adapter import adapt_points
+from problems.cvrp.objective import route_distance
 from problems.cvrp.validate import validate as validate_cvrp
 from problems.tsp.validate import validate as validate_tsp
 
@@ -106,6 +107,16 @@ def _chunk(root, name, protocol, index, *, gpu="NVIDIA GeForce RTX 4090",
 
 
 class GLOPExactMappingTests(unittest.TestCase):
+    @staticmethod
+    def _cvrp_subtour(ids):
+        depot = np.asarray([0.0, 0.0], dtype=np.float32)
+        points = np.asarray([
+            [1.0, 0.0], [2.0, 0.0], [0.0, 1.0],
+            [0.0, 2.0], [1.0, 1.0], [2.0, 1.0],
+        ], dtype=np.float32)
+        coordinates = np.concatenate((depot[None], points), axis=0)
+        return depot, points, coordinates[np.asarray(ids, dtype=np.int64)][None]
+
     def test_tsp_duplicate_coordinate_identity_fails(self):
         points = np.zeros((1, 500, 2), dtype=np.float32)
         with self.assertRaisesRegex(ValueError, "ambiguous"):
@@ -130,6 +141,49 @@ class GLOPExactMappingTests(unittest.TestCase):
         canonical, routes = decode_subtour_coordinates(subtours, depot, points)
         self.assertEqual(routes, [[0, 1, 2, 0], [0, 3, 0]])
         self.assertEqual(canonical, [0, 1, 2, 0, 3, 0])
+
+    def test_cvrp_separated_depots_preserve_cyclic_customer_runs(self):
+        depot, points, subtour = self._cvrp_subtour(
+            [5, 6, 0, 0, 1, 2, 0, 0, 0, 3, 4])
+        canonical, routes = decode_subtour_coordinates(subtour, depot, points)
+        self.assertEqual(routes, [[0, 1, 2, 0], [0, 3, 4, 5, 6, 0]])
+        self.assertEqual(canonical, [0, 1, 2, 0, 3, 4, 5, 6, 0])
+        self.assertNotIn([0, 0], routes)
+
+    def test_cvrp_consecutive_depots_do_not_emit_empty_routes(self):
+        depot, points, subtour = self._cvrp_subtour(
+            [0, 0, 0, 1, 0, 0, 2, 0])
+        canonical, routes = decode_subtour_coordinates(subtour, depot, points)
+        self.assertEqual(routes, [[0, 1, 0], [0, 2, 0]])
+        self.assertEqual(canonical, [0, 1, 0, 2, 0])
+
+    def test_cvrp_all_zero_subtour_fails_closed(self):
+        depot, points, subtour = self._cvrp_subtour([0, 0, 0, 0])
+        with self.assertRaisesRegex(ValueError, "no customer"):
+            decode_subtour_coordinates(subtour, depot, points)
+
+    def test_cvrp_subtour_without_depot_fails_closed(self):
+        depot, points, subtour = self._cvrp_subtour([1, 2, 3, 4])
+        with self.assertRaisesRegex(ValueError, "no depot"):
+            decode_subtour_coordinates(subtour, depot, points)
+
+    def test_cvrp_depot_split_preserves_official_cycle_objective(self):
+        depot, points, subtour = self._cvrp_subtour(
+            [5, 6, 0, 0, 1, 2, 0, 0, 0, 3, 4])
+        canonical, _ = decode_subtour_coordinates(subtour, depot, points)
+        row = subtour[0]
+        official_cycle = float(np.linalg.norm(
+            np.roll(row, -1, axis=0) - row, axis=1).sum(dtype=np.float64))
+        self.assertAlmostEqual(
+            official_cycle, route_distance(depot, points, canonical), places=7)
+
+    def test_cvrp_real_failure_zero_run_topology_yields_two_routes(self):
+        depot, points, subtour = self._cvrp_subtour(
+            [5, 6, 0, 0, 1, 2, 0, 0, 0, 0, 0, 0, 0, 3, 4])
+        canonical, routes = decode_subtour_coordinates(subtour, depot, points)
+        self.assertEqual(routes, [[0, 1, 2, 0], [0, 3, 4, 5, 6, 0]])
+        self.assertEqual(len(routes), 2)
+        self.assertEqual(canonical, [0, 1, 2, 0, 3, 4, 5, 6, 0])
 
     def test_invalid_tsp_and_cvrp_solutions_fail(self):
         tsp = validate_tsp(np.arange(1000).reshape(500, 2), [0, 1, 0])
