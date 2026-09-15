@@ -46,11 +46,15 @@ def main():
         parser.error("provide --dataset-root/ML4CO_DATA_ROOT or explicit --dataset entries")
 
     candidates = discover(args.dataset_root) if args.dataset_root else {}
+    explicit = {}
     for problem, size, path in args.dataset:
         key = (problem.upper(), int(size))
         if key not in SCOPE:
             parser.error(f"outside GLOP paper scope: {key}")
-        candidates.setdefault(key, []).append(Path(path))
+        explicit.setdefault(key, []).append(Path(path))
+    # Explicit paths override filename discovery for that problem/size. This
+    # prevents similarly named archives or copies from entering a formal audit.
+    candidates.update(explicit)
 
     rows = []
     coverage = []

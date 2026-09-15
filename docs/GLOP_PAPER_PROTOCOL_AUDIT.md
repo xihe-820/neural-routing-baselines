@@ -1,6 +1,7 @@
 # GLOP official/paper protocol audit
 
-Audit date: 2026-09-15. Project base: `5068e95d9dec7aa36c46cb8d2de7568396c2abcf`.
+Audit date: 2026-09-15. Formal-infrastructure project base:
+`c7986e5c0dc562bd882377e1f0f3ffff3163c026`.
 Official source: `https://github.com/henry-yeh/GLOP` at
 `e540bc0153a0598e923e35116deeaecaf9c1cfff`, clean when inspected. This
 document records protocol evidence and blockers. It does not authorize formal
@@ -50,8 +51,9 @@ Reviewed official paths include `README.md`, `main.py`, `eval_cvrp.py`,
   and then adds four top-level coordinate reflections. Thus CLI `--width 140`
   becomes 35 RI orders and 140 top-level candidates. Table 9's standard
   TSP100 `W=35` would become 8 orders and 32 candidates if passed literally.
-  This code/paper ambiguity, plus the cross-distribution-only dataset context,
-  blocks a formal Uniform-100 choice.
+  The original cross-distribution experiment includes Uniform TSP100 as its
+  in-distribution column, so an official Uniform-100 configuration does exist.
+  The code/paper width and top-level augmentation ambiguity blocks execution.
 - Reviser list order is executable order. A schedule `100 50 20` loads and
   runs Reviser-100, then Reviser-50, then Reviser-20. No schedule entry is
   ignored.
@@ -78,12 +80,12 @@ checkpoint set follows `revision_lens` exactly.
 
 | Size | Manuscript locations/labels | Official source | Plain GLOP `(lens; iters; W)` | More revisions `(lens; iters; W)` | Decode | Aug / Prune | Config class | Paper status / blocker |
 |---:|---|---|---|---|---|---|---|---|
-| 100 | main fewer+more; appendix plain GLOP | paper Table 9; README only gives cross-distribution more command | `100,50,20,10; 20,10,10,5; 35` | same; `W=140` | sampling | paper says augmentation off; more README also `no_prune`; plain pruning unspecified | E | `NEED_AUTHOR_DECISION`: not a Uniform-100 paper config; W=35 conflicts with the small-size branch |
-| 500 | main fewer+more; appendix plain GLOP | paper Tables 1/9; README more command | `100,50,20; 20,25,5; 1` | same; `W=10` | greedy | on / on | B after BS1 | `NEED_AUTHOR_DECISION`: appendix budget unspecified |
-| 1K | main fewer+more; appendix plain GLOP | paper Tables 1/9; README more command | `100,50,20; 20,25,5; 1` | same; `W=10` | greedy | on / on | B after BS1 | `NEED_AUTHOR_DECISION`: appendix budget unspecified |
-| 2K | main fewer+more; appendix fewer | none | — | — | — | — | D | `NEED_AUTHOR_DECISION`: no official config; interpolation forbidden |
-| 5K | main fewer+more; appendix fewer | none | — | — | — | — | D | `NEED_AUTHOR_DECISION`: no official config; interpolation forbidden |
-| 10K | main fewer+more; appendix fewer | paper Tables 1/9; README more command | `100,50,20; 10,20,5; 1` | `100,50,20; 50,25,5; 1` | greedy | on / on | B after BS1 | `NEED_AUTHOR_DECISION`: manuscript does not state main/appendix relationship |
+| 100 | main fewer+more; appendix plain GLOP | paper Table 9; README cross-distribution more command | `100,50,20,10; 20,10,10,5; 35` | same; `W=140` | sampling | paper says augmentation off; released small-size branch adds top-level reflections | E | `OFFICIAL_CONFIG_EXISTS_EXECUTION_AMBIGUOUS`; manuscript mapping also unresolved |
+| 500 | main fewer+more; appendix plain GLOP | paper Tables 1/9; README more command | `100,50,20; 20,25,5; 1` | same; `W=10` | greedy | on / on | B after BS1 | `FROZEN_OFFICIAL`; manuscript mapping unresolved |
+| 1K | main fewer+more; appendix plain GLOP | paper Tables 1/9; README more command | `100,50,20; 20,25,5; 1` | same; `W=10` | greedy | on / on | B after BS1 | `FROZEN_OFFICIAL`; manuscript mapping unresolved |
+| 2K | main fewer+more; appendix fewer | no primary protocol; Table 16 is complexity-only | — | — | — | — | D | `NO_OFFICIAL_PRIMARY_CONFIG` |
+| 5K | main fewer+more; appendix fewer | no primary protocol; Table 16 is complexity-only | — | — | — | — | D | `NO_OFFICIAL_PRIMARY_CONFIG` |
+| 10K | main fewer+more; appendix fewer | paper Tables 1/9; README more command | `100,50,20; 10,20,5; 1` | `100,50,20; 50,25,5; 1` | greedy | on / on | B after BS1 | `FROZEN_OFFICIAL`; manuscript mapping unresolved |
 
 Classes are: A exact official, B official config with original BS changed to 1,
 C legitimate size adaptation, D no official mapping, E author decision needed.
@@ -97,8 +99,8 @@ valid paper batching adaptation; width remains internal search parallelism.
 | Size | Manuscript locations/labels | Official source | Partitioner | Local revisers / iters | Global / local decode | Aug / Prune | W / partitions / original BS | Config class | Paper status / blocker |
 |---:|---|---|---|---|---|---|---|---|---|
 | 500 | appendix plain GLOP | none | none | none | none | none | none | D | `BLOCKED`: `K_SPARSE[500]` and `cvrp-500.pt` do not exist; using 1K is unsupported |
-| 1K | main fewer+more; appendix plain GLOP | paper Tables 6/10; README neural command | `cvrp-1000.pt`, k=100 | `20 / 5` | greedy / sampling | on / on | `1 / 1 / 1` | A | `NEED_AUTHOR_DECISION`: official protocol has one budget, manuscript requests two |
-| 2K | main fewer+more; appendix plain GLOP | paper Tables 6/10; README neural command | `cvrp-2000.pt`, k=200 | `50,20 / 5,5` | greedy / sampling | on / on | `1 / 1 / 1` | A | `NEED_AUTHOR_DECISION`: official protocol has one budget, manuscript requests two |
+| 1K | main fewer+more; appendix plain GLOP | paper Tables 6/10; README neural command | `cvrp-1000.pt`, k=100 | `20 / 5` | greedy / sampling | on / on | `1 / 1 / 1` | A | `FROZEN_OFFICIAL_SINGLE_CONFIG`; manuscript mapping unresolved |
+| 2K | main fewer+more; appendix plain GLOP | paper Tables 6/10; README neural command | `cvrp-2000.pt`, k=200 | `50,20 / 5,5` | greedy / sampling | on / on | `1 / 1 / 1` | A | `FROZEN_OFFICIAL_SINGLE_CONFIG`; manuscript mapping unresolved |
 
 The partitioner network is not size-agnostic in the released execution path:
 both model selection and graph sparsity index `problem_size`; inference indexes
@@ -207,8 +209,8 @@ Drop can be reproducibly evaluated on the approved server; RTX4090 Time cannot
 be represented as H800 Time. Before timing enters the manuscript, an author
 must choose H800 reruns or revise the hardware statement.
 
-No formal preflight is ready. Author decisions are required for the
-main/appendix row mapping, TSP100, TSP2K/5K, CVRP fewer/more, CVRP500, and the
-hardware statement. After those decisions, implement separate TSP/CVRP paper
-adapters, exact decoders, per-instance timers, independent/Kit gates, and only
-then prepare an RTX4090 preflight command.
+Formal infrastructure and count-two server commands are ready for
+TSP500/1K/10K `official_standard` and `official_more`, and CVRP1K/2K
+`official_single`. Their algorithm identities do not use manuscript labels.
+TSP100, TSP2K/5K and CVRP500 remain fail-closed. Manuscript row mapping and the
+hardware statement remain separate author decisions.

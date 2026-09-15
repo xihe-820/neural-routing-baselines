@@ -33,10 +33,16 @@ def validate_initial_permutations(permutations, *, problem_size, width, batch_si
     return True
 
 
-def adapt_points(points, *, problem_size, device="cpu"):
+def adapt_points(points, *, problem_size, device="cpu", top_level_transforms=None):
     import torch
 
-    config = supported_config(problem_size)
+    if top_level_transforms is None:
+        config = supported_config(problem_size)
+        transforms = config["top_level_transforms"]
+    else:
+        transforms = list(top_level_transforms)
+        if not transforms:
+            raise ValueError("at least one top-level transform is required")
     values = np.asarray(points, dtype=np.float32)
     if values.ndim != 3 or values.shape[1:] != (problem_size, 2):
         raise ValueError("TSP points do not match the requested problem size")
@@ -47,15 +53,15 @@ def adapt_points(points, *, problem_size, device="cpu"):
             raise ValueError("exact coordinate identity is ambiguous within a benchmark instance")
         signatures = {
             tuple(sorted(_coordinate_keys(apply_top_level_transform(row, transform))))
-            for transform in config["top_level_transforms"]
+            for transform in transforms
         }
-        if len(signatures) != len(config["top_level_transforms"]):
+        if len(signatures) != len(transforms):
             raise ValueError("top-level augmentation identity is ambiguous for this instance")
     return torch.as_tensor(values, dtype=torch.float32, device=device), {
         "problem_size": problem_size,
         "coordinate_cast": "benchmark float32 preserved exactly",
         "node_identity": "original node id retained by exact float32 coordinate-bit identity",
-        "top_level_transforms": config["top_level_transforms"],
+        "top_level_transforms": transforms,
         "posthoc_tolerance_matching": False,
         "repair": False,
     }

@@ -411,13 +411,116 @@ sha256sum "$BASELINE_ARTIFACT_ROOT/glop_tsp50/formal_first5_validated.json" \
 
 Every result row must have all four completion gates true. Return both validated artifacts, the dependency/environment audit, both artifact SHA256 lines, and both clean-state outputs.
 
-## 10. Regression tests
+## 10. GLOP formal paper preflights
+
+Supply explicit dataset paths. Filename discovery is not used by formal
+preparation.
+
+```bash
+export GLOP_UPSTREAM="$BASELINE_UPSTREAM_ROOT/GLOP"
+read -r -p 'Official GLOP pretrained root: ' GLOP_ASSET_ROOT
+read -r -p 'TSP100 dataset: ' GLOP_TSP100_DATASET
+read -r -p 'TSP500 dataset: ' GLOP_TSP500_DATASET
+read -r -p 'TSP1K dataset: ' GLOP_TSP1K_DATASET
+read -r -p 'TSP2K dataset: ' GLOP_TSP2K_DATASET
+read -r -p 'TSP5K dataset: ' GLOP_TSP5K_DATASET
+read -r -p 'TSP10K dataset: ' GLOP_TSP10K_DATASET
+read -r -p 'CVRP500 dataset: ' GLOP_CVRP500_DATASET
+read -r -p 'CVRP1K dataset: ' GLOP_CVRP1K_DATASET
+read -r -p 'CVRP2K dataset: ' GLOP_CVRP2K_DATASET
+export GLOP_ASSET_ROOT GLOP_PAPER_ROOT="$BASELINE_ARTIFACT_ROOT/paper/glop"
+
+python -B scripts/audit_glop_paper_datasets.py \
+  --dataset TSP 100 "$GLOP_TSP100_DATASET" \
+  --dataset TSP 500 "$GLOP_TSP500_DATASET" \
+  --dataset TSP 1000 "$GLOP_TSP1K_DATASET" \
+  --dataset TSP 2000 "$GLOP_TSP2K_DATASET" \
+  --dataset TSP 5000 "$GLOP_TSP5K_DATASET" \
+  --dataset TSP 10000 "$GLOP_TSP10K_DATASET" \
+  --dataset CVRP 500 "$GLOP_CVRP500_DATASET" \
+  --dataset CVRP 1000 "$GLOP_CVRP1K_DATASET" \
+  --dataset CVRP 2000 "$GLOP_CVRP2K_DATASET" \
+  --output "$BASELINE_ARTIFACT_ROOT/audit/glop_paper_datasets.json"
+```
+
+For each of TSP500, TSP1K and TSP10K, run both official protocol names:
+
+```bash
+for size in 500 1000 10000; do
+  case "$size" in
+    500) dataset="$GLOP_TSP500_DATASET" ;;
+    1000) dataset="$GLOP_TSP1K_DATASET" ;;
+    10000) dataset="$GLOP_TSP10K_DATASET" ;;
+  esac
+  for protocol in official_standard official_more; do
+    python -B methods/glop/tsp/prepare_instances.py \
+      --dataset "$dataset" --problem-size "$size" --protocol "$protocol" \
+      --offset 0 --count 2 \
+      --output "$GLOP_PAPER_ROOT/tsp$size/$protocol/input.npz"
+    python -B methods/glop/tsp/paper_eval.py \
+      --input "$GLOP_PAPER_ROOT/tsp$size/$protocol/input.npz" \
+      --problem-size "$size" --protocol "$protocol" \
+      --upstream "$GLOP_UPSTREAM" --asset-root "$GLOP_ASSET_ROOT" \
+      --output-dir "$GLOP_PAPER_ROOT/tsp$size/$protocol/preflight" \
+      --device cuda:0
+  done
+done
+```
+
+```bash
+python -B methods/glop/cvrp/prepare_instances.py \
+  --dataset "$GLOP_CVRP1K_DATASET" --problem-size 1000 \
+  --protocol official_single --offset 0 --count 2 \
+  --output "$GLOP_PAPER_ROOT/cvrp1000/official_single/input.npz"
+python -B methods/glop/cvrp/paper_eval.py \
+  --input "$GLOP_PAPER_ROOT/cvrp1000/official_single/input.npz" \
+  --problem-size 1000 --protocol official_single --upstream "$GLOP_UPSTREAM" \
+  --asset-root "$GLOP_ASSET_ROOT" \
+  --output-dir "$GLOP_PAPER_ROOT/cvrp1000/official_single/preflight" \
+  --device cuda:0
+
+python -B methods/glop/cvrp/prepare_instances.py \
+  --dataset "$GLOP_CVRP2K_DATASET" --problem-size 2000 \
+  --protocol official_single --offset 0 --count 2 \
+  --output "$GLOP_PAPER_ROOT/cvrp2000/official_single/input.npz"
+python -B methods/glop/cvrp/paper_eval.py \
+  --input "$GLOP_PAPER_ROOT/cvrp2000/official_single/input.npz" \
+  --problem-size 2000 --protocol official_single --upstream "$GLOP_UPSTREAM" \
+  --asset-root "$GLOP_ASSET_ROOT" \
+  --output-dir "$GLOP_PAPER_ROOT/cvrp2000/official_single/preflight" \
+  --device cuda:0
+```
+
+Do not prepare or run formal preflights for TSP100, TSP2K, TSP5K, or
+CVRP500. After inference, apply the Kit gate:
+
+```bash
+for protocol in official_standard official_more; do
+  python -B methods/glop/validate_with_kit.py \
+    --dataset "$GLOP_TSP500_DATASET" \
+    --chunk-dirs "$GLOP_PAPER_ROOT/tsp500/$protocol/preflight"
+  python -B methods/glop/validate_with_kit.py \
+    --dataset "$GLOP_TSP1K_DATASET" \
+    --chunk-dirs "$GLOP_PAPER_ROOT/tsp1000/$protocol/preflight"
+  python -B methods/glop/validate_with_kit.py \
+    --dataset "$GLOP_TSP10K_DATASET" \
+    --chunk-dirs "$GLOP_PAPER_ROOT/tsp10000/$protocol/preflight"
+done
+python -B methods/glop/validate_with_kit.py \
+  --dataset "$GLOP_CVRP1K_DATASET" \
+  --chunk-dirs "$GLOP_PAPER_ROOT/cvrp1000/official_single/preflight"
+python -B methods/glop/validate_with_kit.py \
+  --dataset "$GLOP_CVRP2K_DATASET" \
+  --chunk-dirs "$GLOP_PAPER_ROOT/cvrp2000/official_single/preflight"
+```
+
+## 11. Regression tests
 
 ```bash
 ML4CO_REFERENCE_TESTS=1 python -B -m unittest discover -s tests -v
 ```
 
-## 11. Return evidence
+## 12. Return evidence
 
 Return these files without editing their values:
 
