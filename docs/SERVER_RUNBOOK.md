@@ -52,6 +52,14 @@ python -B scripts/audit_assets.py --upstream-root "$BASELINE_UPSTREAM_ROOT" \
 
 Do not continue if the requested dataset SHA, upstream URL/commit/clean state, checkpoint SHA, checkpoint payload load or model identity fails.
 
+For the GLOP paper scope, audit TSP 100/500/1K/2K/5K/10K and CVRP
+500/1K/2K without inference:
+
+```bash
+python -B scripts/audit_glop_paper_datasets.py --dataset-root "$ML4CO_DATA_ROOT" \
+  --output "$BASELINE_ARTIFACT_ROOT/audit/glop_paper_datasets.json"
+```
+
 ## 4. MVMoE paths
 
 ```bash

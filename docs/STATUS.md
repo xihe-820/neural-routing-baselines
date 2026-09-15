@@ -1,5 +1,10 @@
 # 26-row STATUS
 
+GLOP's newer manuscript-scale protocol audit is recorded separately in
+[`GLOP_PAPER_PROTOCOL_AUDIT.md`](GLOP_PAPER_PROTOCOL_AUDIT.md). It remains
+`NEED_AUTHOR_DECISION`; no formal GLOP paper run is authorized by the legacy
+50/100 integration rows below.
+
 Source of truth: [status.json](../manifests/status.json). LV=LOCAL_VERIFIED; SV=SERVER_VERIFIED; SC=SOURCE_CONFIRMED; NR=NOT_RUN; NI=NOT_IMPLEMENTED; B=BLOCKED; NA=NOT_APPLICABLE.
 
 | method | problem | size | source_audit | official_asset_identified | local_asset_verified | local_checkpoint_load | local_model_smoke | dataset_available_local | adapter | solution_decoder | independent_validator | local_small_smoke | kit_validation | server_asset_match | server_env_verified | server_gpu_smoke | server_small_smoke | final_status |
