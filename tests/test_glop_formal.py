@@ -29,7 +29,7 @@ def _record(index):
     }
 
 
-def _identity(root, name, indices, prepared):
+def _identity(root, name, indices, prepared, *, gpu="NVIDIA GeForce RTX 4090"):
     dataset = root / "dataset.pkl"
     asset = root / "reviser.pt"
     args = root / "args.json"
@@ -38,10 +38,11 @@ def _identity(root, name, indices, prepared):
             path.write_bytes(value)
     metadata = prepared.with_suffix(prepared.suffix + ".json")
     metadata.write_text("{}\n")
+    protocol = formal_protocol("TSP", 500, name)
     return {
         "method": "GLOP", "variant": name, "problem": "TSP",
         "problem_size": 500, "official_protocol_name": name,
-        "paper_protocol": formal_protocol("TSP", 500, name),
+        "paper_protocol": protocol,
         "project": {"commit": "a" * 40, "dirty": False, "url": "project"},
         "upstream": {"commit": "b" * 40, "dirty": False, "url": "upstream"},
         "assets": {"revisers": [{
@@ -59,7 +60,9 @@ def _identity(root, name, indices, prepared):
         "chunk": {"offset": min(indices), "count": len(indices),
                   "expected_indices": indices},
         "warmup": {"instances": 2, "policy": "test"},
-        "environment": {"gpu": "NVIDIA GeForce RTX 4090", "device": "cuda:0"},
+        "rng": {**protocol["rng_semantics"],
+                "shared_ri_orders_fingerprint": "0" * 64},
+        "environment": {"gpu": gpu, "device": "cuda:0"},
         "source_provenance": [{
             "path": "methods/glop/paper_results.py",
             "sha256": sha256_file(
@@ -70,7 +73,7 @@ def _identity(root, name, indices, prepared):
     }
 
 
-def _chunk(root, name, protocol, index):
+def _chunk(root, name, protocol, index, *, gpu="NVIDIA GeForce RTX 4090"):
     directory = root / name
     directory.mkdir()
     record = _record(index)
@@ -78,7 +81,7 @@ def _chunk(root, name, protocol, index):
     path.write_text(json.dumps(record) + "\n")
     prepared = root / f"{name}.npz"
     prepared.write_bytes(name.encode())
-    identity = _identity(root, protocol, [index], prepared)
+    identity = _identity(root, protocol, [index], prepared, gpu=gpu)
     metadata = {
         "schema_version": SCHEMA_VERSION, "state": "KIT_VALIDATED",
         "resume_identity": identity, "resume_fingerprint": fingerprint(identity),
@@ -143,9 +146,18 @@ class GLOPAggregationTests(unittest.TestCase):
             first = _chunk(root, "first", "official_standard", 0)
             second = _chunk(root, "second", "official_standard", 1)
             result = summarize_chunks([first, second])
-            self.assertEqual(result["status"], "PAPER_READY_NUMERICAL_EVIDENCE")
-            self.assertEqual(result["manuscript_hardware_consistency"], "UNRESOLVED")
+            self.assertEqual(result["status"], "PAPER_READY")
+            self.assertNotIn("manuscript_hardware_consistency", result)
             self.assertEqual(result["drop_mean_per_instance_gap_percent"], 100.0)
+
+    def test_non_rtx4090_hardware_fails_closed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            first = _chunk(
+                root, "first", "official_standard", 0,
+                gpu="NVIDIA A100-SXM4-80GB")
+            with self.assertRaisesRegex(ValueError, "RTX 4090"):
+                summarize_chunks([first])
 
 
 if __name__ == "__main__":

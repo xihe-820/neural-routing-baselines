@@ -5,6 +5,8 @@ GLOP's manuscript-scale protocol audit is recorded separately in
 algorithm protocols are frozen for TSP500/1K/10K and CVRP1K/2K; their server
 preflights are prepared. Manuscript row mapping remains unresolved, and the
 legacy 50/100 integration rows do not authorize a formal paper run.
+Formal external-baseline hardware is RTX4090; GLOP hardware policy is resolved,
+while formal GLOP inference remains `NOT_RUN` pending server count-two preflight.
 
 Source of truth: [status.json](../manifests/status.json). LV=LOCAL_VERIFIED; SV=SERVER_VERIFIED; SC=SOURCE_CONFIRMED; NR=NOT_RUN; NI=NOT_IMPLEMENTED; B=BLOCKED; NA=NOT_APPLICABLE.
 

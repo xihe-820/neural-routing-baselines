@@ -1,7 +1,7 @@
 # GLOP official/paper protocol audit
 
-Audit date: 2026-09-15. Formal-infrastructure project base:
-`c7986e5c0dc562bd882377e1f0f3ffff3163c026`.
+Audit date: 2026-09-15. RNG-fidelity project base:
+`daeb6258daae8593949bbb65f0b46ec2dd9b731a`.
 Official source: `https://github.com/henry-yeh/GLOP` at
 `e540bc0153a0598e923e35116deeaecaf9c1cfff`, clean when inspected. This
 document records protocol evidence and blockers. It does not authorize formal
@@ -201,16 +201,42 @@ runtime. For neural CVRP GLOP-G it reports 47.1, 63.5, 141.9, 191.7 at
 1K/2K/5K/7K with per-instance times 0.4/1.2/1.7/2.4 seconds on RTX3090-class
 paper hardware. These values are sanity anchors only.
 
+## RNG / seed fidelity
+
+Pinned `main.py` calls `torch.manual_seed(seed)` once before `eval_dataset`.
+`eval_dataset` then constructs and loads revisers. For TSP, dataset loading is
+followed by one set of `width` `torch.randperm` orders shared by every original
+instance. The enabled TSP revisers use greedy decoding and do not call
+`multinomial`.
+
+For CVRP, revisers are constructed and loaded first, followed by partitioner
+construction/loading. Global partitioning is greedy and sub-TSP insertion uses
+`torch.arange`; both are deterministic. Local sampling calls
+`probs.multinomial` on the model device and therefore advances one continuous
+RNG stream across sequential original instances.
+
+Formal runners reproduce that placement and never reseed per instance. Warm-up
+saves and restores the CPU and target-CUDA RNG states. TSP warm-up reuses the
+shared RI orders. CVRP resume accepts only an ordered completed prefix, replays
+that prefix without timing or artifact writes, checks its routes, objectives,
+and selection against existing records, and then continues the stochastic
+stream. CVRP prepared inputs must start at dataset index zero; independent
+nonzero-offset chunks are rejected until an approved RNG-state chaining design
+exists.
+
+The audited formal paths use no Python `random` or NumPy random draws. Random
+Insertion is deterministic once its explicit Torch-generated order is fixed.
+
 ## Hardware and next gate
 
-The manuscript claims H800 80GB evaluation, while the approved reproduction
-server is RTX4090. `MANUSCRIPT_HARDWARE_MISMATCH = UNRESOLVED`. Objective and
-Drop can be reproducibly evaluated on the approved server; RTX4090 Time cannot
-be represented as H800 Time. Before timing enters the manuscript, an author
-must choose H800 reruns or revise the hardware statement.
+Formal external-baseline evaluation hardware is NVIDIA GeForce RTX 4090 with
+CUDA. A full-set run that passes the protocol, provenance, independent,
+ML4CO-Kit, coverage, hash, and RTX4090 gates is `PAPER_READY`; Obj, Drop, and
+Time are all formal paper results. The manuscript's current hardware wording is
+a separate editorial fact and does not block this repository pipeline.
 
 Formal infrastructure and count-two server commands are ready for
 TSP500/1K/10K `official_standard` and `official_more`, and CVRP1K/2K
 `official_single`. Their algorithm identities do not use manuscript labels.
-TSP100, TSP2K/5K and CVRP500 remain fail-closed. Manuscript row mapping and the
-hardware statement remain separate author decisions.
+TSP100, TSP2K/5K and CVRP500 remain fail-closed. Manuscript row mapping remains
+a separate author decision.

@@ -25,8 +25,9 @@ def main():
     parser.add_argument("--offset", type=int, default=0)
     parser.add_argument("--count", type=int, required=True)
     args = parser.parse_args()
-    if args.offset < 0 or args.count <= 0:
-        parser.error("offset must be nonnegative and count positive")
+    if args.offset != 0 or args.count <= 0:
+        parser.error(
+            "formal CVRP preparation requires offset=0 and a positive count")
     protocol = formal_protocol("CVRP", args.problem_size, args.protocol)
 
     import ml4co_kit as kit

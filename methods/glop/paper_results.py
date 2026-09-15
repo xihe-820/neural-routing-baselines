@@ -178,8 +178,8 @@ def _consistent_identity(metadata):
     return {key: identity[key] for key in (
         "method", "variant", "problem", "problem_size",
         "official_protocol_name", "paper_protocol", "project", "upstream",
-        "assets", "dataset", "warmup", "environment", "source_provenance",
-        "timing_semantics")}
+        "assets", "dataset", "warmup", "rng", "environment",
+        "source_provenance", "timing_semantics")}
 
 
 def _verify_current_file_hashes(identity):
@@ -247,16 +247,26 @@ def summarize_chunks(chunk_dirs):
     expected_protocol = formal_protocol(
         baseline["problem"], baseline["problem_size"],
         baseline["official_protocol_name"])
+    if baseline["problem"] == "CVRP" and len(paths) != 1:
+        raise ValueError(
+            "formal CVRP aggregation requires one sequential offset-zero chunk")
     if (baseline["method"] != "GLOP" or baseline["variant"] !=
             baseline["official_protocol_name"] or
             baseline["paper_protocol"] != expected_protocol):
         raise ValueError("chunks do not use an exact enabled GLOP protocol")
+    expected_rng = expected_protocol["rng_semantics"]
+    if any(baseline["rng"].get(key) != value
+           for key, value in expected_rng.items()):
+        raise ValueError("chunks do not use the exact formal GLOP RNG semantics")
+    if (baseline["problem"] == "TSP" and
+            len(baseline["rng"].get("shared_ri_orders_fingerprint", "")) != 64):
+        raise ValueError("TSP chunks lack shared RI-order identity")
     _verify_current_file_hashes(baseline)
     if baseline["project"].get("dirty") or baseline["upstream"].get("dirty"):
         raise ValueError("GLOP paper evidence requires clean repositories")
     if ("RTX 4090" not in str(baseline["environment"].get("gpu")) or
             not str(baseline["environment"].get("device", "")).startswith("cuda")):
-        raise ValueError("GLOP numerical evidence requires approved RTX 4090 CUDA")
+        raise ValueError("GLOP paper results require approved RTX 4090 CUDA")
     count = baseline["dataset"]["count"]
     indices = [record["dataset_instance_index"] for record in records]
     if len(indices) != len(set(indices)) or set(indices) != set(range(count)):
@@ -269,8 +279,7 @@ def summarize_chunks(chunk_dirs):
     return {
         "schema_version": SCHEMA_VERSION,
         "artifact_type": "GLOP formal full-set summary",
-        "status": "PAPER_READY_NUMERICAL_EVIDENCE",
-        "manuscript_hardware_consistency": "UNRESOLVED",
+        "status": "PAPER_READY",
         "method": "GLOP", "variant": baseline["official_protocol_name"],
         "problem": baseline["problem"], "problem_size": baseline["problem_size"],
         "instance_count": count,

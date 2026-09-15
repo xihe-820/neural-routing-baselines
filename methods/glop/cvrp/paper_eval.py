@@ -19,10 +19,16 @@ from common.provenance import environment_provenance, git_provenance, source_pro
 from methods.glop.cvrp.adapter import validate_instance
 from methods.glop.cvrp.decode import decode_subtour_coordinates
 from methods.glop.paper_protocol import (PARTITIONER_ASSETS, formal_protocol)
-from methods.glop.paper_results import (TIMING_SEMANTICS, append_record,
-                                        finalize_chunk, initialize_chunk)
-from methods.glop.runtime import (activate_upstream, cuda_device, load_revisers,
-                                  random_insertion_identity, verify_file,
+from methods.glop.paper_results import (RECORDS_FILE, TIMING_SEMANTICS,
+                                        append_record, finalize_chunk,
+                                        initialize_chunk, read_jsonl)
+from methods.glop.runtime import (activate_upstream, completed_prefix_length,
+                                  cuda_device, load_revisers,
+                                  official_seeded_setup,
+                                  random_insertion_identity,
+                                  replay_completed_prefix,
+                                  require_cvrp_dataset_prefix,
+                                  run_warmup_isolated, verify_file,
                                   verify_upstream)
 from problems.cvrp.validate import validate
 
@@ -32,7 +38,6 @@ def _solve_one(depot, points, demands, capacity, *, protocol, partitioner,
                reconnect, load_problem, random_insertion_parallel, timed):
     depot, points, demands, capacity = validate_instance(
         depot, points, demands, capacity, problem_size=protocol["problem_size"])
-    torch.manual_seed(protocol["seed"])
     if timed:
         torch.cuda.synchronize(device)
         started = time.perf_counter()
@@ -131,11 +136,10 @@ def main():
         arrays = {key: data[key] for key in (
             "depots", "points", "raw_demands", "raw_capacities",
             "dataset_indices", "reference_objectives")}
-    indices = [int(value) for value in arrays["dataset_indices"]]
-    if (not indices or indices != list(range(indices[0], indices[0] + len(indices))) or
-            prepared.get("dataset_indices") != indices or
+    indices = require_cvrp_dataset_prefix(arrays["dataset_indices"])
+    if (prepared.get("dataset_indices") != indices or
             len(arrays["points"]) != len(indices)):
-        raise ValueError("prepared CVRP chunk must be nonempty, contiguous, and consistent")
+        raise ValueError("prepared CVRP prefix metadata is inconsistent")
     for local in range(len(indices)):
         validate_instance(
             arrays["depots"][local], arrays["points"][local],
@@ -149,22 +153,30 @@ def main():
     from utils.functions import load_model, load_problem, reconnect
     from utils.insertion import random_insertion_parallel
     insertion = random_insertion_identity()
-    revisers, reviser_assets = load_revisers(
-        args.asset_root, protocol, device=device, torch=torch, load_model=load_model)
     partition_spec = PARTITIONER_ASSETS[args.problem_size]
     partition_path = args.asset_root / partition_spec["path"]
     partition_hash = verify_file(partition_path, partition_spec)
-    partitioner = load_partitioner(
-        args.problem_size, device, str(partition_path.resolve()),
-        protocol["k_sparse"], protocol["partitioner_depth"])
-    payload = torch.load(partition_path, map_location="cpu")
-    state = payload.get("model_state_dict", payload)
-    strict = partitioner.load_state_dict(state, strict=True)
-    if strict.missing_keys or strict.unexpected_keys:
-        raise ValueError("partitioner strict load mismatch")
-    if sum(parameter.numel() for parameter in partitioner.parameters()) != partition_spec["parameter_count"]:
-        raise ValueError("partitioner parameter count mismatch")
-    partitioner.eval()
+
+    def setup_models():
+        revisers, reviser_assets = load_revisers(
+            args.asset_root, protocol, device=device, torch=torch,
+            load_model=load_model)
+        partitioner = load_partitioner(
+            args.problem_size, device, str(partition_path.resolve()),
+            protocol["k_sparse"], protocol["partitioner_depth"])
+        payload = torch.load(partition_path, map_location="cpu")
+        state = payload.get("model_state_dict", payload)
+        strict = partitioner.load_state_dict(state, strict=True)
+        if strict.missing_keys or strict.unexpected_keys:
+            raise ValueError("partitioner strict load mismatch")
+        if (sum(parameter.numel() for parameter in partitioner.parameters()) !=
+                partition_spec["parameter_count"]):
+            raise ValueError("partitioner parameter count mismatch")
+        partitioner.eval()
+        return revisers, reviser_assets, partitioner
+
+    revisers, reviser_assets, partitioner = official_seeded_setup(
+        torch, protocol["seed"], setup_models)
 
     environment = environment_provenance(device)
     environment["random_insertion"] = insertion
@@ -207,10 +219,16 @@ def main():
                   "expected_indices": indices},
         "warmup": {"instances": args.warmup_instances,
                    "policy": "first prepared instances rerun formally; excluded from time"},
+        "rng": dict(protocol["rng_semantics"]),
         "environment": environment, "source_provenance": sources,
         "timing_semantics": TIMING_SEMANTICS,
     }
     _, completed = initialize_chunk(args.output_dir, identity)
+    records_path = Path(args.output_dir) / RECORDS_FILE
+    existing_records = read_jsonl(records_path) if records_path.exists() else []
+    prefix_length = completed_prefix_length(existing_records, indices)
+    if completed != set(indices[:prefix_length]):
+        raise ValueError("CVRP resume metadata and prefix records disagree")
     if completed == set(indices):
         finalize_chunk(args.output_dir)
         return
@@ -220,26 +238,45 @@ def main():
         trans_tsp=trans_tsp, sum_cost=sum_cost, reconnect=reconnect,
         load_problem=load_problem,
         random_insertion_parallel=random_insertion_parallel)
-    for local in range(min(args.warmup_instances, len(indices))):
-        _solve_one(
-            arrays["depots"][local], arrays["points"][local],
-            arrays["raw_demands"][local], arrays["raw_capacities"][local],
-            timed=False, **solve_kwargs)
-    for local, dataset_index in enumerate(indices):
-        if dataset_index in completed:
-            continue
+    def solve(local, *, timed):
         canonical, routes, reported, runtime, selection = _solve_one(
             arrays["depots"][local], arrays["points"][local],
             arrays["raw_demands"][local], arrays["raw_capacities"][local],
-            timed=True, **solve_kwargs)
+            timed=timed, **solve_kwargs)
         checked = validate(
             arrays["depots"][local], arrays["points"][local],
             arrays["raw_demands"][local], arrays["raw_capacities"][local],
             canonical)
         independent = checked["independent_objective"]
         agrees = independent is not None and objective_agrees(reported, independent)
+        if not checked["feasible"] or not agrees:
+            raise RuntimeError(
+                f"CVRP independent gate failed at index {indices[local]}")
+        return canonical, routes, reported, runtime, selection, checked, independent
+
+    def warmup():
+        for local in range(min(args.warmup_instances, len(indices))):
+            solve(local, timed=False)
+
+    run_warmup_isolated(torch, device, warmup)
+
+    def replay(dataset_index):
+        local = dataset_index
+        canonical, routes, reported, _, selection, _, independent = solve(
+            local, timed=False)
+        return {
+            "canonical_solution": canonical, "canonical_routes": routes,
+            "reported_objective": reported,
+            "independent_objective": independent, "selection": selection,
+        }
+
+    prefix_length = replay_completed_prefix(existing_records, indices, replay)
+    for local in range(prefix_length, len(indices)):
+        dataset_index = indices[local]
+        (canonical, routes, reported, runtime, selection, checked,
+         independent) = solve(local, timed=True)
+        agrees = True
         reference = float(arrays["reference_objectives"][local])
-        passed = checked["feasible"] and agrees
         record = {
             "dataset_instance_index": dataset_index,
             "instance_id": prepared["instance_names"][local],
@@ -253,10 +290,8 @@ def main():
             "reported_objective_agrees": bool(agrees),
             "selection": selection,
             "constraint_details": checked["constraint_details"],
-            "evidence_status": "INDEPENDENT_VERIFIED" if passed else "FAILED",
+            "evidence_status": "INDEPENDENT_VERIFIED",
         }
-        if not passed:
-            raise RuntimeError(f"CVRP independent gate failed at index {dataset_index}")
         append_record(args.output_dir, record)
         print(json.dumps({"method": "GLOP", "problem": "CVRP",
                           "size": args.problem_size, "protocol": args.protocol,

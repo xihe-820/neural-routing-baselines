@@ -414,7 +414,7 @@ Every result row must have all four completion gates true. Return both validated
 ## 10. GLOP formal paper preflights
 
 Supply explicit dataset paths. Filename discovery is not used by formal
-preparation.
+preparation. The formal device is one NVIDIA GeForce RTX 4090 with CUDA.
 
 ```bash
 export GLOP_UPSTREAM="$BASELINE_UPSTREAM_ROOT/GLOP"
@@ -492,7 +492,10 @@ python -B methods/glop/cvrp/paper_eval.py \
 ```
 
 Do not prepare or run formal preflights for TSP100, TSP2K, TSP5K, or
-CVRP500. After inference, apply the Kit gate:
+CVRP500. CVRP preflight must keep `--offset 0`. Formal CVRP production must use
+one sequential offset-zero stream covering the full dataset; independent
+nonzero-offset chunks are forbidden unless an exact RNG-state chaining design
+is approved later. After inference, apply the Kit gate:
 
 ```bash
 for protocol in official_standard official_more; do

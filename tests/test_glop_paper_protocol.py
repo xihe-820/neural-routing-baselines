@@ -60,6 +60,11 @@ class GLOPPaperProtocolTests(unittest.TestCase):
                 config = formal_protocol(problem, size, name)
                 self.assertEqual(config["original_batch_size"], 1)
                 self.assertEqual(config["seed"], 1)
+                self.assertNotIn("seed_scope", config)
+                self.assertFalse(
+                    config["rng_semantics"]["per_instance_reseed"])
+                self.assertTrue(
+                    config["rng_semantics"]["warmup_rng_restored"])
                 self.assertTrue(config["local_augmentation"])
                 self.assertTrue(config["pruning"])
                 self.assertFalse(config["training"])

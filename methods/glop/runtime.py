@@ -13,6 +13,70 @@ from methods.glop.paper_protocol import (REVISER_ASSETS, UPSTREAM_COMMIT,
                                          UPSTREAM_URL)
 
 
+def official_seeded_setup(torch, seed, setup):
+    """Match main.py: seed once, then construct/load all official models."""
+    torch.manual_seed(seed)
+    return setup()
+
+
+def make_shared_tsp_orders(torch, *, problem_size, width):
+    """Generate the one RI-order set shared by the official TSP dataset."""
+    return tuple(torch.randperm(problem_size) for _ in range(width))
+
+
+def capture_torch_rng(torch, device):
+    state = {"cpu": torch.get_rng_state().clone()}
+    if device.type == "cuda":
+        state["cuda"] = torch.cuda.get_rng_state(device).clone()
+    return state
+
+
+def restore_torch_rng(torch, device, state):
+    torch.set_rng_state(state["cpu"])
+    if device.type == "cuda":
+        torch.cuda.set_rng_state(state["cuda"], device)
+
+
+def run_warmup_isolated(torch, device, warmup):
+    """Run warm-up without advancing the formal CPU/target-CUDA streams."""
+    state = capture_torch_rng(torch, device)
+    try:
+        warmup()
+    finally:
+        restore_torch_rng(torch, device, state)
+
+
+def replay_completed_prefix(records, expected_indices, replay):
+    """Replay a CVRP prefix to advance its sequential sampling RNG exactly."""
+    prefix_length = completed_prefix_length(records, expected_indices)
+    fields = ("canonical_solution", "canonical_routes", "reported_objective",
+              "independent_objective", "selection")
+    for record in records:
+        observed = replay(record["dataset_instance_index"])
+        if any(observed.get(field) != record.get(field) for field in fields):
+            raise ValueError(
+                "CVRP prefix replay differs from the recorded stochastic result")
+    return prefix_length
+
+
+def completed_prefix_length(records, expected_indices):
+    """Reject missing, reordered, or non-prefix CVRP resume records."""
+    actual = [record["dataset_instance_index"] for record in records]
+    expected_prefix = list(expected_indices[:len(actual)])
+    if actual != expected_prefix:
+        raise ValueError("CVRP resume records must be a contiguous ordered prefix")
+    return len(actual)
+
+
+def require_cvrp_dataset_prefix(indices):
+    """Formal CVRP may only start from dataset index zero without RNG chaining."""
+    values = [int(index) for index in indices]
+    if not values or values != list(range(len(values))):
+        raise ValueError(
+            "formal CVRP input must be a contiguous dataset prefix starting at index 0")
+    return values
+
+
 def verify_file(path, spec, *, sha_key="sha256", size_key="size_bytes"):
     path = Path(path)
     if not path.is_file():

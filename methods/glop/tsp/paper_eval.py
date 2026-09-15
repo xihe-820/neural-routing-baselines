@@ -18,25 +18,29 @@ from common.objective_agreement import objective_agrees
 from common.provenance import environment_provenance, git_provenance, source_provenance
 from methods.glop.paper_protocol import formal_protocol
 from methods.glop.paper_results import (TIMING_SEMANTICS, append_record,
-                                        finalize_chunk, initialize_chunk)
-from methods.glop.runtime import (activate_upstream, cuda_device, load_revisers,
-                                  random_insertion_identity, verify_upstream)
+                                        finalize_chunk, fingerprint,
+                                        initialize_chunk)
+from methods.glop.runtime import (activate_upstream, cuda_device,
+                                  load_revisers, make_shared_tsp_orders,
+                                  official_seeded_setup,
+                                  random_insertion_identity,
+                                  run_warmup_isolated, verify_upstream)
 from methods.glop.tsp.adapter import adapt_points, validate_initial_permutations
 from methods.glop.tsp.decode import decode_coordinate_tour
 from problems.tsp.validate import validate
 
 
-def _solve_one(points, *, protocol, revisers, device, torch, reconnect,
+def _solve_one(points, *, protocol, orders, revisers, device, torch, reconnect,
                load_problem, random_insertion_parallel, timed):
     width = protocol["internal_width"]
-    torch.manual_seed(protocol["seed"])
+    if len(orders) != width:
+        raise ValueError("shared TSP RI order count differs from internal width")
     if timed:
         torch.cuda.synchronize(device)
         started = time.perf_counter()
-    orders = [torch.randperm(len(points)) for _ in range(width)]
     batched = torch.as_tensor(points[None], dtype=torch.float32)
     permutations = np.asarray(
-        [random_insertion_parallel(batched, order) for order in orders],
+        [random_insertion_parallel(batched, order.clone()) for order in orders],
         dtype=np.int64).reshape(width, 1, len(points))
     validate_initial_permutations(
         permutations, problem_size=len(points), width=width, batch_size=1)
@@ -114,8 +118,14 @@ def main():
     from utils.functions import load_model, load_problem, reconnect
     from utils.insertion import random_insertion_parallel
     insertion = random_insertion_identity()
-    revisers, assets = load_revisers(
-        args.asset_root, protocol, device=device, torch=torch, load_model=load_model)
+    revisers, assets = official_seeded_setup(
+        torch, protocol["seed"],
+        lambda: load_revisers(
+            args.asset_root, protocol, device=device, torch=torch,
+            load_model=load_model))
+    orders = make_shared_tsp_orders(
+        torch, problem_size=args.problem_size,
+        width=protocol["internal_width"])
     environment = environment_provenance(device)
     environment["random_insertion"] = insertion
     sources = source_provenance([
@@ -149,6 +159,11 @@ def main():
                   "expected_indices": indices},
         "warmup": {"instances": args.warmup_instances,
                    "policy": "first prepared instances rerun formally; excluded from time"},
+        "rng": {
+            **protocol["rng_semantics"],
+            "shared_ri_orders_fingerprint": fingerprint(
+                [order.tolist() for order in orders]),
+        },
         "environment": environment, "source_provenance": sources,
         "timing_semantics": TIMING_SEMANTICS,
     }
@@ -156,17 +171,23 @@ def main():
     if completed == set(indices):
         finalize_chunk(args.output_dir)
         return
-    for local in range(min(args.warmup_instances, len(points))):
-        _solve_one(points[local], protocol=protocol, revisers=revisers,
-                   device=device, torch=torch, reconnect=reconnect,
-                   load_problem=load_problem,
-                   random_insertion_parallel=random_insertion_parallel, timed=False)
+    def warmup():
+        for local in range(min(args.warmup_instances, len(points))):
+            _solve_one(
+                points[local], protocol=protocol, orders=orders,
+                revisers=revisers, device=device, torch=torch,
+                reconnect=reconnect, load_problem=load_problem,
+                random_insertion_parallel=random_insertion_parallel,
+                timed=False)
+
+    run_warmup_isolated(torch, device, warmup)
     for local, dataset_index in enumerate(indices):
         if dataset_index in completed:
             continue
         canonical, reported, decoding, runtime = _solve_one(
-            points[local], protocol=protocol, revisers=revisers, device=device,
-            torch=torch, reconnect=reconnect, load_problem=load_problem,
+            points[local], protocol=protocol, orders=orders, revisers=revisers,
+            device=device, torch=torch, reconnect=reconnect,
+            load_problem=load_problem,
             random_insertion_parallel=random_insertion_parallel, timed=True)
         checked = validate(points[local], canonical)
         independent = checked["independent_objective"]

@@ -105,10 +105,11 @@ duplicate, failed, NaN or infinite records make aggregation fail.
 
 The current paper uses Obj./Drop/Time columns. Its CVRPTW main and complete
 tables contain an empty MVMoE row for sizes 50/100, while the CVRP tables do
-not currently contain an MVMoE row. The appendix says all models are tested on
-an NVIDIA H800 (80G), single GPU, batch size 1. The current approved protocol
-uses the existing RTX4090 server, so the H800 statement is a manuscript
-inconsistency to resolve later. This repository does not modify the paper.
+not currently contain an MVMoE row. Formal external-baseline evaluation uses
+one NVIDIA GeForce RTX 4090 with original-instance batch size 1. The
+manuscript's current hardware wording is an editorial fact outside this
+repository's formal evaluation gate. This repository does not modify the
+paper.
 
 | Paper row | Pipeline status |
 |---|---|
