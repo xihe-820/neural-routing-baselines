@@ -64,7 +64,7 @@ def main():
         for row in audited:
             row["expected_filename"] = PAPER_DATASET_FILENAMES[(problem, size)]
             row["filename_matches"] = (
-                Path(row["path"]).name == row["expected_filename"])
+                Path(row["realpath"]).name == row["expected_filename"])
         rows.extend(audited)
         valid = [row["realpath"] for row in audited
                  if row.get("all_expected_size") and row.get("all_expected_task_class")

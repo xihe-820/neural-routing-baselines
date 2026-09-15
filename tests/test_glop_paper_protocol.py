@@ -6,6 +6,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 import torch
 
@@ -16,6 +17,7 @@ from methods.glop.paper_protocol import (CVRP_PROTOCOLS,
 from methods.glop.paper_results import fingerprint, initialize_chunk
 from methods.glop.runtime import verify_file
 from methods.glop.tsp.adapter import apply_top_level_reflections
+from scripts import audit_glop_paper_datasets
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -295,6 +297,32 @@ class GLOPPaperProtocolTests(unittest.TestCase):
             self.assertEqual(
                 {(row["problem"], row["size"]): row["expected_filename"]
                  for row in report["coverage"]}, PAPER_DATASET_FILENAMES)
+
+    def test_dataset_audit_filename_match_uses_realpath_schema(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            dataset = root / PAPER_DATASET_FILENAMES[("TSP", 100)]
+            output = root / "audit.json"
+            audited_row = {
+                "realpath": str(dataset.resolve()),
+                "all_expected_size": True,
+                "all_expected_task_class": True,
+                "error": None,
+            }
+            argv = [
+                "audit_glop_paper_datasets.py",
+                "--dataset-root", str(root / "missing"),
+                "--dataset", "TSP", "100", str(dataset),
+                "--output", str(output),
+            ]
+            with mock.patch.object(
+                    audit_glop_paper_datasets, "audit",
+                    return_value=audited_row), mock.patch.object(sys, "argv", argv):
+                audit_glop_paper_datasets.main()
+            row = json.loads(output.read_text())["datasets"][0]
+            self.assertNotIn("path", row)
+            self.assertTrue(row["filename_matches"])
+            self.assertEqual(row["expected_filename"], dataset.name)
 
     def test_dataset_registry_uses_exact_paper_target_names(self):
         self.assertEqual(PAPER_DATASET_FILENAMES, {
