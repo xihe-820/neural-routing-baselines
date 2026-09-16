@@ -19,8 +19,8 @@ from common.provenance import (environment_provenance, git_provenance,
                                normalize_git_repository_identity,
                                source_provenance)
 from methods.neuopt.cvrp.adapter import adapt_batch
-from methods.neuopt.cvrp.compat import (ensure_bs1_decoder_compatibility,
-                                       ensure_tensorboard_logger)
+from methods.neuopt.cvrp.compat import (ensure_tensorboard_logger,
+                                       require_unmodified_d2a5_decoder)
 from methods.neuopt.cvrp.config import supported_config
 from methods.neuopt.cvrp.decode import (decode_successor,
                                         extract_final_best_d2a)
@@ -67,6 +67,23 @@ def restore_rng(state, torch):
     torch.cuda.set_rng_state_all(state["cuda"])
 
 
+def rng_states_equal(left, right, torch):
+    """Compare all RNG state captured around the timed/replay pair."""
+    left_numpy, right_numpy = left["numpy"], right["numpy"]
+    numpy_equal = (
+        left_numpy[0] == right_numpy[0]
+        and np.array_equal(left_numpy[1], right_numpy[1])
+        and left_numpy[2:] == right_numpy[2:]
+    )
+    return (
+        left["python"] == right["python"]
+        and numpy_equal
+        and torch.equal(left["torch"], right["torch"])
+        and len(left["cuda"]) == len(right["cuda"])
+        and all(torch.equal(a, b) for a, b in zip(left["cuda"], right["cuda"]))
+    )
+
+
 def official_option_args(*, problem_size, config, checkpoint, device):
     size = supported_config(problem_size)
     args = [
@@ -78,14 +95,14 @@ def official_option_args(*, problem_size, config, checkpoint, device):
         "--k", str(config["k"]), "--T_max", str(config["T_max"]),
         "--val_size", "1", "--val_batch_size", "1",
         "--load_path", str(Path(checkpoint).resolve()), "--no_tb", "--no_saving",
-        "--no_DDP", "--no_progress_bar", "--record",
+        "--no_DDP", "--no_progress_bar",
     ]
     if device.type == "cpu":
         args.append("--no_cuda")
     return args
 
 
-def solve_one(agent, problem, native, *, config, device, torch, timed):
+def solve_one(agent, problem, native, *, config, device, torch, timed, record):
     if native["coordinates"].shape[0] != 1:
         raise ValueError("formal NeuOpt timing requires original batch size exactly one")
     if timed:
@@ -95,10 +112,38 @@ def solve_one(agent, problem, native, *, config, device, torch, timed):
         output = agent.rollout(
             problem, T=config["T_max"], val_m=config["val_m"],
             stall_limit=config["stall_limit"], batch=native,
-            record=True, show_bar=False)
+            record=record, show_bar=False)
     torch.cuda.synchronize(device)
     elapsed = time.perf_counter() - started if timed else None
     return output, elapsed
+
+
+def timed_rollout_with_evidence_replay(agent, problem, native, *, config,
+                                       device, torch):
+    """Time record-free inference, then replay from the exact RNG state for evidence."""
+    before = capture_rng(torch)
+    timed_output, elapsed = solve_one(
+        agent, problem, native, config=config, device=device, torch=torch,
+        timed=True, record=False)
+    timed_after = capture_rng(torch)
+    restore_rng(before, torch)
+    replay_output, _ = solve_one(
+        agent, problem, native, config=config, device=device, torch=torch,
+        timed=False, record=True)
+    replay_after = capture_rng(torch)
+    if not torch.equal(timed_output[0], replay_output[0]):
+        raise RuntimeError(
+            "record=True evidence replay objective differs from timed record=False objective")
+    if not rng_states_equal(timed_after, replay_after, torch):
+        raise RuntimeError(
+            "record=True evidence replay consumed different RNG than timed record=False rollout")
+    return timed_output[0], replay_output, elapsed, {
+        "timed_rollout_record": False,
+        "evidence_replay_record": True,
+        "rng_state_restored": True,
+        "timed_replay_official_objective_exact": True,
+        "timed_replay_rng_after_exact": True,
+    }
 
 
 def _load_prepared(args, expected):
@@ -199,7 +244,8 @@ def main():
     from options import get_options
     from problems.problem_cvrp import CVRP
     from nets.graph_layers import kopt_Decoder
-    bs1_compatibility = ensure_bs1_decoder_compatibility(kopt_Decoder)
+    bs1_compatibility = require_unmodified_d2a5_decoder(
+        kopt_Decoder, val_m=protocol["val_m"])
     from agent.ppo import PPO
 
     option_args = official_option_args(
@@ -234,18 +280,22 @@ def main():
     state_before_warmup = capture_rng(torch)
     for position in positions[:min(args.warmup_instances, len(positions))]:
         solve_one(agent, problem, native_at(position), config=protocol,
-                  device=device, torch=torch, timed=False)
+                  device=device, torch=torch, timed=False, record=False)
     restore_rng(state_before_warmup, torch)
 
     records = []
     for position, dataset_index in zip(positions, indices):
         native = native_at(position)
-        output, elapsed = solve_one(
+        timed_reported_tensor, output, elapsed, timed_replay = (
+            timed_rollout_with_evidence_replay(
             agent, problem, native, config=protocol,
-            device=device, torch=torch, timed=True)
+            device=device, torch=torch))
         reported_tensor, successor_tensor, selected_candidate = extract_final_best_d2a(
             output, problem=problem, native_batch=native,
             batch_size=1, val_m=protocol["val_m"])
+        if not torch.equal(timed_reported_tensor, reported_tensor):
+            raise RuntimeError(
+                "selected replay successor objective differs from timed official objective")
         successor = successor_tensor[0].detach().cpu().numpy()
         canonical, decode_info = decode_successor(successor, problem_size=args.problem_size)
         official_order = problem.get_order(successor_tensor, return_solution=True)[0].detach().cpu().tolist()
@@ -254,7 +304,12 @@ def main():
         official_recomputed = float(problem.get_costs(
             native, successor_tensor, get_context=False,
             check_full_feasibility=True)[0].detach().cpu())
-        reported = float(reported_tensor[0].detach().cpu())
+        timed_reported = float(timed_reported_tensor[0].detach().cpu())
+        replay_reported = float(reported_tensor[0].detach().cpu())
+        if timed_reported != replay_reported:
+            raise RuntimeError(
+                "serialized replay objective differs from timed official objective")
+        reported = timed_reported
         if not objective_agrees(reported, official_recomputed):
             raise ValueError("selected D2A successor does not match the official objective")
         validation = validate(
@@ -285,6 +340,8 @@ def main():
             "successor": successor.tolist(),
             "selected_d2a_candidate": int(selected_candidate[0].detach().cpu()),
             "reported_objective": reported,
+            "timed_official_objective": timed_reported,
+            "replay_official_objective": replay_reported,
             "official_recomputed_objective": official_recomputed,
             "independent_objective": independent,
             "reference_objective": reference,
@@ -292,6 +349,7 @@ def main():
             "gap_percent": (independent - reference) / reference * 100.0,
             "runtime_seconds": elapsed,
             "runtime_semantics": TIMING_SEMANTICS,
+            "timed_replay": timed_replay,
             "independent_feasible": True,
             "reported_objective_agrees": True,
             "kit_feasible": True,

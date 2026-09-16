@@ -20,9 +20,10 @@ RECORDS_FILE = "validated_records.jsonl"
 METADATA_FILE = "metadata.json"
 TIMING_SEMANTICS = (
     "single-original-instance NeuOpt solver wall-clock seconds; CUDA synchronized "
-    "immediately before and after the complete official rollout; excludes model and "
-    "checkpoint loading, dataset parsing, adapter preparation, warm-up, successor "
-    "decoding, independent/Kit validation, provenance, artifact I/O, and aggregation"
+    "immediately before and after the complete official record=False rollout; excludes "
+    "the untimed record=True evidence replay, model and checkpoint loading, dataset "
+    "parsing, adapter preparation, warm-up, successor decoding, independent/Kit "
+    "validation, provenance, artifact I/O, and aggregation"
 )
 
 
@@ -55,10 +56,12 @@ def validate_record(record):
     required = (
         "dataset_instance_index", "instance_id", "canonical_solution",
         "reported_objective", "independent_objective", "reference_objective",
+        "timed_official_objective", "replay_official_objective",
         "official_recomputed_objective", "kit_reference_objective",
         "gap_percent", "runtime_seconds", "independent_feasible",
         "reported_objective_agrees", "kit_feasible", "kit_objective",
         "kit_objective_agrees", "selected_d2a_candidate", "evidence_status",
+        "timed_replay",
     )
     missing = [field for field in required if field not in record]
     if missing:
@@ -72,7 +75,8 @@ def validate_record(record):
     reference = _finite(record["reference_objective"], "reference_objective")
     if reference <= 0:
         raise ValueError("reference_objective must be positive")
-    for field in ("reported_objective", "official_recomputed_objective",
+    for field in ("reported_objective", "timed_official_objective",
+                  "replay_official_objective", "official_recomputed_objective",
                   "kit_objective", "kit_reference_objective", "runtime_seconds"):
         _finite(record[field], field, nonnegative=True)
     expected_gap = (independent - reference) / reference * 100.0
@@ -83,7 +87,13 @@ def validate_record(record):
              "kit_feasible", "kit_objective_agrees")
     if any(record[field] is not True for field in gates):
         raise ValueError(f"record {index} failed a correctness gate")
-    for field in ("reported_objective", "official_recomputed_objective",
+    if (record["timed_official_objective"] !=
+            record["replay_official_objective"]):
+        raise ValueError(f"record {index} replay objective differs from timed objective")
+    if record["reported_objective"] != record["timed_official_objective"]:
+        raise ValueError(f"record {index} reported objective disagrees with timed objective")
+    for field in ("reported_objective", "timed_official_objective",
+                  "replay_official_objective", "official_recomputed_objective",
                   "kit_objective"):
         if not objective_agrees(record[field], independent):
             raise ValueError(f"record {index} {field} disagrees with independent objective")
@@ -91,6 +101,16 @@ def validate_record(record):
         raise ValueError(f"record {index} Kit reference disagrees with prepared reference")
     if record["evidence_status"] != "KIT_VALIDATED":
         raise ValueError(f"record {index} is not KIT_VALIDATED")
+    replay = record["timed_replay"]
+    expected_replay = {
+        "timed_rollout_record": False,
+        "evidence_replay_record": True,
+        "rng_state_restored": True,
+        "timed_replay_official_objective_exact": True,
+        "timed_replay_rng_after_exact": True,
+    }
+    if replay != expected_replay:
+        raise ValueError(f"record {index} timed/evidence replay provenance mismatch")
     return index
 
 
@@ -177,7 +197,11 @@ def load_artifact(directory):
     if tensorboard.get("official_source_modified") is not False:
         raise ValueError(f"NeuOpt TensorBoard compatibility provenance mismatch in {directory}")
     compatibility = identity.get("bs1_compatibility", {})
-    if (compatibility.get("bs1_shape_shim") is not True or
+    if (compatibility.get("bs1_shape_shim") is not False or
+            compatibility.get("original_batch_size") != 1 or
+            compatibility.get("val_m") != 5 or
+            compatibility.get("internal_decoder_batch_size") != 5 or
+            compatibility.get("historical_d2a1_shape_shim_available") is not True or
             compatibility.get("official_source_modified") is not False or
             compatibility.get("action_reward_logits_rng_budget_changed") is not False):
         raise ValueError(f"NeuOpt BS1 compatibility provenance mismatch in {directory}")

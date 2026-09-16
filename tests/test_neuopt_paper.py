@@ -1,8 +1,12 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
-from methods.neuopt.cvrp.compat import dimension_preserving_decoder_source
+from methods.neuopt.cvrp.compat import (
+    dimension_preserving_decoder_source, ensure_bs1_decoder_compatibility,
+    unmodified_d2a5_decoder_provenance,
+)
 from methods.neuopt.cvrp.config import supported_config
 from methods.neuopt.cvrp.paper_protocol import (
     CALIBRATION_TARGETS, MANUSCRIPT_CANDIDATE_T, paper_protocol,
@@ -40,7 +44,10 @@ def identity(size=50, T_max=1000):
         "environment": {"device": "cuda:0", "gpu": "NVIDIA GeForce RTX 4090"},
         "tensorboard_compatibility": {"official_source_modified": False},
         "bs1_compatibility": {
-            "bs1_shape_shim": True, "official_source_modified": False,
+            "bs1_shape_shim": False, "original_batch_size": 1, "val_m": 5,
+            "internal_decoder_batch_size": 5,
+            "historical_d2a1_shape_shim_available": True,
+            "official_source_modified": False,
             "action_reward_logits_rng_budget_changed": False,
         },
         "source_provenance": [], "timing_semantics": TIMING_SEMANTICS,
@@ -53,11 +60,20 @@ def record(runtime=0.2, objective=10.0):
         "canonical_solution": [0, 1, 0], "successor": [1, 0],
         "selected_d2a_candidate": 0,
         "reported_objective": objective,
+        "timed_official_objective": objective,
+        "replay_official_objective": objective,
         "official_recomputed_objective": objective,
         "independent_objective": objective, "reference_objective": objective,
         "kit_reference_objective": objective,
         "gap_percent": 0.0, "runtime_seconds": runtime,
         "runtime_semantics": TIMING_SEMANTICS,
+        "timed_replay": {
+            "timed_rollout_record": False,
+            "evidence_replay_record": True,
+            "rng_state_restored": True,
+            "timed_replay_official_objective_exact": True,
+            "timed_replay_rng_after_exact": True,
+        },
         "independent_feasible": True, "reported_objective_agrees": True,
         "kit_feasible": True, "kit_objective": objective,
         "kit_objective_agrees": True, "constraint_details": {},
@@ -112,6 +128,19 @@ class NeuOptPaperProtocolTests(unittest.TestCase):
 
 
 class NeuOptBS1SourceCompatibilityTests(unittest.TestCase):
+    def test_formal_d2a5_uses_unmodified_decoder(self):
+        source = (ROOT / "external/NeuOpt/nets/graph_layers.py").read_text()
+        provenance = unmodified_d2a5_decoder_provenance(source, val_m=5)
+        self.assertFalse(provenance["bs1_shape_shim"])
+        self.assertEqual(provenance["internal_decoder_batch_size"], 5)
+        self.assertTrue(provenance["historical_d2a1_shape_shim_available"])
+        self.assertEqual(source.count("(action == next_of_last_action).squeeze()"), 2)
+
+    def test_unmodified_decoder_gate_is_formal_d2a5_only(self):
+        source = (ROOT / "external/NeuOpt/nets/graph_layers.py").read_text()
+        with self.assertRaisesRegex(ValueError, "D2A=5"):
+            unmodified_d2a5_decoder_provenance(source, val_m=1)
+
     def test_official_stopped_squeeze_is_patched_exactly(self):
         source_path = ROOT / "external/NeuOpt/nets/graph_layers.py"
         source = source_path.read_text()
@@ -128,6 +157,22 @@ class NeuOptBS1SourceCompatibilityTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "expected BS1 squeeze"):
             dimension_preserving_decoder_source("def forward(): pass")
 
+    def test_historical_d2a1_shim_helper_remains_available(self):
+        class Decoder:
+            def forward(self):
+                return None
+
+        source = """\
+def forward(self):
+    stopped = stopped | (action == next_of_last_action).squeeze()
+    stopped = (action == next_of_last_action).squeeze()
+"""
+        with patch(
+                "methods.neuopt.cvrp.compat.inspect.getsource", return_value=source):
+            provenance = ensure_bs1_decoder_compatibility(Decoder)
+        self.assertTrue(provenance["bs1_shape_shim"])
+        self.assertTrue(hasattr(Decoder.forward, "_neuopt_bs1_compatibility"))
+
 
 class NeuOptPaperArtifactTests(unittest.TestCase):
     def write(self, root, name, current_identity, current_record=None):
@@ -143,7 +188,18 @@ class NeuOptPaperArtifactTests(unittest.TestCase):
             self.assertEqual(metadata["resume_identity"]["timing_semantics"],
                              TIMING_SEMANTICS)
             self.assertNotIn("amortized", TIMING_SEMANTICS)
+            self.assertIn("record=False", TIMING_SEMANTICS)
+            self.assertIn("record=True", TIMING_SEMANTICS)
+            self.assertFalse(
+                metadata["resume_identity"]["bs1_compatibility"]["bs1_shape_shim"])
             self.assertEqual(len(records), 1)
+
+    def test_record_rejects_missing_timed_replay_equivalence(self):
+        changed = record()
+        changed["timed_replay"]["timed_replay_official_objective_exact"] = False
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaisesRegex(ValueError, "replay provenance"):
+                self.write(tmp, "bad_replay", identity(), changed)
 
     def test_objective_claims_fail_closed(self):
         changed = record()

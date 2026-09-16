@@ -354,9 +354,12 @@ Every result row must report all four completion gates as true. Return both vali
 
 The historical commands above remain D2A=1/T=1000 engineering evidence. Formal
 calibration uses D2A=5, original batch size one, and a T selected independently
-for CVRP50 and CVRP100. The runner applies a guarded in-memory shape shim to the
-two official `stopped.squeeze()` expressions; it never modifies the official
-checkout, and batch-one inference fails closed if the pinned source has drifted.
+for CVRP50 and CVRP100. D2A=5 expands the original instance to internal decoder
+batch five, so the formal runner requires the unmodified pinned decoder and
+records `bs1_shape_shim=false`; the historical D2A=1 shim remains available only
+to the engineering runner. Timed rollout uses `record=False`, then an untimed
+same-RNG `record=True` replay supplies successor evidence and must reproduce the
+official objective exactly.
 
 Prepare one fixed five-instance subset for every candidate:
 
@@ -390,6 +393,11 @@ python -B methods/neuopt/cvrp/paper_eval.py --problem-size 100 \
   --checkpoint "$NEUOPT_N100_CHECKPOINT" --d2a 5 --T-max 1 \
   --stall-limit 10 --k 4 --offset 0 --count 1 --warmup-instances 1 \
   --output-dir "$NEUOPT_PAPER_ROOT/cvrp100/bs1_preflight_t1" --device cuda:0
+
+python -B -c 'import json,sys; m=json.load(open(sys.argv[1])); i=m["resume_identity"]; c=i["bs1_compatibility"]; assert m["state"] == "KIT_VALIDATED" and m["completed_records"] == 1 and i["paper_protocol"]["val_m"] == 5 and i["upstream"]["dirty"] is False and c["bs1_shape_shim"] is False and c["internal_decoder_batch_size"] == 5 and c["official_source_modified"] is False' \
+  "$NEUOPT_PAPER_ROOT/cvrp50/bs1_preflight_t1/metadata.json"
+python -B -c 'import json,sys; m=json.load(open(sys.argv[1])); i=m["resume_identity"]; c=i["bs1_compatibility"]; assert m["state"] == "KIT_VALIDATED" and m["completed_records"] == 1 and i["paper_protocol"]["val_m"] == 5 and i["upstream"]["dirty"] is False and c["bs1_shape_shim"] is False and c["internal_decoder_batch_size"] == 5 and c["official_source_modified"] is False' \
+  "$NEUOPT_PAPER_ROOT/cvrp100/bs1_preflight_t1/metadata.json"
 ```
 
 Profile both manuscript candidates on the same five indices for each size:

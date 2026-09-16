@@ -10,7 +10,9 @@ from methods.neuopt.cvrp.config import supported_config
 from methods.neuopt.cvrp.decode import (canonicalize_internal_order,
                                         decode_successor, extract_final_best,
                                         extract_final_best_d2a)
-from methods.neuopt.cvrp.paper_eval import official_option_args
+from methods.neuopt.cvrp.paper_eval import (
+    official_option_args, timed_rollout_with_evidence_replay,
+)
 from methods.neuopt.cvrp.paper_protocol import paper_protocol
 
 
@@ -103,6 +105,62 @@ class NeuOptCVRPConfigAdapterTests(unittest.TestCase):
         self.assertEqual(value("--stall_limit"), "10")
         self.assertEqual(value("--k"), "4")
         self.assertEqual(value("--val_batch_size"), "1")
+        self.assertNotIn("--record", args)
+
+
+class NeuOptTimedReplayTests(unittest.TestCase):
+    @staticmethod
+    def native(torch):
+        return {"coordinates": torch.zeros(1, 3, 2)}
+
+    @staticmethod
+    def config():
+        return {"T_max": 1, "val_m": 5, "stall_limit": 10}
+
+    def run_pair(self, agent):
+        import torch
+        with (patch.object(torch.cuda, "synchronize"),
+              patch.object(torch.cuda, "get_rng_state_all", return_value=[]),
+              patch.object(torch.cuda, "set_rng_state_all"),
+              patch("methods.neuopt.cvrp.paper_eval.time.perf_counter",
+                    side_effect=[10.0, 11.0])):
+            return timed_rollout_with_evidence_replay(
+                agent, object(), self.native(torch), config=self.config(),
+                device="cuda:0", torch=torch)
+
+    def test_timed_is_record_false_and_replay_is_record_true(self):
+        import torch
+
+        class Agent:
+            def __init__(self):
+                self.records = []
+
+            def rollout(self, problem, **kwargs):
+                self.records.append(kwargs["record"])
+                torch.rand(1)
+                return (torch.tensor([7.0]), None, None,
+                        ([], [], []) if kwargs["record"] else None)
+
+        agent = Agent()
+        timed, replay, elapsed, provenance = self.run_pair(agent)
+        self.assertEqual(agent.records, [False, True])
+        self.assertTrue(torch.equal(timed, replay[0]))
+        self.assertEqual(elapsed, 1.0)
+        self.assertFalse(provenance["timed_rollout_record"])
+        self.assertTrue(provenance["evidence_replay_record"])
+        self.assertTrue(provenance["timed_replay_official_objective_exact"])
+
+    def test_replay_objective_must_equal_timed_objective(self):
+        import torch
+
+        class Agent:
+            def rollout(self, problem, **kwargs):
+                torch.rand(1)
+                objective = 2.0 if kwargs["record"] else 1.0
+                return (torch.tensor([objective]), None, None, None)
+
+        with self.assertRaisesRegex(RuntimeError, "objective differs"):
+            self.run_pair(Agent())
 
 
 class NeuOptCVRPDecoderTests(unittest.TestCase):

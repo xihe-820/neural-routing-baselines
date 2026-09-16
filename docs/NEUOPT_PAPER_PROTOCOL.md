@@ -28,20 +28,22 @@ final T values and any manuscript protocol update remain
 `PENDING_CALIBRATION`, and no NeuOpt full-set run is authorized.
 
 Formal timing starts after model loading, dataset parsing and single-instance
-adaptation. It synchronizes CUDA, times the complete official rollout, then
-synchronizes CUDA again. Warm-up, successor decoding, independent validation,
-ML4CO-Kit validation, provenance, JSON writing and aggregation are excluded.
+adaptation. It saves the RNG state, synchronizes CUDA, times the complete
+official rollout with `record=False`, then synchronizes CUDA again. The runner
+restores the saved RNG state and performs an untimed `record=True` replay to
+extract the selected D2A successor. The two official objectives and their final
+RNG states must match exactly before independent and ML4CO-Kit validation.
+Warm-up, evidence replay, successor decoding, validation, provenance, JSON
+writing and aggregation are excluded from paper runtime.
 
 Pinned NeuOpt's `kopt_Decoder.forward` applies dimensionless `squeeze()` to
-the `[internal_batch, 1]` comparison that produces `stopped`. At internal batch
-one, `[1, 1]` becomes scalar shape `[]`; at batch two, `[2, 1]` correctly becomes
-`[2]`. The scalar makes the next iteration fail at
-`k_action_left[stopped, i]`. The repository-owned runtime shim changes only
-those two comparisons to `squeeze(-1)`, preserving `[1]` at batch one. It
-verifies the exact pinned source shape before installation, operates in memory,
-and never edits the official checkout. Any source drift fails closed. During
-development, batch-two equivalence was verified with identical model state,
-input and RNG state before enabling the shim in the formal runner.
+the `[internal_batch, 1]` comparison that produces `stopped`. Historical D2A=1
+with original batch size one gives internal batch one and needs the retained
+repository-owned shape shim. Formal D2A=5 expands the original instance to
+internal batch five, so the pinned dimensionless squeeze keeps a batch axis and
+the formal runner requires the unmodified decoder. It refuses an installed
+shape shim, verifies the exact pinned source, and records
+`bs1_shape_shim=false` and `internal_decoder_batch_size=5`.
 
 Every candidate artifact stores its exact T, D2A, original batch size, dataset
 subset, checkpoint/dataset hashes, project/upstream provenance, runtime

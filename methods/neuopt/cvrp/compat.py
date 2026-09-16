@@ -74,6 +74,39 @@ def dimension_preserving_decoder_source(source):
     return patched
 
 
+def unmodified_d2a5_decoder_provenance(source, *, val_m):
+    """Verify that formal D2A=5 uses the pinned decoder without a shape shim."""
+    if val_m != 5:
+        raise ValueError("unmodified formal decoder gate applies only to D2A=5/val_m=5")
+    for original, _ in _STOPPED_SQUEEZE_REPLACEMENTS:
+        if source.count(original) != 1:
+            raise RuntimeError(
+                "formal D2A=5 requires the exact unmodified pinned NeuOpt decoder")
+    return {
+        "bs1_shape_shim": False,
+        "compatibility_reason": (
+            "original batch size one expands to internal decoder batch five through "
+            "formal D2A=5, so the pinned dimensionless squeeze retains a batch axis"
+        ),
+        "original_batch_size": 1,
+        "val_m": 5,
+        "internal_decoder_batch_size": 5,
+        "official_source_modified": False,
+        "historical_d2a1_shape_shim_available": True,
+        "action_reward_logits_rng_budget_changed": False,
+        "unmodified_forward_sha256": hashlib.sha256(source.encode()).hexdigest(),
+    }
+
+
+def require_unmodified_d2a5_decoder(decoder_class, *, val_m):
+    """Fail if a shim is already active or the pinned official source has drifted."""
+    current = decoder_class.forward
+    if getattr(current, "_neuopt_bs1_compatibility", None) is not None:
+        raise RuntimeError("formal D2A=5 refuses a decoder with the BS1 shim installed")
+    source = textwrap.dedent(inspect.getsource(current))
+    return unmodified_d2a5_decoder_provenance(source, val_m=val_m)
+
+
 def ensure_bs1_decoder_compatibility(decoder_class):
     """Install the guarded in-memory shape fix; never edit official source on disk."""
     current = decoder_class.forward
