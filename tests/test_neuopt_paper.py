@@ -9,8 +9,8 @@ from methods.neuopt.cvrp.compat import (
 )
 from methods.neuopt.cvrp.config import supported_config
 from methods.neuopt.cvrp.paper_protocol import (
-    CALIBRATION_TARGETS, MANUSCRIPT_CANDIDATE_T, paper_protocol,
-    pending_final_t, protocol_fingerprint,
+    LEGACY_CALIBRATION_TARGETS, LEGACY_MANUSCRIPT_CANDIDATE_T,
+    legacy_calibration_protocol, pending_final_t, protocol_fingerprint,
 )
 from methods.neuopt.cvrp.paper_results import (
     TIMING_SEMANTICS, build_calibration_report, json_fingerprint, load_artifact,
@@ -22,7 +22,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def identity(size=50, T_max=1000):
-    protocol = paper_protocol(size, T_max=T_max)
+    protocol = legacy_calibration_protocol(size, T_max=T_max)
     config = supported_config(size)
     return {
         "method": "NeuOpt", "variant": "NeuOpt-GIRE", "problem": "CVRP",
@@ -95,7 +95,7 @@ class NeuOptPaperProtocolTests(unittest.TestCase):
         }
         for size, values in expected.items():
             config = supported_config(size)
-            target = CALIBRATION_TARGETS[size]
+            target = LEGACY_CALIBRATION_TARGETS[size]
             self.assertEqual(
                 (config["dataset_filename"], config["capacity"], config["dummy_rate"],
                  config["dataset_sha256"], config["checkpoint_sha256"],
@@ -103,16 +103,16 @@ class NeuOptPaperProtocolTests(unittest.TestCase):
             self.assertEqual(config["dataset_count"], 10000)
 
     def test_d2a_five_is_val_m_five_and_original_batch_is_one(self):
-        protocol = paper_protocol(50, T_max=1000, d2a=5)
+        protocol = legacy_calibration_protocol(50, T_max=1000, d2a=5)
         self.assertEqual(protocol["D2A"], 5)
         self.assertEqual(protocol["val_m"], 5)
         self.assertEqual(protocol["original_batch_size"], 1)
         with self.assertRaisesRegex(ValueError, "D2A=5"):
-            paper_protocol(50, T_max=1000, d2a=1)
+            legacy_calibration_protocol(50, T_max=1000, d2a=1)
 
     def test_T_max_changes_protocol_fingerprint(self):
-        low = paper_protocol(50, T_max=1000)
-        high = paper_protocol(50, T_max=5000)
+        low = legacy_calibration_protocol(50, T_max=1000)
+        high = legacy_calibration_protocol(50, T_max=5000)
         self.assertNotEqual(protocol_fingerprint(low), protocol_fingerprint(high))
         self.assertNotEqual(json_fingerprint(identity(T_max=1000)),
                             json_fingerprint(identity(T_max=5000)))
@@ -241,7 +241,7 @@ class NeuOptPaperArtifactTests(unittest.TestCase):
             high = self.write(tmp, "t5000", identity(T_max=5000), record(runtime=0.81))
             report = build_calibration_report([high, low], problem_size=50)
             self.assertEqual([row["T_max"] for row in report["candidates"]],
-                             list(MANUSCRIPT_CANDIDATE_T))
+                             list(LEGACY_MANUSCRIPT_CANDIDATE_T))
             self.assertEqual(report["targets"]["fewer_seconds"], 0.197)
             self.assertEqual(report["targets"]["more_seconds"], 0.804)
             self.assertIsNone(report["final_T_fewer"])

@@ -350,93 +350,217 @@ sha256sum "$BASELINE_ARTIFACT_ROOT/neuopt_cvrp50/official_first5_validated.json"
 
 Every result row must report all four completion gates as true. Return both validated artifacts, their SHA256 lines, the environment audit and both repository clean-state outputs.
 
-### NeuOpt formal BS1 calibration (no full set)
+### NeuOpt final paper production
 
-The historical commands above remain D2A=1/T=1000 engineering evidence. Formal
-calibration uses D2A=5, original batch size one, and a T selected independently
-for CVRP50 and CVRP100. D2A=5 expands the original instance to internal decoder
-batch five, so the formal runner requires the unmodified pinned decoder and
-records `bs1_shape_shim=false`; the historical D2A=1 shim remains available only
-to the engineering runner. Timed rollout uses `record=False`, then an untimed
-same-RNG `record=True` replay supplies successor evidence and must reproduce the
-official objective exactly.
+The latest frozen protocol is CVRP50/100, D2A=1, T=20/50. BS1 supplies
+Complete Results; BS100 supplies Parallel Table 8. BS1 uses the guarded
+repository-owned in-memory shape shim, while BS100 requires the unmodified
+pinned decoder. Both paths time only `record=False`; the same-RNG
+`record=True` replay and all validation are untimed. If `tensorboard_logger`
+is absent, the import-only guard described above remains valid for `no_tb`.
 
-Prepare one fixed five-instance subset for every candidate:
+The older D2A=5/T=1k/5k calibration is **LEGACY / DO NOT USE FOR FINAL
+PAPER**. Its existing artifacts and readers remain historical evidence.
+
+Prepare exact full-set neutral inputs once. All later offsets address these
+same 0..9999 dataset indices.
 
 ```bash
-export NEUOPT_PAPER_ROOT="$BASELINE_ARTIFACT_ROOT/paper/neuopt"
+export NEUOPT_PAPER_ROOT="$BASELINE_ARTIFACT_ROOT/paper/neuopt_final"
 mkdir -p "$NEUOPT_PAPER_ROOT/cvrp50" "$NEUOPT_PAPER_ROOT/cvrp100"
 
 python -B methods/neuopt/cvrp/prepare_instances.py \
-  --dataset "$CVRP50_DATASET" --problem-size 50 --offset 0 --count 5 \
-  --output "$NEUOPT_PAPER_ROOT/cvrp50/calibration_first5.npz"
+  --dataset "$CVRP50_DATASET" --problem-size 50 --offset 0 --count 10000 \
+  --output "$NEUOPT_PAPER_ROOT/cvrp50/fullset_input.npz"
 python -B methods/neuopt/cvrp/prepare_instances.py \
-  --dataset "$CVRP100_DATASET" --problem-size 100 --offset 0 --count 5 \
-  --output "$NEUOPT_PAPER_ROOT/cvrp100/calibration_first5.npz"
+  --dataset "$CVRP100_DATASET" --problem-size 100 --offset 0 --count 10000 \
+  --output "$NEUOPT_PAPER_ROOT/cvrp100/fullset_input.npz"
 ```
 
-Run a one-step correctness preflight first. It must produce a canonical
-solution and pass official-objective, independent-feasibility and ML4CO-Kit
-gates for one original instance:
+Run the four mandatory T20 correctness preflights. Reusing an output directory
+resumes only an exact matching identity; use a new directory for any changed
+code or protocol.
 
 ```bash
 python -B methods/neuopt/cvrp/paper_eval.py --problem-size 50 \
-  --input "$NEUOPT_PAPER_ROOT/cvrp50/calibration_first5.npz" \
+  --input "$NEUOPT_PAPER_ROOT/cvrp50/fullset_input.npz" \
   --dataset "$CVRP50_DATASET" --upstream "$NEUOPT_UPSTREAM" \
-  --checkpoint "$NEUOPT_N50_CHECKPOINT" --d2a 5 --T-max 1 \
-  --stall-limit 10 --k 4 --offset 0 --count 1 --warmup-instances 1 \
-  --output-dir "$NEUOPT_PAPER_ROOT/cvrp50/bs1_preflight_t1" --device cuda:0
+  --checkpoint "$NEUOPT_N50_CHECKPOINT" --d2a 1 --T-max 20 --batch-size 1 \
+  --offset 0 --count 1 --warmup-batches 1 --device cuda:0 \
+  --output-dir "$NEUOPT_PAPER_ROOT/cvrp50/preflight_t20_bs1"
+
+python -B methods/neuopt/cvrp/paper_eval.py --problem-size 50 \
+  --input "$NEUOPT_PAPER_ROOT/cvrp50/fullset_input.npz" \
+  --dataset "$CVRP50_DATASET" --upstream "$NEUOPT_UPSTREAM" \
+  --checkpoint "$NEUOPT_N50_CHECKPOINT" --d2a 1 --T-max 20 --batch-size 100 \
+  --offset 0 --count 100 --warmup-batches 1 --device cuda:0 \
+  --output-dir "$NEUOPT_PAPER_ROOT/cvrp50/preflight_t20_bs100"
 
 python -B methods/neuopt/cvrp/paper_eval.py --problem-size 100 \
-  --input "$NEUOPT_PAPER_ROOT/cvrp100/calibration_first5.npz" \
+  --input "$NEUOPT_PAPER_ROOT/cvrp100/fullset_input.npz" \
   --dataset "$CVRP100_DATASET" --upstream "$NEUOPT_UPSTREAM" \
-  --checkpoint "$NEUOPT_N100_CHECKPOINT" --d2a 5 --T-max 1 \
-  --stall-limit 10 --k 4 --offset 0 --count 1 --warmup-instances 1 \
-  --output-dir "$NEUOPT_PAPER_ROOT/cvrp100/bs1_preflight_t1" --device cuda:0
+  --checkpoint "$NEUOPT_N100_CHECKPOINT" --d2a 1 --T-max 20 --batch-size 1 \
+  --offset 0 --count 1 --warmup-batches 1 --device cuda:0 \
+  --output-dir "$NEUOPT_PAPER_ROOT/cvrp100/preflight_t20_bs1"
 
-python -B -c 'import json,sys; m=json.load(open(sys.argv[1])); i=m["resume_identity"]; c=i["bs1_compatibility"]; assert m["state"] == "KIT_VALIDATED" and m["completed_records"] == 1 and i["paper_protocol"]["val_m"] == 5 and i["upstream"]["dirty"] is False and c["bs1_shape_shim"] is False and c["internal_decoder_batch_size"] == 5 and c["official_source_modified"] is False' \
-  "$NEUOPT_PAPER_ROOT/cvrp50/bs1_preflight_t1/metadata.json"
-python -B -c 'import json,sys; m=json.load(open(sys.argv[1])); i=m["resume_identity"]; c=i["bs1_compatibility"]; assert m["state"] == "KIT_VALIDATED" and m["completed_records"] == 1 and i["paper_protocol"]["val_m"] == 5 and i["upstream"]["dirty"] is False and c["bs1_shape_shim"] is False and c["internal_decoder_batch_size"] == 5 and c["official_source_modified"] is False' \
-  "$NEUOPT_PAPER_ROOT/cvrp100/bs1_preflight_t1/metadata.json"
+python -B methods/neuopt/cvrp/paper_eval.py --problem-size 100 \
+  --input "$NEUOPT_PAPER_ROOT/cvrp100/fullset_input.npz" \
+  --dataset "$CVRP100_DATASET" --upstream "$NEUOPT_UPSTREAM" \
+  --checkpoint "$NEUOPT_N100_CHECKPOINT" --d2a 1 --T-max 20 --batch-size 100 \
+  --offset 0 --count 100 --warmup-batches 1 --device cuda:0 \
+  --output-dir "$NEUOPT_PAPER_ROOT/cvrp100/preflight_t20_bs100"
+
+python -B - \
+  "$NEUOPT_PAPER_ROOT/cvrp50/preflight_t20_bs1/metadata.json" \
+  "$NEUOPT_PAPER_ROOT/cvrp50/preflight_t20_bs100/metadata.json" \
+  "$NEUOPT_PAPER_ROOT/cvrp100/preflight_t20_bs1/metadata.json" \
+  "$NEUOPT_PAPER_ROOT/cvrp100/preflight_t20_bs100/metadata.json" <<'PY'
+import json, pathlib, sys
+for name in sys.argv[1:]:
+    metadata = json.loads(pathlib.Path(name).read_text())
+    identity = metadata["resume_identity"]
+    protocol = identity["paper_protocol"]
+    compatibility = identity["decoder_compatibility"]
+    batch_size = protocol["original_batch_size"]
+    assert metadata["state"] == "KIT_VALIDATED"
+    assert protocol["D2A"] == protocol["val_m"] == 1
+    assert compatibility["internal_decoder_batch_size"] == batch_size
+    assert compatibility["bs1_shape_shim"] is (batch_size == 1)
+    assert compatibility["official_source_modified"] is False
+    assert identity["upstream"]["dirty"] is False
+PY
 ```
 
-Profile both manuscript candidates on the same five indices for each size:
+After all four preflights pass, run BS100 full sets first. Each output is one
+resumable 1,000-instance chunk containing ten native BS100 rollouts.
 
 ```bash
-for T_MAX in 1000 5000; do
-  python -B methods/neuopt/cvrp/paper_eval.py --problem-size 50 \
-    --input "$NEUOPT_PAPER_ROOT/cvrp50/calibration_first5.npz" \
-    --dataset "$CVRP50_DATASET" --upstream "$NEUOPT_UPSTREAM" \
-    --checkpoint "$NEUOPT_N50_CHECKPOINT" --d2a 5 --T-max "$T_MAX" \
-    --stall-limit 10 --k 4 --offset 0 --count 5 --warmup-instances 1 \
-    --output-dir "$NEUOPT_PAPER_ROOT/cvrp50/candidates/t$T_MAX" --device cuda:0
-
-  python -B methods/neuopt/cvrp/paper_eval.py --problem-size 100 \
-    --input "$NEUOPT_PAPER_ROOT/cvrp100/calibration_first5.npz" \
-    --dataset "$CVRP100_DATASET" --upstream "$NEUOPT_UPSTREAM" \
-    --checkpoint "$NEUOPT_N100_CHECKPOINT" --d2a 5 --T-max "$T_MAX" \
-    --stall-limit 10 --k 4 --offset 0 --count 5 --warmup-instances 1 \
-    --output-dir "$NEUOPT_PAPER_ROOT/cvrp100/candidates/t$T_MAX" --device cuda:0
+for SIZE in 50 100; do
+  if test "$SIZE" = 50; then
+    DATASET="$CVRP50_DATASET"; CHECKPOINT="$NEUOPT_N50_CHECKPOINT"
+  else
+    DATASET="$CVRP100_DATASET"; CHECKPOINT="$NEUOPT_N100_CHECKPOINT"
+  fi
+  INPUT="$NEUOPT_PAPER_ROOT/cvrp$SIZE/fullset_input.npz"
+  for T_MAX in 20 50; do
+    for OFFSET in 0 1000 2000 3000 4000 5000 6000 7000 8000 9000; do
+      printf -v CHUNK 'chunk_%05d_%05d' "$OFFSET" "$((OFFSET + 1000))"
+      python -B methods/neuopt/cvrp/paper_eval.py --problem-size "$SIZE" \
+        --input "$INPUT" --dataset "$DATASET" --upstream "$NEUOPT_UPSTREAM" \
+        --checkpoint "$CHECKPOINT" --d2a 1 --T-max "$T_MAX" --batch-size 100 \
+        --offset "$OFFSET" --count 1000 --warmup-batches 1 --device cuda:0 \
+        --output-dir "$NEUOPT_PAPER_ROOT/cvrp$SIZE/t$T_MAX/bs100/$CHUNK"
+    done
+  done
 done
 ```
 
-Build the non-freezing reports:
+Aggregate exact BS100 coverage. The explicit loop constructs the ten expected
+directories; the aggregator itself rejects missing, duplicate, mixed, or
+non-finalized evidence.
 
 ```bash
-python -B methods/neuopt/cvrp/runtime_calibration.py --problem-size 50 \
-  --candidate-dirs "$NEUOPT_PAPER_ROOT/cvrp50/candidates/t1000" \
-                   "$NEUOPT_PAPER_ROOT/cvrp50/candidates/t5000" \
-  --output "$NEUOPT_PAPER_ROOT/cvrp50/calibration_report.json"
-python -B methods/neuopt/cvrp/runtime_calibration.py --problem-size 100 \
-  --candidate-dirs "$NEUOPT_PAPER_ROOT/cvrp100/candidates/t1000" \
-                   "$NEUOPT_PAPER_ROOT/cvrp100/candidates/t5000" \
-  --output "$NEUOPT_PAPER_ROOT/cvrp100/calibration_report.json"
+for SIZE in 50 100; do
+  for T_MAX in 20 50; do
+    CHUNKS=()
+    for OFFSET in 0 1000 2000 3000 4000 5000 6000 7000 8000 9000; do
+      printf -v CHUNK 'chunk_%05d_%05d' "$OFFSET" "$((OFFSET + 1000))"
+      CHUNKS+=("$NEUOPT_PAPER_ROOT/cvrp$SIZE/t$T_MAX/bs100/$CHUNK")
+    done
+    python -B methods/neuopt/cvrp/paper_aggregate.py \
+      --chunk-dirs "${CHUNKS[@]}" --expected-offset 0 --expected-count 10000 \
+      --scope fullset \
+      --output "$NEUOPT_PAPER_ROOT/cvrp$SIZE/t$T_MAX/bs100_fullset_summary.json"
+  done
+done
 ```
 
-Return both reports and candidate metadata. If follow-up T values are needed,
-run the same evaluator over these exact five indices and include those candidate
-directories in a new report. Do not run the NeuOpt full set or label any row
-`PAPER_READY` before the final four T values are reviewed and frozen.
+Then run the same fixed first100 indices at BS1. These summaries are explicitly
+estimated timing subsets and include mean, median, min, max, standard
+deviation, sample count, and exact indices.
+
+```bash
+for SIZE in 50 100; do
+  if test "$SIZE" = 50; then
+    DATASET="$CVRP50_DATASET"; CHECKPOINT="$NEUOPT_N50_CHECKPOINT"
+  else
+    DATASET="$CVRP100_DATASET"; CHECKPOINT="$NEUOPT_N100_CHECKPOINT"
+  fi
+  for T_MAX in 20 50; do
+    BS1_DIR="$NEUOPT_PAPER_ROOT/cvrp$SIZE/t$T_MAX/bs1_first100"
+    python -B methods/neuopt/cvrp/paper_eval.py --problem-size "$SIZE" \
+      --input "$NEUOPT_PAPER_ROOT/cvrp$SIZE/fullset_input.npz" \
+      --dataset "$DATASET" --upstream "$NEUOPT_UPSTREAM" \
+      --checkpoint "$CHECKPOINT" --d2a 1 --T-max "$T_MAX" --batch-size 1 \
+      --offset 0 --count 100 --warmup-batches 1 --device cuda:0 \
+      --output-dir "$BS1_DIR"
+    python -B methods/neuopt/cvrp/paper_aggregate.py \
+      --chunk-dirs "$BS1_DIR" --expected-offset 0 --expected-count 100 \
+      --scope timing_subset \
+      --output "$NEUOPT_PAPER_ROOT/cvrp$SIZE/t$T_MAX/bs1_first100_summary.json"
+  done
+done
+```
+
+Build the explicit hybrid candidates. Each report extracts the exact first100
+from BS100 full-set records and compares its quality with the BS1 first100.
+Review the deltas manually. If the reviewer considers them abnormal, rerun the
+same command with `--hybrid-quality-warning`; the code applies no threshold.
+
+```bash
+for SIZE in 50 100; do
+  for T_MAX in 20 50; do
+    python -B methods/neuopt/cvrp/hybrid_summary.py \
+      --quality-summary "$NEUOPT_PAPER_ROOT/cvrp$SIZE/t$T_MAX/bs100_fullset_summary.json" \
+      --time-summary "$NEUOPT_PAPER_ROOT/cvrp$SIZE/t$T_MAX/bs1_first100_summary.json" \
+      --output "$NEUOPT_PAPER_ROOT/cvrp$SIZE/t$T_MAX/hybrid_candidate.json"
+  done
+done
+```
+
+Optional BS1 full sets are not part of the default production sequence. Run
+them only after user review, using these resumable 1,000-instance chunks and
+the same strict aggregation command.
+
+```bash
+for SIZE in 50 100; do
+  if test "$SIZE" = 50; then
+    DATASET="$CVRP50_DATASET"; CHECKPOINT="$NEUOPT_N50_CHECKPOINT"
+  else
+    DATASET="$CVRP100_DATASET"; CHECKPOINT="$NEUOPT_N100_CHECKPOINT"
+  fi
+  for T_MAX in 20 50; do
+    for OFFSET in 0 1000 2000 3000 4000 5000 6000 7000 8000 9000; do
+      printf -v CHUNK 'chunk_%05d_%05d' "$OFFSET" "$((OFFSET + 1000))"
+      python -B methods/neuopt/cvrp/paper_eval.py --problem-size "$SIZE" \
+        --input "$NEUOPT_PAPER_ROOT/cvrp$SIZE/fullset_input.npz" \
+        --dataset "$DATASET" --upstream "$NEUOPT_UPSTREAM" \
+        --checkpoint "$CHECKPOINT" --d2a 1 --T-max "$T_MAX" --batch-size 1 \
+        --offset "$OFFSET" --count 1000 --warmup-batches 1 --device cuda:0 \
+        --output-dir "$NEUOPT_PAPER_ROOT/cvrp$SIZE/t$T_MAX/bs1_fullset/$CHUNK"
+    done
+  done
+done
+```
+
+After an optional BS1 full set finishes, aggregate its ten exact chunks:
+
+```bash
+for SIZE in 50 100; do
+  for T_MAX in 20 50; do
+    CHUNKS=()
+    for OFFSET in 0 1000 2000 3000 4000 5000 6000 7000 8000 9000; do
+      printf -v CHUNK 'chunk_%05d_%05d' "$OFFSET" "$((OFFSET + 1000))"
+      CHUNKS+=("$NEUOPT_PAPER_ROOT/cvrp$SIZE/t$T_MAX/bs1_fullset/$CHUNK")
+    done
+    python -B methods/neuopt/cvrp/paper_aggregate.py \
+      --chunk-dirs "${CHUNKS[@]}" --expected-offset 0 --expected-count 10000 \
+      --scope fullset \
+      --output "$NEUOPT_PAPER_ROOT/cvrp$SIZE/t$T_MAX/bs1_fullset_summary.json"
+  done
+done
+```
+
 
 ## 9. GLOP TSP50 and TSP100
 

@@ -10,8 +10,8 @@ from common.hashing import sha256_file
 from common.objective_agreement import objective_agrees
 from methods.neuopt.cvrp.config import supported_config
 from methods.neuopt.cvrp.paper_protocol import (
-    CALIBRATION_TARGETS, MANUSCRIPT_CANDIDATE_T, UPSTREAM_COMMIT,
-    paper_protocol, protocol_fingerprint,
+    LEGACY_CALIBRATION_TARGETS, LEGACY_MANUSCRIPT_CANDIDATE_T, UPSTREAM_COMMIT,
+    legacy_calibration_protocol, protocol_fingerprint,
 )
 
 
@@ -173,7 +173,7 @@ def load_artifact(directory):
     if not isinstance(identity, dict):
         raise ValueError(f"NeuOpt calibration identity is missing in {directory}")
     protocol = identity.get("paper_protocol", {})
-    expected_protocol = paper_protocol(
+    expected_protocol = legacy_calibration_protocol(
         identity.get("problem_size"), T_max=protocol.get("T_max"),
         d2a=protocol.get("D2A"), stall_limit=protocol.get("stall_limit"),
         k=protocol.get("k"))
@@ -284,7 +284,7 @@ def build_calibration_report(directories, *, problem_size):
         seen_t.add(T_max)
         runtimes = [float(record["runtime_seconds"]) for record in records]
         objectives = [float(record["independent_objective"]) for record in records]
-        targets = CALIBRATION_TARGETS[size]
+        targets = LEGACY_CALIBRATION_TARGETS[size]
         candidates.append({
             "T_max": T_max,
             "D2A": identity["paper_protocol"]["D2A"],
@@ -307,7 +307,7 @@ def build_calibration_report(directories, *, problem_size):
             "above_more_target": mean(runtimes) > targets["more_seconds"],
             "artifact": str(Path(directory).resolve()),
         })
-    missing = sorted(set(MANUSCRIPT_CANDIDATE_T) - seen_t)
+    missing = sorted(set(LEGACY_MANUSCRIPT_CANDIDATE_T) - seen_t)
     if missing:
         raise ValueError(f"calibration report is missing manuscript candidates: {missing}")
     candidates.sort(key=lambda item: item["T_max"])
@@ -316,7 +316,7 @@ def build_calibration_report(directories, *, problem_size):
         "artifact_type": "NeuOpt BS1 runtime calibration report",
         "status": "PENDING_USER_SELECTION",
         "problem": "CVRP", "problem_size": size,
-        "targets": dict(CALIBRATION_TARGETS[size]),
+        "targets": dict(LEGACY_CALIBRATION_TARGETS[size]),
         "selection_rule": (
             "user selects the measured stable candidate closest to and above each target; "
             "no fixed percentage margin is encoded"

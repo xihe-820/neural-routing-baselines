@@ -91,20 +91,32 @@ class NeuOptCVRPConfigAdapterTests(unittest.TestCase):
                 np.testing.assert_allclose(native_demand[0, 20:], demands[0] / capacity)
                 self.assertIn("exactly once", mapping["normalization"])
 
+    def test_adapter_preserves_true_native_batch_of_100(self):
+        size, batch = 50, 100
+        depots = np.zeros((batch, 2), dtype=np.float32)
+        points = np.zeros((batch, size, 2), dtype=np.float32)
+        demands = np.ones((batch, size), dtype=np.float32)
+        native, _ = adapt_batch(
+            depots, points, demands, [40] * batch,
+            problem_size=size, device="cpu")
+        self.assertEqual(tuple(native["coordinates"].shape), (100, 70, 2))
+        self.assertEqual(tuple(native["demand"].shape), (100, 70))
+
     def test_formal_options_pass_d2a_and_T_to_official_flags(self):
         class Device:
             type = "cuda"
 
-        protocol = paper_protocol(100, T_max=5000)
+        protocol = paper_protocol(100, T_max=50, batch_size=100)
         args = official_option_args(
             problem_size=100, config=protocol,
-            checkpoint="checkpoint.pt", device=Device())
+            checkpoint="checkpoint.pt", device=Device(), batch_size=100)
         value = lambda flag: args[args.index(flag) + 1]
-        self.assertEqual(value("--val_m"), "5")
-        self.assertEqual(value("--T_max"), "5000")
+        self.assertEqual(value("--val_m"), "1")
+        self.assertEqual(value("--T_max"), "50")
         self.assertEqual(value("--stall_limit"), "10")
         self.assertEqual(value("--k"), "4")
-        self.assertEqual(value("--val_batch_size"), "1")
+        self.assertEqual(value("--val_size"), "100")
+        self.assertEqual(value("--val_batch_size"), "100")
         self.assertNotIn("--record", args)
 
 
@@ -115,7 +127,7 @@ class NeuOptTimedReplayTests(unittest.TestCase):
 
     @staticmethod
     def config():
-        return {"T_max": 1, "val_m": 5, "stall_limit": 10}
+        return {"T_max": 1, "val_m": 1, "stall_limit": 10}
 
     def run_pair(self, agent):
         import torch
@@ -126,7 +138,7 @@ class NeuOptTimedReplayTests(unittest.TestCase):
                     side_effect=[10.0, 11.0])):
             return timed_rollout_with_evidence_replay(
                 agent, object(), self.native(torch), config=self.config(),
-                device="cuda:0", torch=torch)
+                batch_size=1, device="cuda:0", torch=torch)
 
     def test_timed_is_record_false_and_replay_is_record_true(self):
         import torch
@@ -161,6 +173,36 @@ class NeuOptTimedReplayTests(unittest.TestCase):
 
         with self.assertRaisesRegex(RuntimeError, "objective differs"):
             self.run_pair(Agent())
+
+    def test_true_batch100_enters_each_rollout_once_and_timing_syncs(self):
+        import torch
+
+        class Agent:
+            def __init__(self):
+                self.calls = []
+
+            def rollout(self, problem, **kwargs):
+                self.calls.append((kwargs["batch"]["coordinates"].shape[0],
+                                   kwargs["record"]))
+                torch.rand(1)
+                return (torch.arange(100, dtype=torch.float32), None, None,
+                        ([], [], []) if kwargs["record"] else None)
+
+        native = {"coordinates": torch.zeros(100, 3, 2)}
+        agent = Agent()
+        with (patch.object(torch.cuda, "synchronize") as synchronize,
+              patch.object(torch.cuda, "get_rng_state_all", return_value=[]),
+              patch.object(torch.cuda, "set_rng_state_all"),
+              patch("methods.neuopt.cvrp.paper_eval.time.perf_counter",
+                    side_effect=[20.0, 22.0])):
+            _, _, elapsed, provenance = timed_rollout_with_evidence_replay(
+                agent, object(), native,
+                config={"T_max": 20, "val_m": 1, "stall_limit": 10},
+                batch_size=100, device="cuda:0", torch=torch)
+        self.assertEqual(agent.calls, [(100, False), (100, True)])
+        self.assertEqual(synchronize.call_count, 3)
+        self.assertEqual(elapsed, 2.0)
+        self.assertTrue(provenance["evidence_replay_excluded_from_runtime"])
 
 
 class NeuOptCVRPDecoderTests(unittest.TestCase):
@@ -209,6 +251,24 @@ class NeuOptCVRPDecoderTests(unittest.TestCase):
         bad = (torch.tensor([4.0, 6.0]), obj_history, output[2], output[3])
         with self.assertRaisesRegex(ValueError, "does not correspond"):
             extract_final_best(bad, batch_size=2, val_m=1)
+
+    def test_official_best_solution_preserves_100_way_batch_mapping(self):
+        import torch
+        batch, nodes = 100, 3
+        successors = torch.stack([
+            torch.tensor([(index + 1) % nodes for index in range(nodes)])
+            for _ in range(batch)
+        ])
+        objectives = torch.arange(batch, dtype=torch.float32)
+        history = torch.stack([objectives, objectives], dim=1).unsqueeze(-1).repeat(1, 1, nodes)
+        output = (
+            objectives, history, torch.empty(batch, 1),
+            ([successors, successors], [successors, successors], [None, None]),
+        )
+        best, selected = extract_final_best(output, batch_size=batch, val_m=1)
+        self.assertTrue(torch.equal(best, objectives))
+        self.assertEqual(tuple(selected.shape), (100, 3))
+        self.assertTrue(torch.equal(selected, successors))
 
     def test_d2a_best_candidate_solution_and_objective_correspondence(self):
         import torch

@@ -107,6 +107,30 @@ def require_unmodified_d2a5_decoder(decoder_class, *, val_m):
     return unmodified_d2a5_decoder_provenance(source, val_m=val_m)
 
 
+def require_unmodified_decoder(decoder_class, *, original_batch_size, val_m):
+    """Require pinned source when the internal decoder batch is greater than one."""
+    if val_m != 1 or original_batch_size != 100:
+        raise ValueError("unmodified production decoder gate applies only to BS100/D2A=1")
+    current = decoder_class.forward
+    if getattr(current, "_neuopt_bs1_compatibility", None) is not None:
+        raise RuntimeError("formal BS100 refuses a decoder with the BS1 shim installed")
+    source = textwrap.dedent(inspect.getsource(current))
+    for original, _ in _STOPPED_SQUEEZE_REPLACEMENTS:
+        if source.count(original) != 1:
+            raise RuntimeError("formal BS100 requires the exact unmodified pinned NeuOpt decoder")
+    return {
+        "bs1_shape_shim": False,
+        "compatibility_reason": None,
+        "original_batch_size": 100,
+        "D2A": 1,
+        "val_m": 1,
+        "internal_decoder_batch_size": 100,
+        "official_source_modified": False,
+        "action_reward_logits_rng_budget_changed": False,
+        "unmodified_forward_sha256": hashlib.sha256(source.encode()).hexdigest(),
+    }
+
+
 def ensure_bs1_decoder_compatibility(decoder_class):
     """Install the guarded in-memory shape fix; never edit official source on disk."""
     current = decoder_class.forward
@@ -137,3 +161,20 @@ def ensure_bs1_decoder_compatibility(decoder_class):
     patched._neuopt_bs1_compatibility = provenance
     decoder_class.forward = patched
     return dict(provenance)
+
+
+def configure_production_decoder(decoder_class, *, original_batch_size, val_m):
+    """Select the only allowed shape strategy for final BS1/BS100 production."""
+    if val_m != 1:
+        raise ValueError("final NeuOpt production requires D2A=1/val_m=1")
+    if original_batch_size == 1:
+        provenance = ensure_bs1_decoder_compatibility(decoder_class)
+        provenance.update({
+            "original_batch_size": 1, "D2A": 1, "val_m": 1,
+            "internal_decoder_batch_size": 1,
+        })
+        return provenance
+    if original_batch_size == 100:
+        return require_unmodified_decoder(
+            decoder_class, original_batch_size=100, val_m=1)
+    raise ValueError("final NeuOpt production supports only original batch size 1 or 100")
