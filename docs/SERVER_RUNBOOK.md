@@ -350,6 +350,86 @@ sha256sum "$BASELINE_ARTIFACT_ROOT/neuopt_cvrp50/official_first5_validated.json"
 
 Every result row must report all four completion gates as true. Return both validated artifacts, their SHA256 lines, the environment audit and both repository clean-state outputs.
 
+### NeuOpt formal BS1 calibration (no full set)
+
+The historical commands above remain D2A=1/T=1000 engineering evidence. Formal
+calibration uses D2A=5, original batch size one, and a T selected independently
+for CVRP50 and CVRP100. The runner applies a guarded in-memory shape shim to the
+two official `stopped.squeeze()` expressions; it never modifies the official
+checkout, and batch-one inference fails closed if the pinned source has drifted.
+
+Prepare one fixed five-instance subset for every candidate:
+
+```bash
+export NEUOPT_PAPER_ROOT="$BASELINE_ARTIFACT_ROOT/paper/neuopt"
+mkdir -p "$NEUOPT_PAPER_ROOT/cvrp50" "$NEUOPT_PAPER_ROOT/cvrp100"
+
+python -B methods/neuopt/cvrp/prepare_instances.py \
+  --dataset "$CVRP50_DATASET" --problem-size 50 --offset 0 --count 5 \
+  --output "$NEUOPT_PAPER_ROOT/cvrp50/calibration_first5.npz"
+python -B methods/neuopt/cvrp/prepare_instances.py \
+  --dataset "$CVRP100_DATASET" --problem-size 100 --offset 0 --count 5 \
+  --output "$NEUOPT_PAPER_ROOT/cvrp100/calibration_first5.npz"
+```
+
+Run a one-step correctness preflight first. It must produce a canonical
+solution and pass official-objective, independent-feasibility and ML4CO-Kit
+gates for one original instance:
+
+```bash
+python -B methods/neuopt/cvrp/paper_eval.py --problem-size 50 \
+  --input "$NEUOPT_PAPER_ROOT/cvrp50/calibration_first5.npz" \
+  --dataset "$CVRP50_DATASET" --upstream "$NEUOPT_UPSTREAM" \
+  --checkpoint "$NEUOPT_N50_CHECKPOINT" --d2a 5 --T-max 1 \
+  --stall-limit 10 --k 4 --offset 0 --count 1 --warmup-instances 1 \
+  --output-dir "$NEUOPT_PAPER_ROOT/cvrp50/bs1_preflight_t1" --device cuda:0
+
+python -B methods/neuopt/cvrp/paper_eval.py --problem-size 100 \
+  --input "$NEUOPT_PAPER_ROOT/cvrp100/calibration_first5.npz" \
+  --dataset "$CVRP100_DATASET" --upstream "$NEUOPT_UPSTREAM" \
+  --checkpoint "$NEUOPT_N100_CHECKPOINT" --d2a 5 --T-max 1 \
+  --stall-limit 10 --k 4 --offset 0 --count 1 --warmup-instances 1 \
+  --output-dir "$NEUOPT_PAPER_ROOT/cvrp100/bs1_preflight_t1" --device cuda:0
+```
+
+Profile both manuscript candidates on the same five indices for each size:
+
+```bash
+for T_MAX in 1000 5000; do
+  python -B methods/neuopt/cvrp/paper_eval.py --problem-size 50 \
+    --input "$NEUOPT_PAPER_ROOT/cvrp50/calibration_first5.npz" \
+    --dataset "$CVRP50_DATASET" --upstream "$NEUOPT_UPSTREAM" \
+    --checkpoint "$NEUOPT_N50_CHECKPOINT" --d2a 5 --T-max "$T_MAX" \
+    --stall-limit 10 --k 4 --offset 0 --count 5 --warmup-instances 1 \
+    --output-dir "$NEUOPT_PAPER_ROOT/cvrp50/candidates/t$T_MAX" --device cuda:0
+
+  python -B methods/neuopt/cvrp/paper_eval.py --problem-size 100 \
+    --input "$NEUOPT_PAPER_ROOT/cvrp100/calibration_first5.npz" \
+    --dataset "$CVRP100_DATASET" --upstream "$NEUOPT_UPSTREAM" \
+    --checkpoint "$NEUOPT_N100_CHECKPOINT" --d2a 5 --T-max "$T_MAX" \
+    --stall-limit 10 --k 4 --offset 0 --count 5 --warmup-instances 1 \
+    --output-dir "$NEUOPT_PAPER_ROOT/cvrp100/candidates/t$T_MAX" --device cuda:0
+done
+```
+
+Build the non-freezing reports:
+
+```bash
+python -B methods/neuopt/cvrp/runtime_calibration.py --problem-size 50 \
+  --candidate-dirs "$NEUOPT_PAPER_ROOT/cvrp50/candidates/t1000" \
+                   "$NEUOPT_PAPER_ROOT/cvrp50/candidates/t5000" \
+  --output "$NEUOPT_PAPER_ROOT/cvrp50/calibration_report.json"
+python -B methods/neuopt/cvrp/runtime_calibration.py --problem-size 100 \
+  --candidate-dirs "$NEUOPT_PAPER_ROOT/cvrp100/candidates/t1000" \
+                   "$NEUOPT_PAPER_ROOT/cvrp100/candidates/t5000" \
+  --output "$NEUOPT_PAPER_ROOT/cvrp100/calibration_report.json"
+```
+
+Return both reports and candidate metadata. If follow-up T values are needed,
+run the same evaluator over these exact five indices and include those candidate
+directories in a new report. Do not run the NeuOpt full set or label any row
+`PAPER_READY` before the final four T values are reviewed and frozen.
+
 ## 9. GLOP TSP50 and TSP100
 
 Use a fixed project commit containing this integration. The official asset root must contain Reviser-stage2/reviser_{10,20,50,100} from the official GLOP bundle.

@@ -85,3 +85,35 @@ def extract_final_best(rollout_output, *, batch_size, val_m=1):
     if not torch.equal(best_objective, final_history_best):
         raise ValueError("official out[0] does not correspond to final obj-history best column")
     return best_objective, final
+
+
+def extract_final_best_d2a(rollout_output, *, problem, native_batch,
+                           batch_size, val_m):
+    """Select the recorded final best successor for each original D2A instance."""
+    if val_m <= 0:
+        raise ValueError("val_m must be positive")
+    best_objective, obj_history, _, record = rollout_output
+    if record is None or len(record) != 3:
+        raise ValueError("official rollout did not return record=True histories")
+    solution_best_history = record[1]
+    if len(solution_best_history) != obj_history.shape[1]:
+        raise ValueError("best-solution and objective histories have different lengths")
+    final = solution_best_history[-1]
+    if final.ndim != 2 or final.shape[0] != batch_size * val_m:
+        raise ValueError("final D2A successor batch has an unexpected leading dimension")
+    import torch
+    copied = problem.augment(native_batch, val_m, only_copy=True)
+    candidate_objectives = problem.get_costs(
+        copied, final, get_context=False, check_full_feasibility=True
+    ).reshape(batch_size, val_m)
+    final_by_candidate = final.reshape(batch_size, val_m, final.shape[1])
+    selected_candidate = candidate_objectives.argmin(dim=1)
+    batch_index = torch.arange(batch_size, device=final.device)
+    selected = final_by_candidate[batch_index, selected_candidate]
+    selected_objective = candidate_objectives[batch_index, selected_candidate]
+    if not torch.equal(best_objective, selected_objective):
+        raise ValueError("D2A candidate selection does not reproduce official rollout out[0]")
+    final_history_best = obj_history[:, -1, 1]
+    if not torch.equal(best_objective, final_history_best):
+        raise ValueError("official D2A out[0] does not match final objective history")
+    return best_objective, selected, selected_candidate

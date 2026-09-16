@@ -8,7 +8,10 @@ from methods.neuopt.cvrp.adapter import adapt_batch
 from methods.neuopt.cvrp.compat import ensure_tensorboard_logger
 from methods.neuopt.cvrp.config import supported_config
 from methods.neuopt.cvrp.decode import (canonicalize_internal_order,
-                                        decode_successor, extract_final_best)
+                                        decode_successor, extract_final_best,
+                                        extract_final_best_d2a)
+from methods.neuopt.cvrp.paper_eval import official_option_args
+from methods.neuopt.cvrp.paper_protocol import paper_protocol
 
 
 def successor_from_order(order):
@@ -86,6 +89,21 @@ class NeuOptCVRPConfigAdapterTests(unittest.TestCase):
                 np.testing.assert_allclose(native_demand[0, 20:], demands[0] / capacity)
                 self.assertIn("exactly once", mapping["normalization"])
 
+    def test_formal_options_pass_d2a_and_T_to_official_flags(self):
+        class Device:
+            type = "cuda"
+
+        protocol = paper_protocol(100, T_max=5000)
+        args = official_option_args(
+            problem_size=100, config=protocol,
+            checkpoint="checkpoint.pt", device=Device())
+        value = lambda flag: args[args.index(flag) + 1]
+        self.assertEqual(value("--val_m"), "5")
+        self.assertEqual(value("--T_max"), "5000")
+        self.assertEqual(value("--stall_limit"), "10")
+        self.assertEqual(value("--k"), "4")
+        self.assertEqual(value("--val_batch_size"), "1")
+
 
 class NeuOptCVRPDecoderTests(unittest.TestCase):
     def test_single_route_and_first_last_customer_mapping_for_both_sizes(self):
@@ -133,6 +151,40 @@ class NeuOptCVRPDecoderTests(unittest.TestCase):
         bad = (torch.tensor([4.0, 6.0]), obj_history, output[2], output[3])
         with self.assertRaisesRegex(ValueError, "does not correspond"):
             extract_final_best(bad, batch_size=2, val_m=1)
+
+    def test_d2a_best_candidate_solution_and_objective_correspondence(self):
+        import torch
+
+        class Problem:
+            def augment(self, batch, val_m, only_copy=False):
+                self.assert_only_copy = only_copy
+                return {
+                    "coordinates": batch["coordinates"].repeat(val_m, 1, 1),
+                    "demand": batch["demand"].repeat(val_m, 1),
+                }
+
+            def get_costs(self, batch, solutions, **kwargs):
+                self.last_solutions = solutions.clone()
+                return torch.tensor([3.0, 1.0, 2.0, 4.0, 5.0])
+
+        candidates = torch.tensor([
+            [1, 2, 0], [2, 0, 1], [1, 0, 2], [2, 1, 0], [0, 2, 1]
+        ])
+        obj_history = torch.tensor([[[3.0, 3.0, 3.0], [1.0, 1.0, 3.0]]])
+        output = (
+            torch.tensor([1.0]), obj_history, torch.empty(1, 1),
+            ([candidates, candidates], [candidates, candidates], [None, None]),
+        )
+        native = {
+            "coordinates": torch.zeros(1, 3, 2), "demand": torch.zeros(1, 3)
+        }
+        problem = Problem()
+        best, solution, selected = extract_final_best_d2a(
+            output, problem=problem, native_batch=native, batch_size=1, val_m=5)
+        self.assertTrue(problem.assert_only_copy)
+        self.assertTrue(torch.equal(best, torch.tensor([1.0])))
+        self.assertTrue(torch.equal(solution, candidates[1:2]))
+        self.assertTrue(torch.equal(selected, torch.tensor([1])))
 
 
 if __name__ == "__main__":
