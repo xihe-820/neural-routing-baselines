@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest import mock
 
 import numpy as np
 
@@ -14,6 +15,7 @@ from methods.udc.protocol import (DATASET_FILENAMES, OFFICIAL_COMMIT,
                                   S2_SCRIPT_SHA256, discover_datasets,
                                   s2_gate)
 from methods.udc.s3_eval import prior_our2_gate
+from methods.udc import s3_eval
 
 
 class Task:
@@ -24,9 +26,14 @@ class UdcS3AdapterTests(unittest.TestCase):
     def test_tsp_adapter_preserves_order_and_dtype_audit(self):
         task = Task()
         task.points = np.arange(1000, dtype=np.float64).reshape(500, 2) / 1000
-        native, evidence = adapt_tsp_task(task)
+        source, native, evidence = adapt_tsp_task(task)
+        np.testing.assert_array_equal(source, task.points)
         np.testing.assert_array_equal(native, task.points.astype(np.float32))
-        self.assertEqual(evidence["transformation"], "none")
+        self.assertEqual(source.dtype, np.float64)
+        self.assertEqual(native.dtype, np.float32)
+        self.assertEqual(evidence["source_coordinate_dtype"], "float64")
+        self.assertEqual(evidence["model_input_dtype"], "float32")
+        self.assertTrue(evidence["model_input_dtype_cast"])
         self.assertEqual(evidence["node_order"], "unchanged")
 
     def test_cvrp_raw_demand_is_normalized_exactly_once(self):
@@ -73,6 +80,169 @@ class UdcS3AdapterTests(unittest.TestCase):
             np.array([0, 0]), points, np.ones(500), 1, solutions, flags)
         self.assertEqual(result["best_alpha"], 1)
         self.assertEqual(result["route_count"], 500)
+
+
+class FakeTensor:
+    def __init__(self, value):
+        self.value = np.asarray(value)
+
+    @property
+    def shape(self):
+        return self.value.shape
+
+    def __getitem__(self, key):
+        return FakeTensor(self.value[key])
+
+    def detach(self):
+        return self
+
+    def cpu(self):
+        return self
+
+    def numpy(self):
+        return self.value
+
+
+class FakeInferenceMode:
+    def __enter__(self):
+        return None
+
+    def __exit__(self, exc_type, exc, traceback):
+        return False
+
+
+class FakeTorch:
+    float32 = "float32"
+
+    class cuda:
+        @staticmethod
+        def synchronize():
+            pass
+
+    @staticmethod
+    def as_tensor(value, **_kwargs):
+        return FakeTensor(value)
+
+    @staticmethod
+    def stack(values, dim=0):
+        return FakeTensor(np.stack([value.value for value in values], axis=dim))
+
+    @staticmethod
+    def inference_mode():
+        return FakeInferenceMode()
+
+
+class UdcS3SolveStateTests(unittest.TestCase):
+    def _task(self):
+        task = Task()
+        task.name = "fake"
+        task.depots = np.zeros(2)
+        task.points = np.zeros((500, 2))
+        task.demands = np.ones(500)
+        task.capacity = 100
+        task.ref_sol = np.array([0, 1, 0])
+        task.check_constraints = lambda _solution: True
+        task.evaluate = lambda _solution: 1.0
+        return task
+
+    def test_two_cvrp_solves_restore_configured_pomo_between_instances(self):
+        class Env:
+            pomo_size = 10
+
+            def cal_length_total2(self, *_args):
+                return FakeTensor(np.ones((1, 50)))
+
+        class Harness:
+            def __init__(self, env):
+                self.env = env
+                self.pomo_seen_at_load = []
+
+            def _load_init_sol(self, *_args):
+                self.pomo_seen_at_load.append(self.env.pomo_size)
+                solutions = FakeTensor(np.tile(np.arange(1, 501), (50, 1)))
+                flags = FakeTensor(np.ones((50, 500), dtype=np.int64))
+                return [solutions], [flags]
+
+            def route_ranking2(self, _coordinates, solution, flags):
+                return solution, flags
+
+            def _test_one_batch(self, solution, flags, *_args):
+                return solution, flags, 1.0, 1.0
+
+        independent = {
+            "best_alpha": 0, "best_objective": 1.0,
+            "solution": list(range(1, 501)), "solution_flag": [1] * 500,
+            "canonical_solution": [0, *range(1, 501), 0],
+            "decoded_routes": [list(range(1, 501))],
+            "route_demands": [500.0], "route_count": 1,
+            "max_route_load": 500.0,
+            "independent_objective_per_alpha": [1.0] * 50,
+        }
+        env = Env()
+        harness = Harness(env)
+        adapted = (np.zeros((501, 2)), np.zeros(501), {})
+        with mock.patch.object(s3_eval, "adapt_cvrp_task", return_value=adapted), \
+                mock.patch.object(s3_eval, "validate_cvrp_population",
+                                  return_value=independent), \
+                mock.patch.object(s3_eval, "rng_digest", return_value={}):
+            s3_eval.solve_cvrp(self._task(), env, harness, FakeTorch, "cpu", 0)
+            self.assertEqual(env.pomo_size, 10)
+            s3_eval.solve_cvrp(self._task(), env, harness, FakeTorch, "cpu", 1)
+        self.assertEqual(harness.pomo_seen_at_load, [1, 1])
+        self.assertEqual(env.pomo_size, 10)
+
+    def test_cvrp_exception_also_restores_configured_pomo(self):
+        class Env:
+            pomo_size = 10
+
+        class Harness:
+            def _load_init_sol(self, *_args):
+                raise RuntimeError("synthetic inference failure")
+
+        env = Env()
+        adapted = (np.zeros((501, 2)), np.zeros(501), {})
+        with mock.patch.object(s3_eval, "adapt_cvrp_task", return_value=adapted), \
+                mock.patch.object(s3_eval, "rng_digest", return_value={}):
+            with self.assertRaisesRegex(RuntimeError, "synthetic inference failure"):
+                s3_eval.solve_cvrp(self._task(), env, Harness(), FakeTorch, "cpu", 0)
+        self.assertEqual(env.pomo_size, 10)
+
+    def test_tsp_independent_objective_receives_original_coordinates(self):
+        source = np.arange(1000, dtype=np.float64).reshape(500, 2) / 997.0
+        model = source.astype(np.float32)
+        task = Task()
+        task.name = "tsp-fake"; task.points = source
+        task.ref_sol = np.r_[np.arange(500), 0]
+        task.check_constraints = lambda _solution: True
+        task.evaluate = lambda _solution: 1.0
+
+        class Env:
+            def _get_travel_distance2(self, *_args):
+                return FakeTensor(np.ones((1, 50)))
+
+        class Harness:
+            def _load_init_sol(self, *_args):
+                return [FakeTensor(np.tile(np.arange(500), (50, 1)))]
+
+            def _test_one_batch(self, solution, *_args, **_kwargs):
+                return solution, 1.0, 1.0
+
+        observed = []
+
+        def validate(points, _population):
+            observed.append(points)
+            return {"best_alpha": 0, "best_objective": 1.0,
+                    "solution": [*range(500), 0],
+                    "independent_objective_per_alpha": [1.0] * 50}
+
+        with mock.patch.object(s3_eval, "adapt_tsp_task",
+                               return_value=(source, model, {})), \
+                mock.patch.object(s3_eval, "validate_tsp_population",
+                                  side_effect=validate), \
+                mock.patch.object(s3_eval, "rng_digest", return_value={}):
+            s3_eval.solve_tsp(task, Env(), Harness(), FakeTorch, "cpu", 0)
+        self.assertIs(observed[0], source)
+        self.assertEqual(observed[0].dtype, np.float64)
 
 
 class UdcS3ProvenanceTests(unittest.TestCase):

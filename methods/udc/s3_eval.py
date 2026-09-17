@@ -150,8 +150,8 @@ def load_models(family, official_root, supplemental_root, torch):
 
 
 def solve_tsp(task, env, harness, torch, device, dataset_index):
-    points, semantics = adapt_tsp_task(task)
-    coordinates = torch.as_tensor(points[None], dtype=torch.float32, device=device)
+    source_points, model_points, semantics = adapt_tsp_task(task)
+    coordinates = torch.as_tensor(model_points[None], dtype=torch.float32, device=device)
     harness.tester_params = {"test_episodes": 1, "test_batch_size": 1,
                              "aug_factor": ALPHA}
     harness.node_coords, harness.tours = coordinates, None
@@ -169,7 +169,7 @@ def solve_tsp(task, env, harness, torch, device, dataset_index):
                            "official_best": float(best)})
     torch.cuda.synchronize(); runtime = time.perf_counter() - started
     population = solution[0].detach().cpu().numpy()
-    independent = validate_tsp_population(points, population)
+    independent = validate_tsp_population(source_points, population)
     with torch.inference_mode():
         official = env._get_travel_distance2(coordinates, solution)[0].detach().cpu().numpy()
     best = independent["best_alpha"]
@@ -209,28 +209,35 @@ def solve_cvrp(task, env, harness, torch, device, dataset_index):
     coordinates_np, demand_np, semantics = adapt_cvrp_task(task)
     coordinates = torch.as_tensor(coordinates_np[None], dtype=torch.float32, device=device)
     demand = torch.as_tensor(demand_np[None], dtype=torch.float32, device=device)
-    if env.pomo_size != 10:
+    configured_pomo = SPECS["cvrp"]["configured_pomo"]
+    effective_pomo = SPECS["cvrp"]["effective_pomo"]
+    if env.pomo_size != configured_pomo:
         raise ValueError("CVRP configured POMO must start at 10")
-    env.pomo_size = 1
-    harness.trainer_params = {"validation_aug_factor": ALPHA,
-                              "validation_test_episodes": 1,
-                              "validation_test_batch_size": 1}
-    before = rng_digest(torch)
-    torch.cuda.synchronize(); started = time.perf_counter()
-    with torch.inference_mode():
-        solutions, flags = harness._load_init_sol(coordinates, demand)
-        solution, solution_flag = torch.stack(solutions), torch.stack(flags)
-        if list(solution.shape) != [1, ALPHA, 500] or solution_flag.shape != solution.shape:
-            raise ValueError("CVRP alpha solution/flag population shape mismatch")
-        stages = []
-        for k in range(1, SPECS["cvrp"]["x"] + 1):
-            solution, solution_flag = harness.route_ranking2(
-                coordinates, solution, solution_flag)
-            solution, solution_flag, candidate0, best = harness._test_one_batch(
-                solution, solution_flag, coordinates, demand, 1, 0, k)
-            stages.append({"stage": k, "candidate0": float(candidate0),
-                           "official_best": float(best)})
-    torch.cuda.synchronize(); runtime = time.perf_counter() - started
+    try:
+        env.pomo_size = effective_pomo
+        harness.trainer_params = {"validation_aug_factor": ALPHA,
+                                  "validation_test_episodes": 1,
+                                  "validation_test_batch_size": 1}
+        before = rng_digest(torch)
+        torch.cuda.synchronize(); started = time.perf_counter()
+        with torch.inference_mode():
+            solutions, flags = harness._load_init_sol(coordinates, demand)
+            solution, solution_flag = torch.stack(solutions), torch.stack(flags)
+            if list(solution.shape) != [1, ALPHA, 500] or solution_flag.shape != solution.shape:
+                raise ValueError("CVRP alpha solution/flag population shape mismatch")
+            stages = []
+            for k in range(1, SPECS["cvrp"]["x"] + 1):
+                solution, solution_flag = harness.route_ranking2(
+                    coordinates, solution, solution_flag)
+                solution, solution_flag, candidate0, best = harness._test_one_batch(
+                    solution, solution_flag, coordinates, demand, 1, 0, k)
+                stages.append({"stage": k, "candidate0": float(candidate0),
+                               "official_best": float(best)})
+        torch.cuda.synchronize(); runtime = time.perf_counter() - started
+    finally:
+        # Match pinned CVRPTester.validation(): effective POMO=1 is scoped to
+        # one validation call, while the reusable environment remains POMO=10.
+        env.pomo_size = configured_pomo
     population = solution[0].detach().cpu().numpy()
     flag_population = solution_flag[0].detach().cpu().numpy()
     depot = np.asarray(task.depots).reshape(-1, 2)[0]

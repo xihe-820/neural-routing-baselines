@@ -9,13 +9,23 @@ from problems.cvrp.validate import validate as validate_cvrp
 
 
 def adapt_tsp_task(task, *, size=500):
-    points = np.asarray(task.points)
-    if points.shape != (size, 2) or points.dtype.kind not in "fiu" or not np.isfinite(points).all():
+    source_points = np.asarray(task.points)
+    if (source_points.shape != (size, 2)
+            or source_points.dtype.kind not in "fiu"
+            or not np.isfinite(source_points).all()):
         raise ValueError("ML4CO TSP task must contain finite [500,2] coordinates")
-    return points.astype(np.float32, copy=False), {
-        "coordinate_shape": list(points.shape), "coordinate_dtype": str(points.dtype),
-        "coordinate_min": float(points.min()), "coordinate_max": float(points.max()),
-        "transformation": "none", "node_order": "unchanged",
+    model_points = source_points.astype(np.float32, copy=False)
+    return source_points, model_points, {
+        "coordinate_shape": list(source_points.shape),
+        "source_coordinate_dtype": str(source_points.dtype),
+        "model_input_dtype": str(model_points.dtype),
+        "model_input_dtype_cast": source_points.dtype != model_points.dtype,
+        "independent_objective_coordinate_source": (
+            "original np.asarray(task.points) before model-input dtype cast"),
+        "coordinate_min": float(source_points.min()),
+        "coordinate_max": float(source_points.max()),
+        "transformation": "none except model-input float32 dtype boundary",
+        "node_order": "unchanged",
     }
 
 

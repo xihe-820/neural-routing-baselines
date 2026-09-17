@@ -736,6 +736,7 @@ filename below the dataset root and refuses ambiguous copies.
 ```bash
 conda activate cp311_base
 cd /inspire/hdd/global_user/majiale-253108540229/zhang/neural-routing-baselines
+S3_HEAD="$(git rev-parse --short=8 HEAD)"
 python -B methods/udc/s3_eval.py \
   --project-root "$PWD" \
   --official-root /inspire/hdd/global_user/majiale-253108540229/zhang/baselines/NCO_code \
@@ -744,13 +745,14 @@ python -B methods/udc/s3_eval.py \
   --s1-evidence /inspire/hdd/global_user/majiale-253108540229/zhang/verification_evidence/neural-routing-baselines/udc/15d02f5b/s1_audit_v5.json \
   --s2-evidence /inspire/hdd/global_user/majiale-253108540229/zhang/verification_evidence/neural-routing-baselines/udc/15d02f5b/s2_official_smoke_v3 \
   --count 2 \
-  --output-dir /inspire/hdd/global_user/majiale-253108540229/zhang/verification_evidence/neural-routing-baselines/udc/15d02f5b/s3_ml4co_adapter/our_2
+  --output-dir "/inspire/hdd/global_user/majiale-253108540229/zhang/verification_evidence/neural-routing-baselines/udc/$S3_HEAD/s3_ml4co_adapter/our_2"
 ```
 
 Only after `our_2/metadata.json` reports `state=KIT_VALIDATED`, run the same
 protocol on the first five tasks:
 
 ```bash
+S3_HEAD="$(git rev-parse --short=8 HEAD)"
 python -B methods/udc/s3_eval.py \
   --project-root "$PWD" \
   --official-root /inspire/hdd/global_user/majiale-253108540229/zhang/baselines/NCO_code \
@@ -759,8 +761,8 @@ python -B methods/udc/s3_eval.py \
   --s1-evidence /inspire/hdd/global_user/majiale-253108540229/zhang/verification_evidence/neural-routing-baselines/udc/15d02f5b/s1_audit_v5.json \
   --s2-evidence /inspire/hdd/global_user/majiale-253108540229/zhang/verification_evidence/neural-routing-baselines/udc/15d02f5b/s2_official_smoke_v3 \
   --count 5 \
-  --prior-our2 /inspire/hdd/global_user/majiale-253108540229/zhang/verification_evidence/neural-routing-baselines/udc/15d02f5b/s3_ml4co_adapter/our_2 \
-  --output-dir /inspire/hdd/global_user/majiale-253108540229/zhang/verification_evidence/neural-routing-baselines/udc/15d02f5b/s3_ml4co_adapter/our_5
+  --prior-our2 "/inspire/hdd/global_user/majiale-253108540229/zhang/verification_evidence/neural-routing-baselines/udc/$S3_HEAD/s3_ml4co_adapter/our_2" \
+  --output-dir "/inspire/hdd/global_user/majiale-253108540229/zhang/verification_evidence/neural-routing-baselines/udc/$S3_HEAD/s3_ml4co_adapter/our_5"
 ```
 
 ## 11. Regression tests
