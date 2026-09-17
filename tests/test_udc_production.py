@@ -248,6 +248,12 @@ class BudgetRegistryTests(unittest.TestCase):
 
 
 class DatasetAndRngTests(unittest.TestCase):
+    @staticmethod
+    def _function_ast(path, name):
+        tree = ast.parse(Path(path).read_text())
+        return next(node for node in tree.body
+                    if isinstance(node, ast.FunctionDef) and node.name == name)
+
     def test_dataset_count_is_loaded_from_complete_wrapper(self):
         class TSPTask:
             def __init__(self, index):
@@ -294,16 +300,66 @@ class DatasetAndRngTests(unittest.TestCase):
             self.assertEqual(checkpoint["next_instance_index"], 0)
 
     def test_production_loop_has_no_per_instance_reseed(self):
-        source = Path("methods/udc/paper_production.py").read_text()
-        tree = ast.parse(source)
-        function = next(node for node in tree.body
-                        if isinstance(node, ast.FunctionDef) and node.name == "run_production")
+        function = self._function_ast(
+            "methods/udc/paper_production.py", "run_production")
         seed_calls = [node for node in ast.walk(function)
                       if isinstance(node, ast.Call)
                       and isinstance(node.func, ast.Name) and node.func.id == "seed_once"]
         self.assertEqual(len(seed_calls), 1)
         loop = next(node for node in ast.walk(function) if isinstance(node, ast.For))
         self.assertFalse(any(call in set(ast.walk(loop)) for call in seed_calls))
+
+    def test_production_clears_cuda_cache_between_instances(self):
+        function = self._function_ast(
+            "methods/udc/paper_production.py", "run_production")
+        loop = next(node for node in ast.walk(function)
+                    if isinstance(node, ast.For)
+                    and isinstance(node.target, ast.Name) and node.target.id == "index")
+        calls = [node.func.id for statement in loop.body
+                 for node in ast.walk(statement)
+                 if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)]
+        self.assertLess(calls.index("audit_adapter"), calls.index("prepare_solver_memory"))
+        self.assertLess(calls.index("prepare_solver_memory"), calls.index("solve_record"))
+        hygiene = self._function_ast(
+            "methods/udc/paper_production.py", "prepare_solver_memory")
+        attributes = [node.func.attr for node in ast.walk(hygiene)
+                      if isinstance(node, ast.Call)
+                      and isinstance(node.func, ast.Attribute)]
+        self.assertEqual(attributes, ["collect", "empty_cache"])
+
+    def test_memory_hygiene_does_not_reseed(self):
+        hygiene = self._function_ast(
+            "methods/udc/paper_production.py", "prepare_solver_memory")
+        self.assertFalse(any(isinstance(node, ast.Name) and node.id in {
+            "random", "np", "seed_once"} for node in ast.walk(hygiene)))
+
+    def test_memory_hygiene_is_outside_solver(self):
+        for path, name in (
+                ("methods/udc/paper_production.py", "solve_record"),
+                ("methods/udc/s3_eval.py", "solve_tsp"),
+                ("methods/udc/s3_eval.py", "solve_cvrp")):
+            function = self._function_ast(path, name)
+            self.assertFalse(any(
+                isinstance(node, ast.Call)
+                and ((isinstance(node.func, ast.Name)
+                      and node.func.id == "prepare_solver_memory")
+                     or (isinstance(node.func, ast.Attribute)
+                         and node.func.attr in {"collect", "empty_cache"}))
+                for node in ast.walk(function)))
+
+    def test_one_shot_calls_memory_hygiene_before_each_solve(self):
+        function = self._function_ast(
+            "methods/udc/paper_production.py", "one_shot_run")
+        loops = [node for node in ast.walk(function)
+                 if isinstance(node, ast.For)
+                 and isinstance(node.target, ast.Name) and node.target.id == "index"]
+        solve_loop = next(loop for loop in loops if any(
+            isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+            and node.func.id == "solve_record" for node in ast.walk(loop)))
+        calls = [node.func.id for statement in solve_loop.body
+                 for node in ast.walk(statement)
+                 if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)]
+        self.assertLess(calls.index("prepare_solver_memory"), calls.index("solve_record"))
 
     def test_production_passes_registry_x_to_solver_and_requires_exact_completion(self):
         budget = dict(load_budget_registry()["entries"][("tsp", "more")])

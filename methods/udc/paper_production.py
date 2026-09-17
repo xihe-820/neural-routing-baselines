@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import gc
 import json
 from pathlib import Path
 import platform
@@ -42,6 +43,13 @@ PRODUCTION_TIMING = (
 )
 PILOT_TIMING = "budget_freeze_pilot_only; " + PRODUCTION_TIMING
 SAFETY_TIMING = "production_safety_gate_only; " + PRODUCTION_TIMING
+INTER_INSTANCE_MEMORY_HYGIENE = {
+    "python_gc_collect": True,
+    "torch_cuda_empty_cache": True,
+    "placement": "immediately before each solver interval",
+    "included_in_solver_timing": False,
+    "rng_effect": "none",
+}
 
 
 def ensure_external_output(path: Path, project_root: Path):
@@ -70,6 +78,12 @@ def seed_once(torch):
     torch.backends.cudnn.deterministic = True
     torch.cuda.set_device(0)
     torch.set_default_tensor_type(torch.cuda.FloatTensor)
+
+
+def prepare_solver_memory(torch):
+    """Release unreachable objects and unused allocator cache before timing."""
+    gc.collect()
+    torch.cuda.empty_cache()
 
 
 def load_formal_dataset(path: Path, problem: str, size: int):
@@ -188,6 +202,7 @@ def one_shot_run(args, *, problem, size, label, indices, timing_semantics):
                 "budget": budget, "indices": list(indices), "dataset": dataset,
                 "environment": environment, "gates": gates,
                 "timing_semantics": timing_semantics,
+                "inter_instance_memory_hygiene": INTER_INSTANCE_MEMORY_HYGIENE,
                 "script_sha256": sha256_file(Path(__file__))}
     atomic_json(output_dir / METADATA_FILE, metadata)
     try:
@@ -199,9 +214,12 @@ def one_shot_run(args, *, problem, size, label, indices, timing_semantics):
             problem_size=size)
         verify_loaded_environment(env, budget)
         metadata["loaded_checkpoints"] = loaded
-        records = [solve_record(tasks[index], problem, size, budget, env, harness,
-                                torch, device, index, timing_semantics)
-                   for index in indices]
+        records = []
+        for index in indices:
+            prepare_solver_memory(torch)
+            records.append(solve_record(
+                tasks[index], problem, size, budget, env, harness,
+                torch, device, index, timing_semantics))
         metadata.update({"state": "KIT_VALIDATED", "completed_records": len(records),
                          "project_post": production_project_gate(args.project_root),
                          "official_post": official_gate(args.official_root)})
@@ -473,6 +491,7 @@ def production_identity(args, problem, size, budget, dataset, environment, gates
         "rng_policy": ("seed Python/NumPy/Torch CPU/CUDA once before model construction; "
                        "process indices 0..N-1 continuously; restore serialized RNG state "
                        "on resume; never reseed per instance"),
+        "inter_instance_memory_hygiene": INTER_INSTANCE_MEMORY_HYGIENE,
         "timing_semantics": PRODUCTION_TIMING,
         "source": {"script": str(Path(__file__).resolve()),
                    "script_sha256": sha256_file(Path(__file__)),
@@ -519,6 +538,7 @@ def run_production(args):
     try:
         for index in range(len(records), len(tasks)):
             audit_adapter(tasks[index], problem, size)
+            prepare_solver_memory(torch)
             record = solve_record(tasks[index], problem, size, budget, env, harness,
                                   torch, device, index, PRODUCTION_TIMING)
             records, checkpoint = commit_record(
