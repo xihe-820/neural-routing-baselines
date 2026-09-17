@@ -765,6 +765,35 @@ python -B methods/udc/s3_eval.py \
   --output-dir "/inspire/hdd/global_user/majiale-253108540229/zhang/verification_evidence/neural-routing-baselines/udc/$S3_HEAD/s3_ml4co_adapter/our_5"
 ```
 
+## UDC Stage S4: one-size formal scale preflight
+
+Run one process per size in strict ascending order. Each command runs dataset
+index zero only. A family stops after CUDA OOM or semantic failure.
+
+```bash
+conda activate cp311_base
+cd /inspire/hdd/global_user/majiale-253108540229/zhang/neural-routing-baselines
+S4_HEAD="$(git rev-parse --short=8 HEAD)"
+S4_ROOT="/inspire/hdd/global_user/majiale-253108540229/zhang/verification_evidence/neural-routing-baselines/udc/$S4_HEAD/s4_scale_preflight"
+
+python -B methods/udc/s4_scale_preflight.py \
+  --problem tsp --size 100 \
+  --project-root "$PWD" \
+  --official-root /inspire/hdd/global_user/majiale-253108540229/zhang/baselines/NCO_code \
+  --supplemental-root /inspire/hdd/global_user/majiale-253108540229/zhang/baselines/UDC_supplemental_unpack/UDC-master/UDC \
+  --dataset-root /inspire/hdd/global_user/majiale-253108540229/ML4CO-Bench-101 \
+  --s3-evidence /inspire/hdd/global_user/majiale-253108540229/zhang/verification_evidence/neural-routing-baselines/udc/df082675/s3_ml4co_adapter/our_5 \
+  --output-root "$S4_ROOT"
+```
+
+After each `PASS`, repeat the command by changing only `--problem` and `--size`:
+
+- TSP: `100`, `500`, `1000`, `2000`, `5000`, `10000`
+- CVRP: `200`, `500`, `1000`, `2000`
+
+Every invocation updates `$S4_ROOT/summary.json` and writes immutable
+`metadata.json` and `record.json` under its problem-size directory.
+
 ## 11. Regression tests
 
 ```bash

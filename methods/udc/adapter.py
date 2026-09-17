@@ -13,7 +13,7 @@ def adapt_tsp_task(task, *, size=500):
     if (source_points.shape != (size, 2)
             or source_points.dtype.kind not in "fiu"
             or not np.isfinite(source_points).all()):
-        raise ValueError("ML4CO TSP task must contain finite [500,2] coordinates")
+        raise ValueError(f"ML4CO TSP task must contain finite [{size},2] coordinates")
     model_points = source_points.astype(np.float32, copy=False)
     return source_points, model_points, {
         "coordinate_shape": list(source_points.shape),
@@ -37,7 +37,8 @@ def adapt_cvrp_task(task, *, size=500):
     if depot.shape == (1, 2):
         depot = depot[0]
     if depot.shape != (2,) or points.shape != (size, 2) or demand.shape != (size,):
-        raise ValueError("ML4CO CVRP task field shapes differ from depot/[500,2]/[500]")
+        raise ValueError(
+            f"ML4CO CVRP task field shapes differ from depot/[{size},2]/[{size}]")
     if any(value.dtype.kind not in "fiu" or not np.isfinite(value).all()
            for value in (depot, points, demand)):
         raise ValueError("ML4CO CVRP fields must be finite real arrays")

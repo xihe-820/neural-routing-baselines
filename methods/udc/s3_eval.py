@@ -56,6 +56,10 @@ TIMING = ("semantic_adapter_smoke_runtime_only: BS=1 wall clock; includes alpha=
           "preprocessing, independent/Kit validation and artifact I/O; CUDA synchronized")
 
 
+class SemanticValidationError(RuntimeError):
+    """The completed solver population has no independently feasible candidate."""
+
+
 def utc_now():
     return datetime.now(timezone.utc).isoformat()
 
@@ -117,7 +121,7 @@ def load_tasks(dataset, family, count):
     return tasks, kit
 
 
-def load_models(family, official_root, supplemental_root, torch):
+def load_models(family, official_root, supplemental_root, torch, *, problem_size=500):
     family_dir = official_root / OFFICIAL_REL / FAMILY_DIRS[family]
     sys.path[:0] = [str(family_dir), str(family_dir.parent), str(family_dir.parent.parent)]
     os.chdir(family_dir)
@@ -140,7 +144,7 @@ def load_models(family, official_root, supplemental_root, torch):
         if incompatible.missing_keys or incompatible.unexpected_keys:
             raise ValueError(f"{family} {role} strict checkpoint load mismatch")
     partition.eval(); solver.eval()
-    env = Env(problem_size_low=500, problem_size_high=1000, sub_size=100,
+    env = Env(problem_size_low=problem_size, problem_size_high=problem_size, sub_size=100,
               pomo_size=SPECS[family]["configured_pomo"],
               sample_size=8 if family == "tsp" else 2,
               optimal={100: 7.7632, 200: 10.7036, 500: 16.5215, 1000: 23.1199})
@@ -149,8 +153,23 @@ def load_models(family, official_root, supplemental_root, torch):
     return env, harness, paths, device
 
 
-def solve_tsp(task, env, harness, torch, device, dataset_index):
-    source_points, model_points, semantics = adapt_tsp_task(task)
+def cuda_memory_snapshot(torch):
+    allocated = int(torch.cuda.memory_allocated())
+    reserved = int(torch.cuda.memory_reserved())
+    peak_allocated = int(torch.cuda.max_memory_allocated())
+    peak_reserved = int(torch.cuda.max_memory_reserved())
+    divisor = 1024 ** 3
+    return {"allocated_bytes": allocated, "allocated_gib": allocated / divisor,
+            "reserved_bytes": reserved, "reserved_gib": reserved / divisor,
+            "peak_allocated_bytes": peak_allocated,
+            "peak_allocated_gib": peak_allocated / divisor,
+            "peak_reserved_bytes": peak_reserved,
+            "peak_reserved_gib": peak_reserved / divisor}
+
+
+def solve_tsp(task, env, harness, torch, device, dataset_index, *,
+              problem_size=500, timing_semantics=TIMING, capture_memory=False):
+    source_points, model_points, semantics = adapt_tsp_task(task, size=problem_size)
     coordinates = torch.as_tensor(model_points[None], dtype=torch.float32, device=device)
     harness.tester_params = {"test_episodes": 1, "test_batch_size": 1,
                              "aug_factor": ALPHA}
@@ -159,7 +178,7 @@ def solve_tsp(task, env, harness, torch, device, dataset_index):
     torch.cuda.synchronize(); started = time.perf_counter()
     with torch.inference_mode():
         solution = torch.stack(harness._load_init_sol(coordinates), dim=0)
-        if list(solution.shape) != [1, ALPHA, 500]:
+        if list(solution.shape) != [1, ALPHA, problem_size]:
             raise ValueError(f"TSP alpha population shape mismatch: {list(solution.shape)}")
         stages = []
         for k in range(1, SPECS["tsp"]["x"] + 1):
@@ -168,8 +187,12 @@ def solve_tsp(task, env, harness, torch, device, dataset_index):
             stages.append({"stage": k, "candidate0": float(candidate0),
                            "official_best": float(best)})
     torch.cuda.synchronize(); runtime = time.perf_counter() - started
+    solver_memory = cuda_memory_snapshot(torch) if capture_memory else None
     population = solution[0].detach().cpu().numpy()
-    independent = validate_tsp_population(source_points, population)
+    try:
+        independent = validate_tsp_population(source_points, population)
+    except (TypeError, ValueError) as exc:
+        raise SemanticValidationError(str(exc)) from exc
     with torch.inference_mode():
         official = env._get_travel_distance2(coordinates, solution)[0].detach().cpu().numpy()
     best = independent["best_alpha"]
@@ -184,11 +207,12 @@ def solve_tsp(task, env, harness, torch, device, dataset_index):
     passed = agreement["pass"] and returned_agreement["pass"] and kit_feasible and kit_agreement["pass"]
     return {
         "instance_id": str(task.name), "dataset_instance_index": dataset_index,
-        "problem": "TSP", "size": 500, "seed": SEED, "alpha": ALPHA, "x": 2,
+        "problem": "TSP", "size": problem_size, "seed": SEED, "alpha": ALPHA, "x": 2,
         "configured_pomo": 2, "effective_pomo": 2,
         "rng_before_solve": before, "rng_after_solve": rng_digest(torch),
         "input_semantics": semantics, "completed_stages": stages,
-        "runtime_seconds": runtime, "timing_semantics": TIMING,
+        "runtime_seconds": runtime, "timing_semantics": timing_semantics,
+        "solver_memory": solver_memory,
         "final_solution_population": population.astype(int).tolist(),
         "official_objective_per_alpha": official.astype(float).tolist(),
         "independent_objective_per_alpha": independent["independent_objective_per_alpha"],
@@ -205,8 +229,9 @@ def solve_tsp(task, env, harness, torch, device, dataset_index):
         "status": "KIT_VALIDATED" if passed else "FAILED"}
 
 
-def solve_cvrp(task, env, harness, torch, device, dataset_index):
-    coordinates_np, demand_np, semantics = adapt_cvrp_task(task)
+def solve_cvrp(task, env, harness, torch, device, dataset_index, *,
+               problem_size=500, timing_semantics=TIMING, capture_memory=False):
+    coordinates_np, demand_np, semantics = adapt_cvrp_task(task, size=problem_size)
     coordinates = torch.as_tensor(coordinates_np[None], dtype=torch.float32, device=device)
     demand = torch.as_tensor(demand_np[None], dtype=torch.float32, device=device)
     configured_pomo = SPECS["cvrp"]["configured_pomo"]
@@ -223,7 +248,8 @@ def solve_cvrp(task, env, harness, torch, device, dataset_index):
         with torch.inference_mode():
             solutions, flags = harness._load_init_sol(coordinates, demand)
             solution, solution_flag = torch.stack(solutions), torch.stack(flags)
-            if list(solution.shape) != [1, ALPHA, 500] or solution_flag.shape != solution.shape:
+            if (list(solution.shape) != [1, ALPHA, problem_size]
+                    or solution_flag.shape != solution.shape):
                 raise ValueError("CVRP alpha solution/flag population shape mismatch")
             stages = []
             for k in range(1, SPECS["cvrp"]["x"] + 1):
@@ -234,6 +260,7 @@ def solve_cvrp(task, env, harness, torch, device, dataset_index):
                 stages.append({"stage": k, "candidate0": float(candidate0),
                                "official_best": float(best)})
         torch.cuda.synchronize(); runtime = time.perf_counter() - started
+        solver_memory = cuda_memory_snapshot(torch) if capture_memory else None
     finally:
         # Match pinned CVRPTester.validation(): effective POMO=1 is scoped to
         # one validation call, while the reusable environment remains POMO=10.
@@ -241,8 +268,11 @@ def solve_cvrp(task, env, harness, torch, device, dataset_index):
     population = solution[0].detach().cpu().numpy()
     flag_population = solution_flag[0].detach().cpu().numpy()
     depot = np.asarray(task.depots).reshape(-1, 2)[0]
-    independent = validate_cvrp_population(
-        depot, task.points, task.demands, task.capacity, population, flag_population)
+    try:
+        independent = validate_cvrp_population(
+            depot, task.points, task.demands, task.capacity, population, flag_population)
+    except (TypeError, ValueError) as exc:
+        raise SemanticValidationError(str(exc)) from exc
     with torch.inference_mode():
         official = env.cal_length_total2(coordinates, solution, solution_flag)[0].detach().cpu().numpy()
     best = independent["best_alpha"]
@@ -257,11 +287,12 @@ def solve_cvrp(task, env, harness, torch, device, dataset_index):
     passed = agreement["pass"] and returned_agreement["pass"] and kit_feasible and kit_agreement["pass"]
     return {
         "instance_id": str(task.name), "dataset_instance_index": dataset_index,
-        "problem": "CVRP", "size": 500, "seed": SEED, "alpha": ALPHA, "x": 50,
+        "problem": "CVRP", "size": problem_size, "seed": SEED, "alpha": ALPHA, "x": 50,
         "configured_pomo": 10, "effective_pomo": 1,
         "rng_before_solve": before, "rng_after_solve": rng_digest(torch),
         "input_semantics": semantics, "completed_stages": stages,
-        "runtime_seconds": runtime, "timing_semantics": TIMING,
+        "runtime_seconds": runtime, "timing_semantics": timing_semantics,
+        "solver_memory": solver_memory,
         "final_solution_population": population.astype(int).tolist(),
         "final_solution_flag_population": flag_population.astype(int).tolist(),
         "official_objective_per_alpha": official.astype(float).tolist(),
