@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import gc
 import json
+import os
 from pathlib import Path
 import platform
 import random
@@ -43,6 +44,14 @@ PRODUCTION_TIMING = (
 )
 PILOT_TIMING = "budget_freeze_pilot_only; " + PRODUCTION_TIMING
 SAFETY_TIMING = "production_safety_gate_only; " + PRODUCTION_TIMING
+CUDA_ALLOCATOR_ENV_VAR = "PYTORCH_CUDA_ALLOC_CONF"
+EXPECTED_CUDA_ALLOC_CONF = "expandable_segments:True"
+CUDA_ALLOCATOR_PROVENANCE = {
+    "env_var": CUDA_ALLOCATOR_ENV_VAR,
+    "value": EXPECTED_CUDA_ALLOC_CONF,
+    "purpose": "avoid fragmentation for large dense official UDC TSP heatmaps",
+    "algorithm_semantics_changed": False,
+}
 INTER_INSTANCE_MEMORY_HYGIENE = {
     "python_gc_collect": True,
     "torch_cuda_empty_cache": True,
@@ -60,14 +69,23 @@ def ensure_external_output(path: Path, project_root: Path):
     raise ValueError("UDC production evidence must live outside the project repository")
 
 
-def exact_gpu(torch) -> dict:
+def cuda_allocator_gate() -> dict:
+    if os.environ.get(CUDA_ALLOCATOR_ENV_VAR) != EXPECTED_CUDA_ALLOC_CONF:
+        raise RuntimeError(
+            "UDC formal paper production requires "
+            "PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True")
+    return dict(CUDA_ALLOCATOR_PROVENANCE)
+
+
+def exact_gpu(torch, cuda_allocator: dict) -> dict:
     if (not torch.cuda.is_available() or torch.cuda.device_count() != 1
             or "RTX 4090" not in torch.cuda.get_device_name(0)):
         raise ValueError("UDC formal production requires exactly one visible RTX 4090")
     return {"gpu_name": torch.cuda.get_device_name(0),
             "visible_device_count": torch.cuda.device_count(),
             "torch": torch.__version__, "numpy": np.__version__,
-            "python": sys.version, "platform": platform.platform()}
+            "python": sys.version, "platform": platform.platform(),
+            "cuda_allocator": cuda_allocator}
 
 
 def seed_once(torch):
@@ -184,12 +202,13 @@ def solve_record(task, problem, size, budget, env, harness, torch, device,
 
 
 def one_shot_run(args, *, problem, size, label, indices, timing_semantics):
+    cuda_allocator = cuda_allocator_gate()
     import torch
     output_dir = args.output_root.resolve()
     ensure_external_output(output_dir, args.project_root)
     budget = budget_config(problem, label, args.registry)
     gates = common_gates(args, problem)
-    environment = exact_gpu(torch)
+    environment = exact_gpu(torch, cuda_allocator)
     dataset_path = discover_scale_dataset(args.dataset_root, problem, size)
     tasks, _kit, dataset = load_formal_dataset(dataset_path, problem, size)
     if any(index < 0 or index >= len(tasks) for index in indices):
@@ -202,6 +221,7 @@ def one_shot_run(args, *, problem, size, label, indices, timing_semantics):
                 "budget": budget, "indices": list(indices), "dataset": dataset,
                 "environment": environment, "gates": gates,
                 "timing_semantics": timing_semantics,
+                "cuda_allocator": cuda_allocator,
                 "inter_instance_memory_hygiene": INTER_INSTANCE_MEMORY_HYGIENE,
                 "script_sha256": sha256_file(Path(__file__))}
     atomic_json(output_dir / METADATA_FILE, metadata)
@@ -426,6 +446,7 @@ def freeze_decision_gate(output_root: Path, registry_path: Path) -> dict:
 
 
 def run_pilot(args):
+    cuda_allocator_gate()
     if args.problem not in ("tsp", "cvrp") or args.budget not in ("fewer", "more"):
         raise ValueError("pilot requires --problem and --budget")
     args.output_root = args.output_root.resolve()
@@ -438,6 +459,7 @@ def run_pilot(args):
 
 
 def run_safety(args):
+    cuda_allocator_gate()
     cell = (args.problem, args.size, args.budget)
     if cell not in SAFETY_CELLS:
         raise ValueError(f"safety-gate must be one of {SAFETY_CELLS}")
@@ -479,7 +501,7 @@ def safety_gate_evidence(output_root: Path, freeze: dict) -> dict:
 
 
 def production_identity(args, problem, size, budget, dataset, environment, gates,
-                        freeze, safety):
+                        freeze, safety, cuda_allocator):
     return {
         "schema": "udc-paper-production-identity.v1", "method": "UDC",
         "problem": problem, "size": size, "budget": budget,
@@ -488,6 +510,7 @@ def production_identity(args, problem, size, budget, dataset, environment, gates
         "budget_freeze": freeze, "safety_gates": safety,
         "checkpoints": gates["checkpoints"], "dataset": dataset,
         "environment": environment, "batch_size": 1, "seed_once": SEED,
+        "cuda_allocator": cuda_allocator,
         "rng_policy": ("seed Python/NumPy/Torch CPU/CUDA once before model construction; "
                        "process indices 0..N-1 continuously; restore serialized RNG state "
                        "on resume; never reseed per instance"),
@@ -500,6 +523,7 @@ def production_identity(args, problem, size, budget, dataset, environment, gates
 
 
 def run_production(args):
+    cuda_allocator = cuda_allocator_gate()
     import torch
     problem, size, label = args.problem, args.size, args.budget
     if problem not in FORMAL_SIZES or size not in FORMAL_SIZES[problem]:
@@ -513,12 +537,12 @@ def run_production(args):
     safety = safety_gate_evidence(args.output_root, freeze)
     budget = budget_config(problem, label, args.registry)
     gates = common_gates(args, problem)
-    environment = exact_gpu(torch)
+    environment = exact_gpu(torch, cuda_allocator)
     dataset_path = discover_scale_dataset(args.dataset_root, problem, size)
     tasks, _kit, dataset = load_formal_dataset(dataset_path, problem, size)
     output_dir = args.output_root / f"{problem}{size}" / label
     identity = production_identity(args, problem, size, budget, dataset, environment,
-                                   gates, freeze, safety)
+                                   gates, freeze, safety, cuda_allocator)
     metadata, records, checkpoint = initialize_or_resume(output_dir, identity)
     if metadata["state"] == "KIT_VALIDATED":
         print(output_dir / "summary.json")
@@ -590,6 +614,7 @@ def main():
         from methods.udc.build_paper_table import build_and_write
         build_and_write(args.output_root, args.output_root)
         return
+    cuda_allocator_gate()
     required = ("project_root", "official_root", "supplemental_root", "dataset_root",
                 "s3_evidence", "s4_evidence")
     missing = [name for name in required if getattr(args, name) is None]

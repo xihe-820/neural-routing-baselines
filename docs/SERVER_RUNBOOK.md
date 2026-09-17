@@ -803,9 +803,14 @@ Do not reuse S3/S4 runtime as paper Time.
 ```bash
 conda activate cp311_base
 cd /inspire/hdd/global_user/majiale-253108540229/zhang/neural-routing-baselines
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 PRODUCTION_HEAD="$(git rev-parse --short=8 HEAD)"
 UDC_PRODUCTION_ROOT="/inspire/hdd/global_user/majiale-253108540229/zhang/verification_evidence/neural-routing-baselines/udc/$PRODUCTION_HEAD/paper_production"
 ```
+
+Set this exact allocator configuration before starting every pilot, safety-gate,
+or production Python process. Do not add any other allocator knob. Aggregation
+does not require CUDA or this environment variable.
 
 Run the four fixed pilot processes. Each process independently seeds once and
 then processes dataset indices 0, 1, and 2 continuously. The fourth completed

@@ -1,6 +1,7 @@
 import ast
 import json
 import math
+import os
 from pathlib import Path
 import random
 import sys
@@ -13,9 +14,13 @@ import numpy as np
 
 from common.hashing import sha256_file
 from methods.udc.build_paper_table import build_table, load_complete_run
-from methods.udc.paper_production import (_pilot_summary, finalize_pilot_if_complete,
+from methods.udc.paper_production import (CUDA_ALLOCATOR_PROVENANCE,
+                                          EXPECTED_CUDA_ALLOC_CONF, _pilot_summary,
+                                          cuda_allocator_gate, exact_gpu,
+                                          finalize_pilot_if_complete,
                                           freeze_decision_gate, load_formal_dataset,
-                                          solve_record)
+                                          main, production_identity, run_pilot,
+                                          run_production, run_safety, solve_record)
 from methods.udc.paper_protocol import (EXPECTED_BUDGETS, REGISTRY_PATH,
                                         REGISTRY_SHA256, formal_cells,
                                         load_budget_registry, s4_gate)
@@ -274,6 +279,71 @@ class DatasetAndRngTests(unittest.TestCase):
         self.assertEqual(evidence["count"], 7)
         self.assertEqual(evidence["indices"],
                          {"first": 0, "last": 6, "order": "0..N-1 without shuffle"})
+
+    def test_formal_modes_require_exact_cuda_allocator_config(self):
+        runners = (run_pilot, run_safety, run_production)
+        with mock.patch.dict(os.environ, {}, clear=True):
+            for runner in runners:
+                with self.subTest(runner=runner.__name__), self.assertRaisesRegex(
+                        RuntimeError, "PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True"):
+                    runner(types.SimpleNamespace())
+        with mock.patch.dict(
+                os.environ, {"PYTORCH_CUDA_ALLOC_CONF": "max_split_size_mb:128"},
+                clear=True):
+            with self.assertRaisesRegex(RuntimeError, "expandable_segments:True"):
+                cuda_allocator_gate()
+        with mock.patch.dict(
+                os.environ, {"PYTORCH_CUDA_ALLOC_CONF": EXPECTED_CUDA_ALLOC_CONF},
+                clear=True):
+            self.assertEqual(cuda_allocator_gate(), CUDA_ALLOCATOR_PROVENANCE)
+
+    def test_allocator_provenance_is_in_environment_and_production_identity(self):
+        class FakeCuda:
+            @staticmethod
+            def is_available(): return True
+
+            @staticmethod
+            def device_count(): return 1
+
+            @staticmethod
+            def get_device_name(_index): return "NVIDIA GeForce RTX 4090"
+
+        allocator = dict(CUDA_ALLOCATOR_PROVENANCE)
+        environment = exact_gpu(
+            types.SimpleNamespace(cuda=FakeCuda(), __version__="test"), allocator)
+        gates = {key: {} for key in
+                 ("project", "official", "s3", "s4", "registry", "checkpoints")}
+        value = production_identity(
+            None, "tsp", 100, {}, {}, environment, gates, {}, {}, allocator)
+        self.assertEqual(environment["cuda_allocator"], allocator)
+        self.assertEqual(value["cuda_allocator"], allocator)
+        one_shot = self._function_ast(
+            "methods/udc/paper_production.py", "one_shot_run")
+        metadata_keys = [key.value for node in ast.walk(one_shot)
+                         if isinstance(node, ast.Dict) for key in node.keys
+                         if isinstance(key, ast.Constant)]
+        self.assertIn("cuda_allocator", metadata_keys)
+
+    def test_allocator_gate_precedes_local_torch_import(self):
+        for name in ("one_shot_run", "run_production"):
+            function = self._function_ast("methods/udc/paper_production.py", name)
+            gate_statement, import_statement = function.body[:2]
+            self.assertTrue(any(
+                isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+                and node.func.id == "cuda_allocator_gate"
+                for node in ast.walk(gate_statement)))
+            self.assertIsInstance(import_statement, ast.Import)
+            self.assertEqual([alias.name for alias in import_statement.names], ["torch"])
+
+    def test_aggregate_does_not_require_cuda_allocator_env(self):
+        with tempfile.TemporaryDirectory() as value, \
+                mock.patch.dict(os.environ, {}, clear=True), \
+                mock.patch("methods.udc.build_paper_table.build_and_write") as build, \
+                mock.patch.object(sys, "argv", [
+                    "paper_production.py", "--mode", "aggregate",
+                    "--output-root", value]):
+            main()
+        build.assert_called_once()
 
     def test_rng_serialization_restores_continuous_stream(self):
         import torch
