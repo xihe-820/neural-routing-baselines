@@ -168,7 +168,11 @@ def cuda_memory_snapshot(torch):
 
 
 def solve_tsp(task, env, harness, torch, device, dataset_index, *,
-              problem_size=500, timing_semantics=TIMING, capture_memory=False):
+              problem_size=500, timing_semantics=TIMING, capture_memory=False,
+              x_stages=None):
+    x_stages = SPECS["tsp"]["x"] if x_stages is None else int(x_stages)
+    if x_stages <= 0:
+        raise ValueError("TSP x_stages must be positive")
     source_points, model_points, semantics = adapt_tsp_task(task, size=problem_size)
     coordinates = torch.as_tensor(model_points[None], dtype=torch.float32, device=device)
     harness.tester_params = {"test_episodes": 1, "test_batch_size": 1,
@@ -181,7 +185,7 @@ def solve_tsp(task, env, harness, torch, device, dataset_index, *,
         if list(solution.shape) != [1, ALPHA, problem_size]:
             raise ValueError(f"TSP alpha population shape mismatch: {list(solution.shape)}")
         stages = []
-        for k in range(1, SPECS["tsp"]["x"] + 1):
+        for k in range(1, x_stages + 1):
             solution, candidate0, best = harness._test_one_batch(
                 solution, batch_size=1, episode=0, k=k)
             stages.append({"stage": k, "candidate0": float(candidate0),
@@ -207,7 +211,8 @@ def solve_tsp(task, env, harness, torch, device, dataset_index, *,
     passed = agreement["pass"] and returned_agreement["pass"] and kit_feasible and kit_agreement["pass"]
     return {
         "instance_id": str(task.name), "dataset_instance_index": dataset_index,
-        "problem": "TSP", "size": problem_size, "seed": SEED, "alpha": ALPHA, "x": 2,
+        "problem": "TSP", "size": problem_size, "seed": SEED, "alpha": ALPHA,
+        "x": x_stages,
         "configured_pomo": 2, "effective_pomo": 2,
         "rng_before_solve": before, "rng_after_solve": rng_digest(torch),
         "input_semantics": semantics, "completed_stages": stages,
@@ -230,7 +235,11 @@ def solve_tsp(task, env, harness, torch, device, dataset_index, *,
 
 
 def solve_cvrp(task, env, harness, torch, device, dataset_index, *,
-               problem_size=500, timing_semantics=TIMING, capture_memory=False):
+               problem_size=500, timing_semantics=TIMING, capture_memory=False,
+               x_stages=None):
+    x_stages = SPECS["cvrp"]["x"] if x_stages is None else int(x_stages)
+    if x_stages <= 0:
+        raise ValueError("CVRP x_stages must be positive")
     coordinates_np, demand_np, semantics = adapt_cvrp_task(task, size=problem_size)
     coordinates = torch.as_tensor(coordinates_np[None], dtype=torch.float32, device=device)
     demand = torch.as_tensor(demand_np[None], dtype=torch.float32, device=device)
@@ -252,7 +261,7 @@ def solve_cvrp(task, env, harness, torch, device, dataset_index, *,
                     or solution_flag.shape != solution.shape):
                 raise ValueError("CVRP alpha solution/flag population shape mismatch")
             stages = []
-            for k in range(1, SPECS["cvrp"]["x"] + 1):
+            for k in range(1, x_stages + 1):
                 solution, solution_flag = harness.route_ranking2(
                     coordinates, solution, solution_flag)
                 solution, solution_flag, candidate0, best = harness._test_one_batch(
@@ -287,7 +296,8 @@ def solve_cvrp(task, env, harness, torch, device, dataset_index, *,
     passed = agreement["pass"] and returned_agreement["pass"] and kit_feasible and kit_agreement["pass"]
     return {
         "instance_id": str(task.name), "dataset_instance_index": dataset_index,
-        "problem": "CVRP", "size": problem_size, "seed": SEED, "alpha": ALPHA, "x": 50,
+        "problem": "CVRP", "size": problem_size, "seed": SEED, "alpha": ALPHA,
+        "x": x_stages,
         "configured_pomo": 10, "effective_pomo": 1,
         "rng_before_solve": before, "rng_after_solve": rng_digest(torch),
         "input_semantics": semantics, "completed_stages": stages,

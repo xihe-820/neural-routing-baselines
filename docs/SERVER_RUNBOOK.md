@@ -794,6 +794,98 @@ After each `PASS`, repeat the command by changing only `--problem` and `--size`:
 Every invocation updates `$S4_ROOT/summary.json` and writes immutable
 `metadata.json` and `record.json` under its problem-size directory.
 
+## UDC final paper production
+
+Use the committed production implementation only after the project checkout and
+pinned official checkout are clean. The output root is outside both repositories.
+Do not reuse S3/S4 runtime as paper Time.
+
+```bash
+conda activate cp311_base
+cd /inspire/hdd/global_user/majiale-253108540229/zhang/neural-routing-baselines
+PRODUCTION_HEAD="$(git rev-parse --short=8 HEAD)"
+UDC_PRODUCTION_ROOT="/inspire/hdd/global_user/majiale-253108540229/zhang/verification_evidence/neural-routing-baselines/udc/$PRODUCTION_HEAD/paper_production"
+```
+
+Run the four fixed pilot processes. Each process independently seeds once and
+then processes dataset indices 0, 1, and 2 continuously. The fourth completed
+run creates `budget_freeze/pilot.json` and `budget_freeze/decision.json`.
+
+```bash
+python -B methods/udc/paper_production.py --mode pilot --problem tsp --budget fewer \
+  --project-root "$PWD" --official-root /inspire/hdd/global_user/majiale-253108540229/zhang/baselines/NCO_code \
+  --supplemental-root /inspire/hdd/global_user/majiale-253108540229/zhang/baselines/UDC_supplemental_unpack/UDC-master/UDC \
+  --dataset-root /inspire/hdd/global_user/majiale-253108540229/ML4CO-Bench-101 \
+  --s3-evidence /inspire/hdd/global_user/majiale-253108540229/zhang/verification_evidence/neural-routing-baselines/udc/df082675/s3_ml4co_adapter/our_5 \
+  --s4-evidence /inspire/hdd/global_user/majiale-253108540229/zhang/verification_evidence/neural-routing-baselines/udc/99b85d29/s4_scale_preflight \
+  --output-root "$UDC_PRODUCTION_ROOT"
+
+python -B methods/udc/paper_production.py --mode pilot --problem tsp --budget more \
+  --project-root "$PWD" --official-root /inspire/hdd/global_user/majiale-253108540229/zhang/baselines/NCO_code \
+  --supplemental-root /inspire/hdd/global_user/majiale-253108540229/zhang/baselines/UDC_supplemental_unpack/UDC-master/UDC \
+  --dataset-root /inspire/hdd/global_user/majiale-253108540229/ML4CO-Bench-101 \
+  --s3-evidence /inspire/hdd/global_user/majiale-253108540229/zhang/verification_evidence/neural-routing-baselines/udc/df082675/s3_ml4co_adapter/our_5 \
+  --s4-evidence /inspire/hdd/global_user/majiale-253108540229/zhang/verification_evidence/neural-routing-baselines/udc/99b85d29/s4_scale_preflight \
+  --output-root "$UDC_PRODUCTION_ROOT"
+
+python -B methods/udc/paper_production.py --mode pilot --problem cvrp --budget fewer \
+  --project-root "$PWD" --official-root /inspire/hdd/global_user/majiale-253108540229/zhang/baselines/NCO_code \
+  --supplemental-root /inspire/hdd/global_user/majiale-253108540229/zhang/baselines/UDC_supplemental_unpack/UDC-master/UDC \
+  --dataset-root /inspire/hdd/global_user/majiale-253108540229/ML4CO-Bench-101 \
+  --s3-evidence /inspire/hdd/global_user/majiale-253108540229/zhang/verification_evidence/neural-routing-baselines/udc/df082675/s3_ml4co_adapter/our_5 \
+  --s4-evidence /inspire/hdd/global_user/majiale-253108540229/zhang/verification_evidence/neural-routing-baselines/udc/99b85d29/s4_scale_preflight \
+  --output-root "$UDC_PRODUCTION_ROOT"
+
+python -B methods/udc/paper_production.py --mode pilot --problem cvrp --budget more \
+  --project-root "$PWD" --official-root /inspire/hdd/global_user/majiale-253108540229/zhang/baselines/NCO_code \
+  --supplemental-root /inspire/hdd/global_user/majiale-253108540229/zhang/baselines/UDC_supplemental_unpack/UDC-master/UDC \
+  --dataset-root /inspire/hdd/global_user/majiale-253108540229/ML4CO-Bench-101 \
+  --s3-evidence /inspire/hdd/global_user/majiale-253108540229/zhang/verification_evidence/neural-routing-baselines/udc/df082675/s3_ml4co_adapter/our_5 \
+  --s4-evidence /inspire/hdd/global_user/majiale-253108540229/zhang/verification_evidence/neural-routing-baselines/udc/99b85d29/s4_scale_preflight \
+  --output-root "$UDC_PRODUCTION_ROOT"
+```
+
+After `decision.json` reports `FROZEN`, run both largest-size more safety gates:
+
+```bash
+python -B methods/udc/paper_production.py --mode safety-gate --problem tsp --size 10000 --budget more \
+  --project-root "$PWD" --official-root /inspire/hdd/global_user/majiale-253108540229/zhang/baselines/NCO_code \
+  --supplemental-root /inspire/hdd/global_user/majiale-253108540229/zhang/baselines/UDC_supplemental_unpack/UDC-master/UDC \
+  --dataset-root /inspire/hdd/global_user/majiale-253108540229/ML4CO-Bench-101 \
+  --s3-evidence /inspire/hdd/global_user/majiale-253108540229/zhang/verification_evidence/neural-routing-baselines/udc/df082675/s3_ml4co_adapter/our_5 \
+  --s4-evidence /inspire/hdd/global_user/majiale-253108540229/zhang/verification_evidence/neural-routing-baselines/udc/99b85d29/s4_scale_preflight \
+  --output-root "$UDC_PRODUCTION_ROOT"
+
+python -B methods/udc/paper_production.py --mode safety-gate --problem cvrp --size 2000 --budget more \
+  --project-root "$PWD" --official-root /inspire/hdd/global_user/majiale-253108540229/zhang/baselines/NCO_code \
+  --supplemental-root /inspire/hdd/global_user/majiale-253108540229/zhang/baselines/UDC_supplemental_unpack/UDC-master/UDC \
+  --dataset-root /inspire/hdd/global_user/majiale-253108540229/ML4CO-Bench-101 \
+  --s3-evidence /inspire/hdd/global_user/majiale-253108540229/zhang/verification_evidence/neural-routing-baselines/udc/df082675/s3_ml4co_adapter/our_5 \
+  --s4-evidence /inspire/hdd/global_user/majiale-253108540229/zhang/verification_evidence/neural-routing-baselines/udc/99b85d29/s4_scale_preflight \
+  --output-root "$UDC_PRODUCTION_ROOT"
+```
+
+Run one formal fullset at a time. Re-running the exact command resumes from the
+serialized RNG checkpoint; a completed run returns its existing summary.
+
+```bash
+python -B methods/udc/paper_production.py --mode production --problem tsp --size 1000 --budget fewer \
+  --project-root "$PWD" --official-root /inspire/hdd/global_user/majiale-253108540229/zhang/baselines/NCO_code \
+  --supplemental-root /inspire/hdd/global_user/majiale-253108540229/zhang/baselines/UDC_supplemental_unpack/UDC-master/UDC \
+  --dataset-root /inspire/hdd/global_user/majiale-253108540229/ML4CO-Bench-101 \
+  --s3-evidence /inspire/hdd/global_user/majiale-253108540229/zhang/verification_evidence/neural-routing-baselines/udc/df082675/s3_ml4co_adapter/our_5 \
+  --s4-evidence /inspire/hdd/global_user/majiale-253108540229/zhang/verification_evidence/neural-routing-baselines/udc/99b85d29/s4_scale_preflight \
+  --output-root "$UDC_PRODUCTION_ROOT"
+```
+
+Change only problem, size, and budget to cover the 20 frozen cells. After all
+20 summaries are `KIT_VALIDATED`, build the paper table without invoking a solver:
+
+```bash
+python -B methods/udc/paper_production.py --mode aggregate \
+  --output-root "$UDC_PRODUCTION_ROOT"
+```
+
 ## 11. Regression tests
 
 ```bash

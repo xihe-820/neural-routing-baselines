@@ -1,0 +1,93 @@
+{
+  "schema": "paper-budgets.v1",
+  "method": "UDC",
+  "provenance_label": "PROJECT-SELECTED PAPER BUDGETS",
+  "freeze_policy": {
+    "registry_identity": "SHA256 of this complete file is checked by every UDC paper runner",
+    "freeze_commit": "git commit containing this registry; resolved and recorded in runtime evidence",
+    "pilot_policy": "fixed TSP500/CVRP500 indices 0,1,2; no budget sweep",
+    "production_requires": [
+      "pilot decision FROZEN",
+      "TSP10000 more safety gate PASS",
+      "CVRP2000 more safety gate PASS"
+    ]
+  },
+  "entries": [
+    {
+      "method": "UDC",
+      "problem": "TSP",
+      "label": "fewer",
+      "alpha": 50,
+      "x": 2,
+      "sub_size": 100,
+      "configured_pomo": 2,
+      "effective_pomo": 2,
+      "seed": 1234,
+      "batch_size": 1,
+      "config_origin": "pinned official UDC primitives and manuscript x2/alpha50 candidate",
+      "selection_origin": "PROJECT-SELECTED PAPER BUDGETS",
+      "official_source_commit": "274df3c4975384592b60fe7f79fbb2441ce11c15",
+      "project_budget_rationale": "source-anchored fewer candidate; fixed before pilot and never tuned",
+      "pilot_artifact": "budget_freeze/pilot.json",
+      "freeze_commit": "RUNTIME_PROJECT_HEAD_CONTAINING_THIS_REGISTRY",
+      "freeze_date": "2026-09-17"
+    },
+    {
+      "method": "UDC",
+      "problem": "TSP",
+      "label": "more",
+      "alpha": 50,
+      "x": 50,
+      "sub_size": 100,
+      "configured_pomo": 2,
+      "effective_pomo": 2,
+      "seed": 1234,
+      "batch_size": 1,
+      "config_origin": "pinned official UDC primitives and manuscript x50/alpha50 candidate",
+      "selection_origin": "PROJECT-SELECTED PAPER BUDGETS",
+      "official_source_commit": "274df3c4975384592b60fe7f79fbb2441ce11c15",
+      "project_budget_rationale": "source-anchored more candidate; fixed before pilot and never tuned",
+      "pilot_artifact": "budget_freeze/pilot.json",
+      "freeze_commit": "RUNTIME_PROJECT_HEAD_CONTAINING_THIS_REGISTRY",
+      "freeze_date": "2026-09-17"
+    },
+    {
+      "method": "UDC",
+      "problem": "CVRP",
+      "label": "fewer",
+      "alpha": 50,
+      "x": 50,
+      "sub_size": 100,
+      "configured_pomo": 10,
+      "effective_pomo": 1,
+      "seed": 1234,
+      "batch_size": 1,
+      "config_origin": "pinned official UDC primitives and manuscript x50/alpha50 candidate",
+      "selection_origin": "PROJECT-SELECTED PAPER BUDGETS",
+      "official_source_commit": "274df3c4975384592b60fe7f79fbb2441ce11c15",
+      "project_budget_rationale": "source-anchored fewer candidate; fixed before pilot and never tuned",
+      "pilot_artifact": "budget_freeze/pilot.json",
+      "freeze_commit": "RUNTIME_PROJECT_HEAD_CONTAINING_THIS_REGISTRY",
+      "freeze_date": "2026-09-17"
+    },
+    {
+      "method": "UDC",
+      "problem": "CVRP",
+      "label": "more",
+      "alpha": 50,
+      "x": 250,
+      "sub_size": 100,
+      "configured_pomo": 10,
+      "effective_pomo": 1,
+      "seed": 1234,
+      "batch_size": 1,
+      "config_origin": "pinned official UDC primitives and manuscript x250/alpha50 candidate",
+      "selection_origin": "PROJECT-SELECTED PAPER BUDGETS",
+      "official_source_commit": "274df3c4975384592b60fe7f79fbb2441ce11c15",
+      "project_budget_rationale": "source-anchored more candidate; fixed before pilot and never tuned",
+      "pilot_artifact": "budget_freeze/pilot.json",
+      "freeze_commit": "RUNTIME_PROJECT_HEAD_CONTAINING_THIS_REGISTRY",
+      "freeze_date": "2026-09-17"
+    }
+  ]
+}
