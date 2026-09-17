@@ -253,16 +253,27 @@ def finalize_pilot_if_complete(args):
                     or metadata.get("records_sha256") != sha256_file(records_path)):
                 raise ValueError("pilot run artifact is incomplete or changed")
             project_gate = metadata.get("gates", {}).get("project", {})
+            project_post = metadata.get("project_post", {})
             official_source = metadata.get("gates", {}).get("official", {})
+            official_post = metadata.get("official_post", {})
             if (project_gate.get("pass") is not True
+                    or project_post.get("pass") is not True
+                    or project_post.get("head") != project_gate.get("head")
                     or official_source.get("pass") is not True
-                    or official_source.get("head") != OFFICIAL_COMMIT):
+                    or official_source.get("head") != OFFICIAL_COMMIT
+                    or official_post.get("pass") is not True
+                    or official_post.get("head") != OFFICIAL_COMMIT):
                 raise ValueError("pilot run repository provenance failed")
             run_project_heads.add(project_gate.get("head"))
             records = json.loads(records_path.read_text())
-            if run.get("records") != records:
-                raise ValueError("UDC pilot.json records differ from run artifact")
             budget = budget_config(problem, label, args.registry)
+            if (not isinstance(records, list) or len(records) != len(PILOT_INDICES)
+                    or metadata.get("problem") != problem
+                    or metadata.get("size") != 500
+                    or metadata.get("budget") != budget
+                    or metadata.get("indices") != list(PILOT_INDICES)
+                    or metadata.get("completed_records") != len(PILOT_INDICES)):
+                raise ValueError("pilot run metadata differs from the fixed pilot protocol")
             for row in records:
                 validate_production_record(row, problem=problem, size=500,
                                            alpha=budget["alpha"], x_stages=budget["x"])
@@ -278,7 +289,7 @@ def finalize_pilot_if_complete(args):
                 "records": records,
             }
     project = production_project_gate(args.project_root)
-    if run_project_heads != {project["head"]}:
+    if project["pass"] is not True or run_project_heads != {project["head"]}:
         raise ValueError("pilot runs were not produced from one current project commit")
     pilot = {"schema": "udc-budget-freeze-pilot.v1", "created_at": utc_now(),
              "provenance_label": "PROJECT-SELECTED PAPER BUDGETS",
@@ -349,6 +360,7 @@ def freeze_decision_gate(output_root: Path, registry_path: Path) -> dict:
             records = json.loads(records_path.read_text())
             budget = budget_config(problem, label, registry_path)
             if (metadata.get("state") != "KIT_VALIDATED"
+                    or metadata.get("records_sha256") != sha256_file(records_path)
                     or [row.get("dataset_instance_index") for row in records]
                     != list(PILOT_INDICES)):
                 raise ValueError("UDC pilot run is incomplete")
@@ -360,6 +372,8 @@ def freeze_decision_gate(output_root: Path, registry_path: Path) -> dict:
             for row in records:
                 validate_production_record(row, problem=problem, size=500,
                                            alpha=budget["alpha"], x_stages=budget["x"])
+            if run.get("records") != records:
+                raise ValueError("UDC pilot.json records differ from run artifact")
             summary = _pilot_summary(records, problem, label, budget)
             stored = run.get("summary", {})
             if (summary != stored):

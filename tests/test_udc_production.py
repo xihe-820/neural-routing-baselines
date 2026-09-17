@@ -13,8 +13,9 @@ import numpy as np
 
 from common.hashing import sha256_file
 from methods.udc.build_paper_table import build_table, load_complete_run
-from methods.udc.paper_production import (_pilot_summary, freeze_decision_gate,
-                                          load_formal_dataset, solve_record)
+from methods.udc.paper_production import (_pilot_summary, finalize_pilot_if_complete,
+                                          freeze_decision_gate, load_formal_dataset,
+                                          solve_record)
 from methods.udc.paper_protocol import (EXPECTED_BUDGETS, REGISTRY_PATH,
                                         REGISTRY_SHA256, formal_cells,
                                         load_budget_registry, s4_gate)
@@ -88,6 +89,66 @@ class BudgetRegistryTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "SHA256"):
                 load_budget_registry(path)
 
+    def test_finalize_four_pilot_runs_creates_frozen_decision(self):
+        with tempfile.TemporaryDirectory() as value:
+            root = Path(value)
+            project_head = "production-head"
+            expected_budgets = {}
+            for problem in ("tsp", "cvrp"):
+                expected_budgets[problem] = {}
+                for label in ("fewer", "more"):
+                    budget = dict(load_budget_registry()["entries"][(problem, label)])
+                    objective = 2.0 if label == "fewer" else 1.0
+                    runtime = 1.0 if label == "fewer" else 2.0
+                    rows = [record(index, problem=problem, size=500,
+                                   x=budget["x"], objective=objective, label=label,
+                                   reference=1.0, runtime=runtime)
+                            for index in range(3)]
+                    directory = (root / "budget_freeze" / "pilot_runs" /
+                                 problem / label)
+                    directory.mkdir(parents=True)
+                    records_path = directory / "records.json"
+                    atomic_json(records_path, rows)
+                    gate = {"head": project_head, "pass": True}
+                    official = {
+                        "head": "274df3c4975384592b60fe7f79fbb2441ce11c15",
+                        "pass": True}
+                    atomic_json(directory / METADATA_FILE, {
+                        "state": "KIT_VALIDATED", "problem": problem, "size": 500,
+                        "budget": budget, "indices": [0, 1, 2],
+                        "completed_records": 3,
+                        "records_sha256": sha256_file(records_path),
+                        "gates": {"project": gate, "official": official},
+                        "project_post": gate, "official_post": official})
+                    expected_budgets[problem][label] = {
+                        "alpha": budget["alpha"], "x": budget["x"]}
+
+            args = types.SimpleNamespace(output_root=root, registry=REGISTRY_PATH,
+                                         project_root=Path("/project"))
+            current_project = {"head": project_head, "pass": True}
+            with mock.patch("methods.udc.paper_production.production_project_gate",
+                            return_value=current_project):
+                decision = finalize_pilot_if_complete(args)
+
+            freeze = root / "budget_freeze"
+            pilot_path = freeze / "pilot.json"
+            decision_path = freeze / "decision.json"
+            self.assertTrue(pilot_path.is_file())
+            self.assertTrue(decision_path.is_file())
+            self.assertEqual(decision["status"], "FROZEN")
+            self.assertEqual(decision["registry_sha256"], REGISTRY_SHA256)
+            self.assertEqual(decision["budgets"], expected_budgets)
+            self.assertEqual(decision["pilot_sha256"], sha256_file(pilot_path))
+            self.assertTrue(freeze_decision_gate(root, REGISTRY_PATH)["pass"])
+
+            tampered = (root / "budget_freeze" / "pilot_runs" /
+                        "tsp" / "fewer" / "records.json")
+            rows = json.loads(tampered.read_text())
+            rows[0]["runtime_seconds"] = 99.0
+            atomic_json(tampered, rows)
+            with self.assertRaisesRegex(ValueError, "hash integrity"):
+                freeze_decision_gate(root, REGISTRY_PATH)
+
     def test_freeze_decision_recomputes_pilot_and_detects_tampering(self):
         with tempfile.TemporaryDirectory() as value:
             root = Path(value)
@@ -107,9 +168,11 @@ class BudgetRegistryTests(unittest.TestCase):
                     directory = (root / "budget_freeze" / "pilot_runs" /
                                  problem / label)
                     directory.mkdir(parents=True)
-                    atomic_json(directory / "records.json", rows)
+                    records_path = directory / "records.json"
+                    atomic_json(records_path, rows)
                     atomic_json(directory / METADATA_FILE, {
                         "state": "KIT_VALIDATED",
+                        "records_sha256": sha256_file(records_path),
                         "gates": {
                             "project": {"head": "production-head", "pass": True},
                             "official": {
