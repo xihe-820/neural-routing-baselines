@@ -561,6 +561,36 @@ for SIZE in 50 100; do
 done
 ```
 
+### NeuOpt TSP100 BS1 timing calibration
+
+This calibration is evidence for human budget selection; it does not freeze a
+paper T or run a full set. Use the same first 20 benchmark instances for every
+candidate and new, non-existing output directories.
+
+```bash
+export NEUOPT_TSP100_DATASET="$ML4CO_DATA_ROOT/tsp100_concorde_7.756.pkl"
+export NEUOPT_TSP100_CHECKPOINT="$NEUOPT_UPSTREAM/pre-trained/tsp100.pt"
+export NEUOPT_TSP_CALIBRATION_ROOT="$BASELINE_ARTIFACT_ROOT/paper/neuopt/tsp100/calibration"
+
+for T_MAX in 1 2 5 10 20; do
+  python -B methods/neuopt/tsp/paper_eval.py \
+    --problem-size 100 --T-max "$T_MAX" --batch-size 1 --d2a 1 \
+    --stall-limit 10 --k 4 --device cuda:0 \
+    --dataset "$NEUOPT_TSP100_DATASET" --upstream "$NEUOPT_UPSTREAM" \
+    --checkpoint "$NEUOPT_TSP100_CHECKPOINT" \
+    --output-dir "$NEUOPT_TSP_CALIBRATION_ROOT/t$T_MAX"
+done
+
+python -B methods/neuopt/tsp/runtime_calibration.py \
+  --candidate-dirs \
+    "$NEUOPT_TSP_CALIBRATION_ROOT/t1" \
+    "$NEUOPT_TSP_CALIBRATION_ROOT/t2" \
+    "$NEUOPT_TSP_CALIBRATION_ROOT/t5" \
+    "$NEUOPT_TSP_CALIBRATION_ROOT/t10" \
+    "$NEUOPT_TSP_CALIBRATION_ROOT/t20" \
+  --output "$NEUOPT_TSP_CALIBRATION_ROOT/calibration_report.json"
+```
+
 
 ## 9. GLOP TSP50 and TSP100
 
