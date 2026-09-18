@@ -23,6 +23,12 @@ DATASETS = {
         "count": 1000,
         "capacity": 50.0,
     },
+    200: {
+        "filename": "cvrptw200_pyvrp-60s_41.597.pkl",
+        "sha256": "8cd550a9316d8e15832780b7c5c0f26ed539bde0b4df4a5f99918ee57ec16c8d",
+        "count": 100,
+        "capacity": 80.0,
+    },
 }
 
 TIMING_SEMANTICS = (
@@ -45,7 +51,7 @@ def dataset_config(problem_size: int) -> dict:
     try:
         return dict(DATASETS[int(problem_size)])
     except (KeyError, ValueError) as exc:
-        raise ValueError("formal remaining-CVRPTW scope is exactly sizes 50 and 100") from exc
+        raise ValueError("formal remaining-CVRPTW scope is exactly sizes 50, 100, and 200") from exc
 
 
 def validate_task(task, problem_size: int) -> None:

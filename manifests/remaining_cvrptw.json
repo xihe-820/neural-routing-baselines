@@ -2,17 +2,31 @@
   "schema": "remaining-cvrptw-formal-v1",
   "scope": {
     "problem": "CVRPTW",
-    "sizes": [50, 100],
-    "methods": ["RF-TE", "CaDA", "MoSES(CaDA)"],
-    "cvrptw200": "OUT_OF_SCOPE",
+    "sizes": [
+      50,
+      100,
+      200
+    ],
+    "methods": [
+      "RF-TE",
+      "CaDA",
+      "MoSES(CaDA)",
+      "SymNCO"
+    ],
     "cvrp": "OUT_OF_SCOPE"
   },
   "shared_contract": {
-    "original_instance_batch_size": 1,
+    "original_instance_batch_size": [
+      1,
+      10
+    ],
     "reference_objective": "task.evaluate(task.ref_sol)",
     "drop": "mean_i((independent_objective_i-reference_objective_i)/reference_objective_i*100)",
-    "validation": ["problems/cvrptw/validate.py", "ML4CO-Kit CVRPTWTask"],
-    "timing": "CUDA-synchronized single-original-instance wall-clock around official reset, Aug8, all-customer multistart rollout, selection and selected-result transfer"
+    "validation": [
+      "problems/cvrptw/validate.py",
+      "ML4CO-Kit CVRPTWTask"
+    ],
+    "timing": "method-specific CUDA-synchronized native original-instance batch latency; never divided by batch size"
   },
   "datasets": {
     "50": {
@@ -26,6 +40,12 @@
       "sha256": "3b74fa520f42f7aa607a5bd00a7d4aaa118e0715ca1672ee854fc850bac67867",
       "count": 1000,
       "capacity": 50
+    },
+    "200": {
+      "filename": "cvrptw200_pyvrp-60s_41.597.pkl",
+      "sha256": "8cd550a9316d8e15832780b7c5c0f26ed539bde0b4df4a5f99918ee57ec16c8d",
+      "count": 100,
+      "capacity": 80
     }
   },
   "methods": {
@@ -34,7 +54,10 @@
       "commit": "fe0e45b6df118af03c5f42db8b93a351f7629131",
       "release": "v0.4.0",
       "checkpoint_revision": "4edf73d68a5915787dd2f81ba177d77e13317190",
-      "checkpoints": {"50": "checkpoints/50/rf-transformer.ckpt", "100": "checkpoints/100/rf-transformer.ckpt"},
+      "checkpoints": {
+        "50": "checkpoints/50/rf-transformer.ckpt",
+        "100": "checkpoints/100/rf-transformer.ckpt"
+      },
       "checkpoint_sha256": "PENDING_SERVER_ASSET_AUDIT",
       "protocol": "Aug8 dihedral8; all-customer starts; checkpoint test greedy; max start then max augmentation",
       "status": "READY_FOR_SERVER_ASSET_ENV_PREFLIGHT"
@@ -42,7 +65,10 @@
     "CaDA": {
       "repo": "https://github.com/CIAM-Group/CaDA",
       "commit": "b9868e1e09b3a1a3754960d830e801e51c7cb38d",
-      "checkpoints": {"50": "50/result/2024-1111-1139/checkpoint-300.pt", "100": "100/result/2024-1121-1355/checkpoint-300.pt"},
+      "checkpoints": {
+        "50": "50/result/2024-1111-1139/checkpoint-300.pt",
+        "100": "100/result/2024-1121-1355/checkpoint-300.pt"
+      },
       "checkpoint_sha256": "PENDING_SERVER_ASSET_AUDIT",
       "protocol": "seed 7; greedy; Aug8; all-customer POMO; prompt C=1,O=0,TW=1,L=0,B=0",
       "status": "READY_FOR_SERVER_ASSET_ENV_PREFLIGHT"
@@ -51,11 +77,56 @@
       "repo": "https://github.com/panyxy/moses_vrp",
       "commit": "e301478b7a5df6d7b0b10a0543f4dee5e3c027a8",
       "checkpoints": {
-        "50": {"path": "pretrained_moses_model/cada/50/multilora_denseroute_sigmoid.ckpt", "sha256": "1aa499f3fce5d3412c2544c9632bbb9709309a7299b4298b535fa7e9014ef803"},
-        "100": {"path": "pretrained_moses_model/cada/100/multilora_denseroute_sigmoid.ckpt", "sha256": "2eac9b038ae4655581aa73e4dbe8ad529aefd1963368c9a92d254b6269f8aabf"}
+        "50": {
+          "path": "pretrained_moses_model/cada/50/multilora_denseroute_sigmoid.ckpt",
+          "sha256": "1aa499f3fce5d3412c2544c9632bbb9709309a7299b4298b535fa7e9014ef803"
+        },
+        "100": {
+          "path": "pretrained_moses_model/cada/100/multilora_denseroute_sigmoid.ckpt",
+          "sha256": "2eac9b038ae4655581aa73e4dbe8ad529aefd1963368c9a92d254b6269f8aabf"
+        }
       },
       "protocol": "CaDA backbone; sigmoid multi-LoRA ranks 32x5; 4 experts/top-k 4/temperature 1; Aug8; all-customer multistart greedy",
       "status": "READY_FOR_SERVER_ENV_PREFLIGHT"
+    },
+    "SymNCO": {
+      "source_snapshot": "/inspire/hdd/global_user/majiale-253108540229/zhang/RS4CO_symnco_baseline_138c95e",
+      "base_identity": "RS4CO 138c95efb34a5910ab618f68987098a7312965dd",
+      "source_manifest_sha256": "9c5f2c9cacafb4a60e25b99161a1027ff35cff64e1c6af70ff6b93a60a446a2f",
+      "checkpoints": {
+        "50": {
+          "path": "/inspire/hdd/global_user/majiale-253108540229/zhang/cvrptw_symnco_runs/train50-cache-b512-seed1234/best.pt",
+          "sha256": "6be6ed8c5b40330db0f2605f2cf354ee006cf8d5d6564726fd904a0b2bcf1395"
+        },
+        "100": {
+          "path": "/inspire/hdd/global_user/majiale-253108540229/zhang/cvrptw_symnco_runs/train100-cache-b512-seed1234/best.pt",
+          "sha256": "e4aad3807cf75864e561913905cf350cd986be01aea714c8cab8a6f1a27e8144"
+        },
+        "200": {
+          "path": "/inspire/hdd/global_user/majiale-253108540229/zhang/cvrptw_symnco_runs/train200-cache-b256-seed1234/best.pt",
+          "sha256": "23c18b2ab2ff966c90a07bae51f63fcf1f5c33e9a56018c0d972204a32207479"
+        }
+      },
+      "protocol": "E1: A=4 identity+3 per-raw-ID seeded rigid views; K=1; greedy; no forced starts; no local search; per-original checked-cost selection",
+      "historical_mean": {
+        "50": {
+          "objective": 17.042,
+          "drop_percent": 6.29
+        },
+        "100": {
+          "objective": 27.599,
+          "drop_percent": 8.52
+        },
+        "200": {
+          "objective": 45.996,
+          "drop_percent": 10.55
+        }
+      },
+      "formal_batch_sizes": [
+        1,
+        10
+      ],
+      "status": "READY_FOR_SERVER_PREFLIGHT"
     }
   }
 }

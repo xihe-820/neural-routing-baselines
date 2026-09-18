@@ -43,7 +43,7 @@ def scope_instance_count(scope: str, batch_size: int, dataset_count: int) -> int
     return count
 
 
-def validate_record(record: dict, *, problem_size=None) -> int:
+def validate_record(record: dict, *, problem_size=None, protocol=None) -> int:
     required = (
         "dataset_instance_index", "instance_id", "raw_official_action",
         "canonical_solution", "selected_candidate", "official_reward",
@@ -84,20 +84,29 @@ def validate_record(record: dict, *, problem_size=None) -> int:
             len(canonical) < 3 or canonical[0] != 0 or canonical[-1] != 0):
         raise ValueError(f"record {index} has invalid canonical/raw action representation")
     candidate = record["selected_candidate"]
+    candidate_index = candidate.get("candidate_index", candidate.get("start_index")) \
+        if isinstance(candidate, dict) else None
     if not isinstance(candidate, dict) or any(
-            isinstance(candidate.get(field), bool) or
-            not isinstance(candidate.get(field), int) or candidate[field] < 0
-            for field in ("augmentation_index", "start_index", "flat_index")):
+            isinstance(value, bool) or not isinstance(value, int) or value < 0
+            for value in (candidate.get("augmentation_index"), candidate_index,
+                          candidate.get("flat_index"))):
         raise ValueError(f"record {index} has invalid selected candidate provenance")
     if problem_size is not None:
         customers = [node for node in canonical if node != 0]
         if sorted(customers) != list(range(1, problem_size + 1)):
             raise ValueError(f"record {index} canonical solution is not exact customer coverage")
-        if (candidate["augmentation_index"] >= 8 or
-                candidate["start_index"] >= problem_size or
+        protocol = protocol or {}
+        augmentations = int(protocol.get("num_augmentations", 8))
+        candidate_count = protocol.get("num_starts")
+        if candidate_count is None:
+            candidate_count = protocol.get("num_rollouts", protocol.get("rollouts", problem_size))
+        candidate_count = int(candidate_count)
+        if (augmentations <= 0 or candidate_count <= 0 or
+                candidate["augmentation_index"] >= augmentations or
+                candidate_index >= candidate_count or
                 candidate["flat_index"] !=
-                candidate["augmentation_index"] * problem_size + candidate["start_index"]):
-            raise ValueError(f"record {index} candidate indices violate Aug8/POMO semantics")
+                candidate["augmentation_index"] * candidate_count + candidate_index):
+            raise ValueError(f"record {index} candidate indices violate protocol semantics")
     return index
 
 
@@ -126,7 +135,8 @@ def _load_progress(output: Path, identity: dict):
     expected = identity["chunk"]["expected_indices"]
     if expected != list(range(len(expected))) or len(expected) % batch_size:
         raise ValueError("artifact expected indices must be a complete contiguous prefix")
-    indices = [validate_record(row, problem_size=identity["problem_size"])
+    indices = [validate_record(row, problem_size=identity["problem_size"],
+                               protocol=identity.get("protocol"))
                for row in records]
     if indices != expected[:len(indices)]:
         raise ValueError("existing artifact is not an exact dataset-index prefix")
@@ -206,7 +216,8 @@ def append_batch(output_dir, records: list[dict], timing: dict):
         record.setdefault("batch_index", batch_index)
         record.setdefault("position_in_batch", position)
         record.setdefault("runtime_seconds", timing["runtime_seconds"])
-        if (validate_record(record, problem_size=identity["problem_size"]) !=
+        if (validate_record(record, problem_size=identity["problem_size"],
+                            protocol=identity.get("protocol")) !=
                 expected_indices[position] or record["batch_index"] != batch_index or
                 record["position_in_batch"] != position or
                 record["runtime_seconds"] != timing["runtime_seconds"]):
@@ -272,9 +283,12 @@ def finalize(output_dir, *, paper_ready: bool = False):
         "mean_runtime_seconds": mean_runtime,
         "mean_runtime_seconds_semantics": "mean native inference-batch latency; never divided by batch size",
         "total_runtime_seconds": sum(runtimes),
-        "drop_definition": DROP_DEFINITION, "timing_semantics": TIMING_SEMANTICS,
+        "drop_definition": DROP_DEFINITION,
+        "timing_semantics": identity.get("timing_semantics", TIMING_SEMANTICS),
         "dataset_sha256": identity["dataset"]["sha256"],
         "checkpoint_sha256": identity["checkpoint"]["sha256"],
+        "source_identity": identity.get("upstream"),
+        "protocol_identity": identity.get("protocol"),
         "records_sha256": sha256_file(output / RECORDS),
         "batch_timings_sha256": sha256_file(output / TIMINGS),
     }
@@ -299,7 +313,9 @@ def _require_gate(path, *, method: str, problem_size: int, dataset_sha256: str,
     records = read_jsonl(path / RECORDS)
     timings = read_jsonl(path / TIMINGS)
     try:
-        record_indices = [validate_record(row, problem_size=problem_size) for row in records]
+        record_indices = [validate_record(
+            row, problem_size=problem_size, protocol=identity.get("protocol"))
+            for row in records]
         timing_indices = [validate_batch_timing(row, batch_size=batch_size)
                           for row in timings]
     except ValueError:

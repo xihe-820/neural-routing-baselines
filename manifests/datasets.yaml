@@ -616,6 +616,38 @@
         "sha256": "22c0dd316f8717042b0c558b3a5614c10227fdae6a312d67e3a61dd813e79269"
       },
       "server_copy_identity": "NOT_RUN"
+    },
+    {
+      "problem": "CVRPTW",
+      "target_size": 200,
+      "filename": "cvrptw200_pyvrp-60s_41.597.pkl",
+      "source_repository": "ML4CO/ML4CO-Bench-101-SL",
+      "url": "https://huggingface.co/datasets/ML4CO/ML4CO-Bench-101-SL/resolve/main/test_dataset/cvrptw/cvrptw200_pyvrp-60s_41.597.pkl",
+      "bytes": 947102,
+      "sha256": "8cd550a9316d8e15832780b7c5c0f26ed539bde0b4df4a5f99918ee57ec16c8d",
+      "source_evidence": "SOURCE_CONFIRMED",
+      "local_path": "datasets/ML4CO-Bench-101-SL/cvrptw200_pyvrp-60s_41.597.pkl",
+      "evidence": "DOWNLOADED_HASH_AND_SCHEMA_VERIFIED",
+      "count": 100,
+      "container": "builtins.list",
+      "task_class": "ml4co_kit.task.routing.vrp.cvrptw.CVRPTWTask",
+      "formal_identity": {
+        "capacity": 80.0,
+        "points_shape": [
+          200,
+          2
+        ],
+        "tw_shape": [
+          201,
+          2
+        ],
+        "service_shape": [
+          201
+        ],
+        "closed_routes": true,
+        "all_reference_solutions_kit_feasible": true
+      },
+      "server_copy_identity": "NOT_RUN"
     }
   ],
   "reference_test_scope": "First 5 stored reference solutions per file (30 instances); not method-generated solutions",

@@ -35,7 +35,9 @@ def read_cell(path, *, expected_batch_size=None):
     if metadata.get("validated_records_sha256") != sha256_file(records_path):
         raise ValueError(f"{path} records hash mismatch")
     records = read_jsonl(records_path)
-    indices = [validate_record(record, problem_size=size) for record in records]
+    indices = [validate_record(
+        record, problem_size=size, protocol=identity.get("protocol"))
+        for record in records]
     if len(indices) != DATASETS[size]["count"] or set(indices) != set(range(DATASETS[size]["count"])):
         raise ValueError(f"{path} full-set coverage mismatch")
     if "RTX 4090" not in str(identity.get("environment", {}).get("gpu")):
@@ -69,8 +71,10 @@ def main():
     if args.cell:
         for method, size_text, batch_text, path_text in args.cell:
             size, batch_size = int(size_text), int(batch_text)
-            if method not in ("rfte", "moses_cada") or size not in (50, 100) or batch_size not in (1, 10):
-                raise ValueError("--cell is restricted to RF-TE/MoSES CVRPTW50/100 BS1/10")
+            valid = ((method in ("rfte", "moses_cada") and size in (50, 100)) or
+                     (method == "symnco" and size in (50, 100, 200)))
+            if not valid or batch_size not in (1, 10):
+                raise ValueError("--cell method/size/batch combination is outside formal scope")
             cells.append((method, size, batch_size, Path(path_text)))
     else:
         for method in ("rfte", "cada", "moses_cada"):

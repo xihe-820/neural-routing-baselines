@@ -36,12 +36,12 @@ def _package_versions():
     return values
 
 
-def _parser(description, formal_batch_sizes):
+def _parser(description, formal_batch_sizes, problem_sizes):
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--input-metadata", type=Path)
     parser.add_argument("--dataset", type=Path, required=True)
-    parser.add_argument("--problem-size", type=int, choices=(50, 100), required=True)
+    parser.add_argument("--problem-size", type=int, choices=problem_sizes, required=True)
     parser.add_argument("--batch-size", type=int, choices=formal_batch_sizes, default=1)
     parser.add_argument("--upstream", type=Path, required=True)
     parser.add_argument("--checkpoint", type=Path, required=True)
@@ -62,14 +62,14 @@ def _parser(description, formal_batch_sizes):
     return parser
 
 
-def _warmup_batches(args):
+def _warmup_batches(args, default=2):
     if args.warmup_batches is not None and args.warmup_instances is not None:
         raise ValueError("choose only one warm-up option")
     if args.warmup_instances is not None:
         if args.batch_size != 1:
             raise ValueError("--warmup-instances is a BS=1 compatibility option")
         return args.warmup_instances
-    return 2 if args.warmup_batches is None else args.warmup_batches
+    return default if args.warmup_batches is None else args.warmup_batches
 
 
 def _load_prepared(args):
@@ -136,19 +136,25 @@ def _gate_evidence(args, method_spec, cfg, checkpoint_hash):
 
 def run(method_spec, adapter, decoder, runtime_class, *, source_files):
     formal_batch_sizes = tuple(method_spec.get("formal_batch_sizes", (1,)))
+    problem_sizes = tuple(method_spec.get("problem_sizes", (50, 100)))
     parser = _parser(
-        f"Formal {method_spec['name']} CVRPTW50/100 evaluation", formal_batch_sizes)
+        f"Formal {method_spec['name']} CVRPTW evaluation", formal_batch_sizes,
+        problem_sizes)
     args = parser.parse_args()
-    warmup_batches = _warmup_batches(args)
+    warmup_batches = _warmup_batches(
+        args, default=int(method_spec.get("default_warmup_batches", 2)))
     cfg, prepared, arrays, indices, input_hash, metadata_path = _load_prepared(args)
     project = git_provenance(method_spec["root"])
-    upstream = git_provenance(args.upstream)
     if project["dirty"]:
         raise ValueError("formal evaluation requires a clean project checkout")
-    if (upstream["dirty"] or upstream["commit"] != method_spec["upstream_commit"] or
-            normalize_git_repository_identity(upstream["url"]) !=
-            normalize_git_repository_identity(method_spec["upstream_url"])):
-        raise ValueError("official upstream identity/cleanliness mismatch")
+    if method_spec.get("source_kind", "git") == "snapshot":
+        upstream = method_spec["snapshot_validator"](args.upstream)
+    else:
+        upstream = git_provenance(args.upstream)
+        if (upstream["dirty"] or upstream["commit"] != method_spec["upstream_commit"] or
+                normalize_git_repository_identity(upstream["url"]) !=
+                normalize_git_repository_identity(method_spec["upstream_url"])):
+            raise ValueError("official upstream identity/cleanliness mismatch")
     checkpoint_hash = sha256_file(args.checkpoint)
     if checkpoint_hash != args.expected_checkpoint_sha256:
         raise ValueError("checkpoint SHA256 differs from the audited expected value")
@@ -156,13 +162,35 @@ def run(method_spec, adapter, decoder, runtime_class, *, source_files):
     if pinned_hash is not None and checkpoint_hash != pinned_hash:
         raise ValueError("checkpoint SHA256 differs from repository-pinned official asset")
     expected_relative = method_spec["checkpoints"][args.problem_size]
-    try:
-        actual_relative = str(args.checkpoint.resolve().relative_to(args.upstream.resolve()))
-    except ValueError as exc:
-        raise ValueError("checkpoint must be inside the pinned official checkout") from exc
-    if actual_relative != expected_relative:
-        raise ValueError("checkpoint path is not the exact size-specific official asset")
+    if method_spec.get("checkpoint_path_mode", "upstream_relative") == "absolute":
+        expected_path = Path(expected_relative).resolve()
+        if args.checkpoint.resolve() != expected_path:
+            raise ValueError("checkpoint path is not the exact audited size-specific asset")
+        checkpoint_location = {"absolute_path": str(expected_path)}
+    else:
+        try:
+            actual_relative = str(args.checkpoint.resolve().relative_to(args.upstream.resolve()))
+        except ValueError as exc:
+            raise ValueError("checkpoint must be inside the pinned official checkout") from exc
+        if actual_relative != expected_relative:
+            raise ValueError("checkpoint path is not the exact size-specific official asset")
+        checkpoint_location = {"relative_path": expected_relative}
     small_gate = _gate_evidence(args, method_spec, cfg, checkpoint_hash)
+
+    historical = None
+    historical_identity = None
+    historical_paths = method_spec.get("historical_results")
+    if historical_paths is not None:
+        historical_path = Path(historical_paths[args.problem_size]).resolve()
+        if not historical_path.is_file():
+            raise FileNotFoundError(f"authoritative historical E1 result missing: {historical_path}")
+        historical = json.loads(historical_path.read_text())
+        method_spec["validate_historical_report"](
+            historical, problem_size=args.problem_size, dataset_count=cfg["count"])
+        historical_identity = {
+            "path": str(historical_path), "sha256": sha256_file(historical_path),
+            "protocol": "E1", "role": "per-instance regression oracle",
+        }
 
     import ml4co_kit as kit
     import torch
@@ -190,7 +218,7 @@ def run(method_spec, adapter, decoder, runtime_class, *, source_files):
         "problem": "CVRPTW", "problem_size": args.problem_size, "scope": args.scope,
         "project": project, "upstream": upstream,
         "checkpoint": {"path": str(args.checkpoint.resolve()),
-                       "relative_path": expected_relative, "sha256": checkpoint_hash,
+                       **checkpoint_location, "sha256": checkpoint_hash,
                        "size_bytes": args.checkpoint.stat().st_size},
         "dataset": {"path": str(args.dataset.resolve()), "filename": cfg["filename"],
                     "sha256": cfg["sha256"], "count": cfg["count"]},
@@ -207,8 +235,11 @@ def run(method_spec, adapter, decoder, runtime_class, *, source_files):
         },
         "warmup": {"batches": warmup_batches, "batch_size": args.batch_size,
                    "policy": "first prepared native batches, rerun formally, excluded from timing"},
-        "source_provenance": sources, "timing_semantics": TIMING_SEMANTICS,
+        "source_provenance": sources,
+        "timing_semantics": method_spec.get("timing_semantics", TIMING_SEMANTICS),
     }
+    if historical_identity is not None:
+        identity["historical_e1_oracle"] = historical_identity
     _, completed = initialize(args.output_dir, identity)
     runtime = runtime_class(args.upstream, args.checkpoint, args.problem_size, device, torch)
     write_json(args.output_dir / "checkpoint_state.json", runtime.checkpoint_state)
@@ -239,7 +270,9 @@ def run(method_spec, adapter, decoder, runtime_class, *, source_files):
         first = batch_index * args.batch_size
         natives = [native_at(first + offset)[0] for offset in range(args.batch_size)]
         native_batch = stack_native(natives)
-        if args.batch_size == 1 and not hasattr(runtime, "solve_batch"):
+        if hasattr(runtime, "warmup_batch"):
+            runtime.warmup_batch(native_batch)
+        elif args.batch_size == 1 and not hasattr(runtime, "solve_batch"):
             runtime.solve(native_batch, timed=False)
         else:
             runtime.solve_batch(native_batch, timed=False)
@@ -277,7 +310,8 @@ def run(method_spec, adapter, decoder, runtime_class, *, source_files):
             details = validation["constraint_details"]
             records.append({
                 "dataset_instance_index": dataset_index,
-                "instance_id": prepared["instance_names"][local_index],
+                "instance_id": selection.get(
+                    "instance_id", prepared["instance_names"][local_index]),
                 "batch_index": batch_index, "position_in_batch": position,
                 "raw_official_action": selection["raw_action"],
                 "canonical_solution": canonical,
@@ -295,6 +329,9 @@ def run(method_spec, adapter, decoder, runtime_class, *, source_files):
                 "route_timelines": details["route_timelines"],
                 "adapter_mapping": mapping, "status": "KIT_VALIDATED",
             })
+            if historical is not None and args.batch_size == 1:
+                method_spec["validate_historical_record"](
+                    historical, records[-1], dataset_index=dataset_index)
         append_batch(args.output_dir, records, {
             "batch_index": batch_index, "dataset_indices": dataset_indices,
             "batch_size": args.batch_size, "runtime_seconds": elapsed,

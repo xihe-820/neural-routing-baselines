@@ -1523,3 +1523,145 @@ Return these files without editing their values:
 - the regression-test terminal output
 
 Also return SHA256 for each validated result artifact. No password, private key or SSH access is required.
+
+## 15. SymNCO CVRPTW E1, BS1 and BS10
+
+This pipeline reads the confirmed standalone snapshot in place. It requires the
+exact `best.pt` and historical `test*-E1.json` in each run directory. BS1 is
+checked per instance against the historical ID, route, candidate, and objective.
+
+```bash
+export BASELINE_PROJECT_ROOT=/inspire/hdd/global_user/majiale-253108540229/zhang/neural-routing-baselines
+export SYMNCO_SOURCE=/inspire/hdd/global_user/majiale-253108540229/zhang/RS4CO_symnco_baseline_138c95e
+export SYMNCO_RUN_ROOT=/inspire/hdd/global_user/majiale-253108540229/zhang/cvrptw_symnco_runs
+export SYMNCO_PYTHON=/opt/conda/envs/cp311_base/bin/python
+export SYMNCO_DATASET_ROOT=/inspire/hdd/global_user/majiale-253108540229/zhang/datasets/ML4CO-Bench-101-SL
+export SYMNCO_ARTIFACT_ROOT=/inspire/hdd/global_user/majiale-253108540229/zhang/artifacts/neural-routing-baselines/symnco_cvrptw
+cd "$BASELINE_PROJECT_ROOT"
+test -z "$(git status --porcelain)"
+mkdir -p "$SYMNCO_ARTIFACT_ROOT/audit" "$SYMNCO_ARTIFACT_ROOT/prepared"
+
+"$SYMNCO_PYTHON" -B scripts/audit_remaining_cvrptw.py \
+  --methods symnco --upstream-root "$BASELINE_PROJECT_ROOT/external" \
+  --checkpoint-root "$SYMNCO_RUN_ROOT" --dataset-root "$SYMNCO_DATASET_ROOT" \
+  --symnco-source "$SYMNCO_SOURCE" \
+  --output "$SYMNCO_ARTIFACT_ROOT/audit/source-assets.json"
+
+for SIZE in 50 100 200; do
+  case "$SIZE" in
+    50) CKPT="$SYMNCO_RUN_ROOT/train50-cache-b512-seed1234/best.pt"; SHA=6be6ed8c5b40330db0f2605f2cf354ee006cf8d5d6564726fd904a0b2bcf1395 ;;
+    100) CKPT="$SYMNCO_RUN_ROOT/train100-cache-b512-seed1234/best.pt"; SHA=e4aad3807cf75864e561913905cf350cd986be01aea714c8cab8a6f1a27e8144 ;;
+    200) CKPT="$SYMNCO_RUN_ROOT/train200-cache-b256-seed1234/best.pt"; SHA=23c18b2ab2ff966c90a07bae51f63fcf1f5c33e9a56018c0d972204a32207479 ;;
+  esac
+  "$SYMNCO_PYTHON" -B scripts/audit_remaining_cvrptw_environment.py \
+    --method symnco --problem-size "$SIZE" --upstream "$SYMNCO_SOURCE" \
+    --checkpoint "$CKPT" --expected-checkpoint-sha256 "$SHA" \
+    --output "$SYMNCO_ARTIFACT_ROOT/audit/environment-$SIZE.json" || break
+done
+```
+
+Prepare the exact complete prefixes for the three gates and production:
+
+```bash
+for SIZE in 50 100 200; do
+  case "$SIZE" in
+    50) DATASET="$SYMNCO_DATASET_ROOT/cvrptw50_pyvrp-10s_16.038.pkl"; FULL=1000 ;;
+    100) DATASET="$SYMNCO_DATASET_ROOT/cvrptw100_pyvrp-20s_25.431.pkl"; FULL=1000 ;;
+    200) DATASET="$SYMNCO_DATASET_ROOT/cvrptw200_pyvrp-60s_41.597.pkl"; FULL=100 ;;
+  esac
+  for BS in 1 10; do
+    for SPEC in preflight:1 small_gate:2 validation_gate:5; do
+      SCOPE=${SPEC%%:*}; BATCHES=${SPEC##*:}; COUNT=$((BS * BATCHES))
+      "$SYMNCO_PYTHON" -B scripts/prepare_remaining_cvrptw.py \
+        --dataset "$DATASET" --problem-size "$SIZE" --offset 0 --count "$COUNT" \
+        --output "$SYMNCO_ARTIFACT_ROOT/prepared/cvrptw${SIZE}-${SCOPE}-bs${BS}.npz" || break 3
+    done
+    "$SYMNCO_PYTHON" -B scripts/prepare_remaining_cvrptw.py \
+      --dataset "$DATASET" --problem-size "$SIZE" --offset 0 --count "$FULL" \
+      --output "$SYMNCO_ARTIFACT_ROOT/prepared/cvrptw${SIZE}-production-bs${BS}.npz" || break 2
+  done
+done
+```
+
+Define the exact evaluator command. The one E0 warm-up batch is excluded. The
+timed E1 call remains a true native B=1 or B=10 model/environment batch.
+
+```bash
+run_symnco () {
+  SIZE=$1; BS=$2; SCOPE=$3
+  case "$SIZE" in
+    50) DATASET="$SYMNCO_DATASET_ROOT/cvrptw50_pyvrp-10s_16.038.pkl"; CKPT="$SYMNCO_RUN_ROOT/train50-cache-b512-seed1234/best.pt"; SHA=6be6ed8c5b40330db0f2605f2cf354ee006cf8d5d6564726fd904a0b2bcf1395 ;;
+    100) DATASET="$SYMNCO_DATASET_ROOT/cvrptw100_pyvrp-20s_25.431.pkl"; CKPT="$SYMNCO_RUN_ROOT/train100-cache-b512-seed1234/best.pt"; SHA=e4aad3807cf75864e561913905cf350cd986be01aea714c8cab8a6f1a27e8144 ;;
+    200) DATASET="$SYMNCO_DATASET_ROOT/cvrptw200_pyvrp-60s_41.597.pkl"; CKPT="$SYMNCO_RUN_ROOT/train200-cache-b256-seed1234/best.pt"; SHA=23c18b2ab2ff966c90a07bae51f63fcf1f5c33e9a56018c0d972204a32207479 ;;
+  esac
+  EXTRA=()
+  if [ "$SCOPE" = validation_gate ]; then
+    EXTRA=(--small-gate-evidence "$SYMNCO_ARTIFACT_ROOT/cvrptw${SIZE}/bs${BS}/small_gate")
+  fi
+  "$SYMNCO_PYTHON" -B methods/symnco/cvrptw/paper_eval.py \
+    --scope "$SCOPE" --problem-size "$SIZE" --batch-size "$BS" \
+    --input "$SYMNCO_ARTIFACT_ROOT/prepared/cvrptw${SIZE}-${SCOPE}-bs${BS}.npz" \
+    --dataset "$DATASET" --upstream "$SYMNCO_SOURCE" --checkpoint "$CKPT" \
+    --expected-checkpoint-sha256 "$SHA" \
+    --output-dir "$SYMNCO_ARTIFACT_ROOT/cvrptw${SIZE}/bs${BS}/${SCOPE}" \
+    --warmup-batches 1 "${EXTRA[@]}"
+}
+
+# Preflight: BS1 is 1 instance/1 batch; BS10 is 10 instances/1 batch.
+for SIZE in 50 100 200; do
+  run_symnco "$SIZE" 1 preflight || break
+  run_symnco "$SIZE" 10 preflight || break
+done
+
+# Small gate, then matching validation gate.
+for SCOPE in small_gate validation_gate; do
+  for SIZE in 50 100 200; do
+    run_symnco "$SIZE" 1 "$SCOPE" || break 3
+    run_symnco "$SIZE" 10 "$SCOPE" || break 3
+  done
+done
+```
+
+Dry-run production first. Omit the third argument to print the gated command;
+pass `--execute` only after all six dry runs are reviewed.
+
+```bash
+launch_symnco () {
+  SIZE=$1; BS=$2; EXECUTE=$3
+  case "$SIZE" in
+    50) DATASET="$SYMNCO_DATASET_ROOT/cvrptw50_pyvrp-10s_16.038.pkl"; CKPT="$SYMNCO_RUN_ROOT/train50-cache-b512-seed1234/best.pt"; SHA=6be6ed8c5b40330db0f2605f2cf354ee006cf8d5d6564726fd904a0b2bcf1395 ;;
+    100) DATASET="$SYMNCO_DATASET_ROOT/cvrptw100_pyvrp-20s_25.431.pkl"; CKPT="$SYMNCO_RUN_ROOT/train100-cache-b512-seed1234/best.pt"; SHA=e4aad3807cf75864e561913905cf350cd986be01aea714c8cab8a6f1a27e8144 ;;
+    200) DATASET="$SYMNCO_DATASET_ROOT/cvrptw200_pyvrp-60s_41.597.pkl"; CKPT="$SYMNCO_RUN_ROOT/train200-cache-b256-seed1234/best.pt"; SHA=23c18b2ab2ff966c90a07bae51f63fcf1f5c33e9a56018c0d972204a32207479 ;;
+  esac
+  "$SYMNCO_PYTHON" -B scripts/launch_remaining_cvrptw_production.py \
+    --method symnco --problem-size "$SIZE" --batch-size "$BS" --python "$SYMNCO_PYTHON" \
+    --input "$SYMNCO_ARTIFACT_ROOT/prepared/cvrptw${SIZE}-production-bs${BS}.npz" \
+    --dataset "$DATASET" --upstream "$SYMNCO_SOURCE" --checkpoint "$CKPT" \
+    --expected-checkpoint-sha256 "$SHA" \
+    --validation-gate-evidence "$SYMNCO_ARTIFACT_ROOT/cvrptw${SIZE}/bs${BS}/validation_gate" \
+    --output-dir "$SYMNCO_ARTIFACT_ROOT/cvrptw${SIZE}/bs${BS}/production" $EXECUTE
+}
+
+for SIZE in 50 100 200; do
+  launch_symnco "$SIZE" 1 "" || break
+  launch_symnco "$SIZE" 10 "" || break
+done
+
+for SIZE in 50 100 200; do
+  launch_symnco "$SIZE" 1 --execute || break
+  launch_symnco "$SIZE" 10 --execute || break
+done
+```
+
+Require all six `PAPER_READY` cells and write the OBJ/DROP/TIME/TOTAL rows:
+
+```bash
+"$SYMNCO_PYTHON" -B scripts/summarize_remaining_cvrptw.py \
+  --cell symnco 50 1 "$SYMNCO_ARTIFACT_ROOT/cvrptw50/bs1/production" \
+  --cell symnco 50 10 "$SYMNCO_ARTIFACT_ROOT/cvrptw50/bs10/production" \
+  --cell symnco 100 1 "$SYMNCO_ARTIFACT_ROOT/cvrptw100/bs1/production" \
+  --cell symnco 100 10 "$SYMNCO_ARTIFACT_ROOT/cvrptw100/bs10/production" \
+  --cell symnco 200 1 "$SYMNCO_ARTIFACT_ROOT/cvrptw200/bs1/production" \
+  --cell symnco 200 10 "$SYMNCO_ARTIFACT_ROOT/cvrptw200/bs10/production" \
+  --output "$SYMNCO_ARTIFACT_ROOT/paper-summary.json"
+```

@@ -11,6 +11,7 @@ METHODS = {
     "rfte": ("methods/rfte/cvrptw/paper_eval.py", "routefinder"),
     "cada": ("methods/cada/cvrptw/paper_eval.py", "CaDA"),
     "moses_cada": ("methods/moses_cada/cvrptw/paper_eval.py", "moses_vrp"),
+    "symnco": ("methods/symnco/cvrptw/paper_eval.py", None),
 }
 
 
@@ -24,18 +25,22 @@ def main():
     parser.add_argument("--rfte-python", type=Path, required=True)
     parser.add_argument("--cada-python", type=Path, required=True)
     parser.add_argument("--moses-cada-python", type=Path, required=True)
+    parser.add_argument("--symnco-python", type=Path)
     parser.add_argument("--methods", nargs="+", choices=tuple(METHODS),
-                        default=list(METHODS))
+                        default=["rfte", "cada", "moses_cada"])
     parser.add_argument("--batch-size", type=int, choices=(1, 10), default=1)
     args = parser.parse_args()
     if args.batch_size == 10 and "cada" in args.methods:
         raise ValueError("CaDA is outside this BS10 phase")
+    if "symnco" in args.methods and args.symnco_python is None:
+        parser.error("--symnco-python is required when running SymNCO")
     audit = json.loads(args.audit_evidence.read_text())
     status = {}
     for method in args.methods:
         runner, upstream_name = METHODS[method]
         method_audit = audit.get("methods", {}).get(method, {})
-        for size in (50, 100):
+        sizes = (50, 100, 200) if method == "symnco" else (50, 100)
+        for size in sizes:
             key = f"{method}_{size}"
             asset = method_audit.get("checkpoints", {}).get(str(size), {})
             dataset_audit = audit.get("datasets", {}).get(str(size), {})
@@ -54,7 +59,7 @@ def main():
                 "--input", str(args.prepared_root / f"cvrptw{size}" /
                                f"preflight_bs{args.batch_size}.npz"),
                 "--dataset", str(args.dataset_root / dataset_cfg["filename"]),
-                "--upstream", str(args.project_root / "external" / upstream_name),
+                "--upstream", method_audit["upstream_path"],
                 "--checkpoint", asset["path"],
                 "--expected-checkpoint-sha256", asset["sha256"],
                 "--output-dir", str(args.output_root / method / f"cvrptw{size}" /

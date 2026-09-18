@@ -14,6 +14,11 @@ sys.path.insert(0, str(ROOT))
 from common.hashing import sha256_file
 from common.paper_results import utc_now, write_json
 from common.provenance import git_provenance, normalize_git_repository_identity
+from methods.symnco.cvrptw.config import (
+    CHECKPOINTS as SYMNCO_CHECKPOINTS,
+    CHECKPOINT_HASHES as SYMNCO_HASHES,
+    validate_snapshot as validate_symnco_snapshot,
+)
 
 METHODS = {
     "rfte": {
@@ -40,6 +45,11 @@ METHODS = {
             50: "1aa499f3fce5d3412c2544c9632bbb9709309a7299b4298b535fa7e9014ef803",
             100: "2eac9b038ae4655581aa73e4dbe8ad529aefd1963368c9a92d254b6269f8aabf"},
     },
+    "symnco": {
+        "name": "SymNCO", "source_kind": "snapshot",
+        "runtime": "methods.symnco.cvrptw.official_runtime",
+        "checkpoints": SYMNCO_CHECKPOINTS, "hashes": SYMNCO_HASHES,
+    },
 }
 
 
@@ -57,13 +67,15 @@ def versions():
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--method", choices=tuple(METHODS), required=True)
-    parser.add_argument("--problem-size", type=int, choices=(50, 100), required=True)
+    parser.add_argument("--problem-size", type=int, choices=(50, 100, 200), required=True)
     parser.add_argument("--upstream", type=Path, required=True)
     parser.add_argument("--checkpoint", type=Path, required=True)
     parser.add_argument("--expected-checkpoint-sha256", required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     cfg = METHODS[args.method]
+    if args.problem_size not in cfg["checkpoints"]:
+        parser.error(f"{args.method} does not support CVRPTW{args.problem_size}")
     report = {
         "schema": "remaining-cvrptw-method-environment-audit-v1",
         "created_at": utc_now(), "method": cfg["name"],
@@ -72,14 +84,20 @@ def main():
         "packages": versions(), "status": "FAIL",
     }
     try:
-        upstream = git_provenance(args.upstream)
-        if (upstream["dirty"] or upstream["commit"] != cfg["commit"] or
-                normalize_git_repository_identity(upstream["url"]) !=
-                normalize_git_repository_identity(cfg["url"])):
-            raise ValueError("official upstream identity/cleanliness mismatch")
-        relative = str(args.checkpoint.resolve().relative_to(args.upstream.resolve()))
-        if relative != cfg["checkpoints"][args.problem_size]:
-            raise ValueError("checkpoint path is not the exact size-specific official path")
+        if cfg.get("source_kind") == "snapshot":
+            upstream = validate_symnco_snapshot(args.upstream)
+            relative = str(args.checkpoint.resolve())
+            if relative != str(Path(cfg["checkpoints"][args.problem_size]).resolve()):
+                raise ValueError("checkpoint path is not the exact audited SymNCO asset")
+        else:
+            upstream = git_provenance(args.upstream)
+            if (upstream["dirty"] or upstream["commit"] != cfg["commit"] or
+                    normalize_git_repository_identity(upstream["url"]) !=
+                    normalize_git_repository_identity(cfg["url"])):
+                raise ValueError("official upstream identity/cleanliness mismatch")
+            relative = str(args.checkpoint.resolve().relative_to(args.upstream.resolve()))
+            if relative != cfg["checkpoints"][args.problem_size]:
+                raise ValueError("checkpoint path is not the exact size-specific official path")
         checkpoint_hash = sha256_file(args.checkpoint)
         if checkpoint_hash != args.expected_checkpoint_sha256:
             raise ValueError("checkpoint SHA256 differs from expected audit identity")
@@ -92,10 +110,13 @@ def main():
         runtime = runtime_module.Runtime(
             args.upstream, args.checkpoint, args.problem_size,
             torch.device("cpu"), torch)
+        checkpoint_location = ({"absolute_path": relative}
+                               if cfg.get("source_kind") == "snapshot"
+                               else {"relative_path": relative})
         report.update(
             upstream=upstream,
             checkpoint={"path": str(args.checkpoint.resolve()),
-                        "relative_path": relative, "sha256": checkpoint_hash,
+                        **checkpoint_location, "sha256": checkpoint_hash,
                         "size_bytes": args.checkpoint.stat().st_size},
             torch_cuda_build=torch.version.cuda,
             cuda_available=torch.cuda.is_available(),

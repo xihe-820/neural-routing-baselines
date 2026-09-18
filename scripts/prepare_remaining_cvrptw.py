@@ -18,7 +18,7 @@ from common.hashing import sha256_file
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset", type=Path, required=True)
-    parser.add_argument("--problem-size", type=int, choices=(50, 100), required=True)
+    parser.add_argument("--problem-size", type=int, choices=(50, 100, 200), required=True)
     parser.add_argument("--offset", type=int, default=0)
     parser.add_argument("--count", type=int, required=True)
     parser.add_argument("--output", type=Path, required=True)

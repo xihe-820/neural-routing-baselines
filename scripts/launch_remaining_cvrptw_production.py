@@ -15,6 +15,11 @@ from common.cvrptw_formal import dataset_config
 from common.hashing import sha256_file
 from common.provenance import (git_provenance,
                                normalize_git_repository_identity)
+from methods.symnco.cvrptw.config import (
+    CHECKPOINTS as SYMNCO_CHECKPOINTS,
+    CHECKPOINT_HASHES as SYMNCO_HASHES,
+    validate_snapshot as validate_symnco_snapshot,
+)
 
 RUNNERS = {
     "rfte": ("RF-TE", "methods/rfte/cvrptw/paper_eval.py",
@@ -32,13 +37,15 @@ RUNNERS = {
                    "e301478b7a5df6d7b0b10a0543f4dee5e3c027a8",
                    {50: "pretrained_moses_model/cada/50/multilora_denseroute_sigmoid.ckpt",
                     100: "pretrained_moses_model/cada/100/multilora_denseroute_sigmoid.ckpt"}),
+    "symnco": ("SymNCO", "methods/symnco/cvrptw/paper_eval.py",
+               None, None, SYMNCO_CHECKPOINTS),
 }
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--method", choices=tuple(RUNNERS), required=True)
-    parser.add_argument("--problem-size", type=int, choices=(50, 100), required=True)
+    parser.add_argument("--problem-size", type=int, choices=(50, 100, 200), required=True)
     parser.add_argument("--batch-size", type=int, choices=(1, 10), default=1)
     parser.add_argument("--python", type=Path, required=True)
     parser.add_argument("--input", type=Path, required=True)
@@ -55,20 +62,30 @@ def main():
     if args.method == "cada" and args.batch_size != 1:
         raise ValueError("CaDA is outside this BS10 phase")
     method_name, runner, upstream_url, upstream_commit, checkpoint_paths = RUNNERS[args.method]
+    if args.problem_size not in checkpoint_paths:
+        raise ValueError(f"{method_name} does not support CVRPTW{args.problem_size}")
     cfg = dataset_config(args.problem_size)
     project = git_provenance(ROOT)
-    upstream = git_provenance(args.upstream)
     if project["dirty"]:
         raise ValueError("production launcher requires a clean project checkout")
-    if (upstream["dirty"] or upstream["commit"] != upstream_commit or
-            normalize_git_repository_identity(upstream["url"]) !=
-            normalize_git_repository_identity(upstream_url)):
-        raise ValueError("production launcher official upstream gate failed")
+    if args.method == "symnco":
+        validate_symnco_snapshot(args.upstream)
+    else:
+        upstream = git_provenance(args.upstream)
+        if (upstream["dirty"] or upstream["commit"] != upstream_commit or
+                normalize_git_repository_identity(upstream["url"]) !=
+                normalize_git_repository_identity(upstream_url)):
+            raise ValueError("production launcher official upstream gate failed")
     if args.dataset.name != cfg["filename"] or sha256_file(args.dataset) != cfg["sha256"]:
         raise ValueError("production launcher pinned dataset gate failed")
-    if sha256_file(args.checkpoint) != args.expected_checkpoint_sha256:
+    checkpoint_hash = sha256_file(args.checkpoint)
+    if checkpoint_hash != args.expected_checkpoint_sha256:
         raise ValueError("production launcher checkpoint SHA256 gate failed")
-    if str(args.checkpoint.resolve().relative_to(args.upstream.resolve())) != checkpoint_paths[args.problem_size]:
+    if args.method == "symnco":
+        if (str(args.checkpoint.resolve()) != str(Path(checkpoint_paths[args.problem_size]).resolve()) or
+                checkpoint_hash != SYMNCO_HASHES[args.problem_size]):
+            raise ValueError("production launcher SymNCO checkpoint identity gate failed")
+    elif str(args.checkpoint.resolve().relative_to(args.upstream.resolve())) != checkpoint_paths[args.problem_size]:
         raise ValueError("production launcher checkpoint path gate failed")
     if not args.input.is_file() or not args.input.with_suffix(args.input.suffix + ".json").is_file():
         raise ValueError("production launcher prepared input or metadata is missing")
