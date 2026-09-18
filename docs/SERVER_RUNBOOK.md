@@ -1268,7 +1268,80 @@ must remain unexecuted until all six `our_5` gates pass.
 ML4CO_REFERENCE_TESTS=1 python -B -m unittest discover -s tests -v
 ```
 
-## 13. Return evidence
+## 13. GLOP TSP Parallel Table
+
+This evaluator is separate from the frozen BS1 formal artifacts. It runs only
+TSP100/500/1000 with native original-instance batch sizes 16 or 128. Never
+split an OOM batch, lower its batch size, or reuse an existing output directory.
+
+```bash
+conda activate cp311_base
+export BASELINE_PROJECT_ROOT=/inspire/hdd/global_user/majiale-253108540229/zhang/neural-routing-baselines
+export GLOP_UPSTREAM="$BASELINE_PROJECT_ROOT/external/GLOP"
+export GLOP_PARALLEL_DATASET_ROOT=/inspire/hdd/global_user/majiale-253108540229/zhang/datasets/ML4CO-Bench-101-SL
+read -r -p 'Official GLOP pretrained root: ' GLOP_ASSET_ROOT
+export GLOP_PARALLEL_ROOT="/inspire/hdd/global_user/majiale-253108540229/zhang/verification_evidence/neural-routing-baselines/glop/$(git -C "$BASELINE_PROJECT_ROOT" rev-parse --short=8 HEAD)/parallel_table"
+cd "$BASELINE_PROJECT_ROOT"
+test -z "$(git status --porcelain)"
+test "$(git -C "$GLOP_UPSTREAM" rev-parse HEAD)" = e540bc0153a0598e923e35116deeaecaf9c1cfff
+test -z "$(git -C "$GLOP_UPSTREAM" status --porcelain)"
+```
+
+Prepare one exact complete input per size/protocol. The two batch sizes for a
+given size/protocol read the same immutable prepared input.
+
+```bash
+for size in 100 500 1000; do
+  case "$size" in
+    100) dataset="$GLOP_PARALLEL_DATASET_ROOT/tsp100_concorde_7.756.pkl"; count=1280 ;;
+    500) dataset="$GLOP_PARALLEL_DATASET_ROOT/tsp500_concorde_16.546.pkl"; count=128 ;;
+    1000) dataset="$GLOP_PARALLEL_DATASET_ROOT/tsp1000_concorde_23.118.pkl"; count=128 ;;
+  esac
+  for protocol in official_standard official_more; do
+    input="$GLOP_PARALLEL_ROOT/inputs/tsp${size}/${protocol}.npz"
+    test ! -e "$input"
+    mkdir -p "$(dirname "$input")"
+    python -B methods/glop/tsp/prepare_instances.py \
+      --dataset "$dataset" --problem-size "$size" --protocol "$protocol" \
+      --offset 0 --count "$count" --output "$input"
+  done
+done
+```
+
+Define the command wrapper, then invoke the twelve cells individually. Every
+invocation is one real native-batch run and writes its own four-file artifact.
+
+```bash
+run_glop_parallel_cell () {
+  size="$1"; protocol="$2"; batch_size="$3"
+  python -B methods/glop/tsp/parallel_eval.py \
+    --input "$GLOP_PARALLEL_ROOT/inputs/tsp${size}/${protocol}.npz" \
+    --problem-size "$size" --protocol "$protocol" --batch-size "$batch_size" \
+    --upstream "$GLOP_UPSTREAM" --asset-root "$GLOP_ASSET_ROOT" \
+    --output-dir "$GLOP_PARALLEL_ROOT/results/tsp${size}/${protocol}/bs${batch_size}" \
+    --device cuda:0
+}
+
+run_glop_parallel_cell 100 official_standard 16
+run_glop_parallel_cell 100 official_standard 128
+run_glop_parallel_cell 100 official_more 16
+run_glop_parallel_cell 100 official_more 128
+run_glop_parallel_cell 500 official_standard 16
+run_glop_parallel_cell 500 official_standard 128
+run_glop_parallel_cell 500 official_more 16
+run_glop_parallel_cell 500 official_more 128
+run_glop_parallel_cell 1000 official_standard 16
+run_glop_parallel_cell 1000 official_standard 128
+run_glop_parallel_cell 1000 official_more 16
+run_glop_parallel_cell 1000 official_more 128
+```
+
+Each successful cell must contain `metadata.json`, `validated_records.jsonl`,
+`batch_timings.jsonl`, and `summary.json`, with `summary.status=PAPER_READY`.
+An RTX4090 OOM records `metadata.state=CUDA_OOM` and terminates without retrying
+at a smaller batch size.
+
+## 14. Return evidence
 
 Return these files without editing their values:
 
