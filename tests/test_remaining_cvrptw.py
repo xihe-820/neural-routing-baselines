@@ -19,7 +19,8 @@ from common.cvrptw_formal import (DATASETS, TIMING_SEMANTICS,
                                   instance_drop_percent, native_numpy_instance)
 from common.cvrptw_runtime import (select_cada_output,
                                    select_rl4co_batch_output,
-                                   select_rl4co_output, stack_native,
+                                   select_rl4co_output,
+                                   rl4co_unbatchify_tensor, stack_native,
                                    to_tensordict)
 from methods.cada.cvrptw.adapter import adapt_instance as cada_adapt
 from methods.cada.cvrptw.decode import ActionCapture
@@ -35,10 +36,34 @@ from methods.moses_cada.cvrptw.official_runtime import (
     checkpoint_metadata as moses_metadata,
     effective_runtime_protocol as moses_effective_protocol,
 )
+import methods.moses_cada.cvrptw.official_runtime as moses_runtime
 from methods.rfte.cvrptw.adapter import adapt_instance as rfte_adapt
 from methods.rfte.cvrptw.config import protocol as rfte_protocol
 from methods.rfte.cvrptw.official_runtime import checkpoint_metadata as rfte_metadata
 import methods.rfte.cvrptw.official_runtime as rfte_runtime
+
+
+def official_rl4co_output(rewards, actions, torch):
+    """Construct the exact tensors returned by pinned RF-TE/MoSES test.py."""
+    max_reward, max_indices = rewards.max(dim=-1)
+    batch_size, augmentations = rewards.shape[:2]
+    batch_indices = torch.arange(batch_size)[:, None]
+    augmentation_indices = torch.arange(augmentations)[None, :]
+    best_multistart_actions = actions[
+        batch_indices, augmentation_indices, max_indices]
+    max_aug_reward, max_aug_indices = max_reward.max(dim=1)
+    best_aug_actions = best_multistart_actions[
+        torch.arange(batch_size), max_aug_indices]
+    # Inverse of RL4CO unbatchify: flat storage is [start,augmentation,batch].
+    flat_reward = rewards.permute(2, 1, 0).reshape(-1)
+    return {
+        "reward": flat_reward,
+        "actions": actions,
+        "max_reward": max_reward,
+        "best_multistart_actions": best_multistart_actions,
+        "max_aug_reward": max_aug_reward,
+        "best_aug_actions": best_aug_actions,
+    }
 
 
 def instance(size):
@@ -290,58 +315,76 @@ class CheckpointAndTimingTests(unittest.TestCase):
                          "2eac9b038ae4655581aa73e4dbe8ad529aefd1963368c9a92d254b6269f8aabf")
 
     def test_timing_boundary_places_reset_inside_timed_callable(self):
-        source = inspect.getsource(rfte_runtime.Runtime.solve_batch)
-        self.assertLess(source.index("def call"), source.index("self.env.reset"))
-        self.assertLess(source.index("select_rl4co_batch_output"),
-                        source.index("timed_call(call"))
-        self.assertLess(source.index("self.env.reset"), source.index("timed_call(call"))
+        for runtime in (rfte_runtime, moses_runtime):
+            source = inspect.getsource(runtime.Runtime.solve_batch)
+            self.assertLess(source.index("def call"), source.index("self.env.reset"))
+            self.assertLess(source.index("select_rl4co_batch_output"),
+                            source.index("timed_call(call"))
+            self.assertLess(source.index("self.env.reset"), source.index("timed_call(call"))
         self.assertIn("official environment load/reset", TIMING_SEMANTICS)
 
     def test_rl4co_batch_selection_is_independent_per_original_instance(self):
         import torch
-        batch_size, problem_size, steps = 10, 3, 5
-        rewards = torch.full((batch_size, 8, problem_size), -1000.0)
-        actions = torch.arange(
-            batch_size * 8 * problem_size * steps).reshape(
-                batch_size, 8, problem_size, steps)
-        best_actions = []
-        best_rewards = []
-        expected = []
-        for batch_index in range(batch_size):
-            aug = batch_index % 8
-            start = (batch_index + 1) % problem_size
-            reward = float(100 + batch_index)
-            rewards[batch_index, aug, start] = reward
-            best_actions.append(actions[batch_index, aug, start])
-            best_rewards.append(reward)
-            expected.append((aug, start))
-        out = {
-            "reward": rewards.reshape(-1), "actions": actions,
-            "max_aug_reward": torch.tensor(best_rewards),
-            "best_aug_actions": torch.stack(best_actions),
-        }
-        selected = select_rl4co_batch_output(
-            out, problem_size=problem_size, torch=torch)
-        self.assertEqual(len(selected), batch_size)
-        for batch_index, row in enumerate(selected):
-            aug, start = expected[batch_index]
-            self.assertEqual(
-                (row["selected_candidate"]["augmentation_index"],
-                 row["selected_candidate"]["start_index"]), (aug, start))
-            self.assertEqual(row["raw_action"], best_actions[batch_index].tolist())
+        steps = 5
+        for batch_size in (1, 10):
+            for problem_size in (50, 100):
+                rewards = torch.full((batch_size, 8, problem_size), -1000.0)
+                actions = torch.arange(
+                    batch_size * 8 * problem_size * steps).reshape(
+                        batch_size, 8, problem_size, steps)
+                expected = []
+                for batch_index in range(batch_size):
+                    aug = batch_index % 8
+                    start = (batch_index * 7 + 3) % problem_size
+                    rewards[batch_index, aug, start] = float(100 + batch_index)
+                    expected.append((aug, start))
+                out = official_rl4co_output(rewards, actions, torch)
+                selected = select_rl4co_batch_output(
+                    out, problem_size=problem_size, torch=torch)
+                self.assertEqual(len(selected), batch_size)
+                for batch_index, row in enumerate(selected):
+                    aug, start = expected[batch_index]
+                    self.assertEqual(
+                        (row["selected_candidate"]["augmentation_index"],
+                         row["selected_candidate"]["start_index"]), (aug, start))
+                    self.assertEqual(
+                        row["selected_candidate"]["flat_index"],
+                        aug * problem_size + start)
+                    self.assertEqual(
+                        row["raw_action"],
+                        actions[batch_index, aug, start].tolist())
+
+    def test_rl4co_unbatchify_is_not_plain_reshape(self):
+        import torch
+        flat = torch.arange(6)
+        actual = rl4co_unbatchify_tensor(flat, (2, 3))
+        plain = flat.reshape(1, 2, 3)
+        expected = torch.tensor([[[0, 2, 4], [1, 3, 5]]])
+        self.assertTrue(torch.equal(actual, expected))
+        self.assertFalse(torch.equal(actual, plain))
+
+    def test_rl4co_selector_audits_every_official_intermediate(self):
+        import torch
+        rewards = torch.arange(16, dtype=torch.float32).reshape(1, 8, 2)
+        actions = torch.arange(1 * 8 * 2 * 4).reshape(1, 8, 2, 4)
+        valid = official_rl4co_output(rewards, actions, torch)
+        select_rl4co_batch_output(valid, problem_size=2, torch=torch)
+        for field in ("max_reward", "best_multistart_actions",
+                      "max_aug_reward", "best_aug_actions"):
+            tampered = dict(valid)
+            tampered[field] = valid[field].clone()
+            tampered[field].reshape(-1)[0] += 1
+            with self.subTest(field=field):
+                with self.assertRaisesRegex(RuntimeError, field):
+                    select_rl4co_batch_output(
+                        tampered, problem_size=2, torch=torch)
 
     def test_exact_candidate_indices_for_rl4co_and_cada_layouts(self):
         import torch
-        rewards = torch.arange(16, dtype=torch.float32).neg()
-        rewards[7] = 1.0  # aug=3, start=1 for N=2
+        rewards = torch.arange(16, dtype=torch.float32).neg().reshape(1, 8, 2)
+        rewards[0, 3, 1] = 1.0
         actions = torch.arange(1 * 8 * 2 * 3).reshape(1, 8, 2, 3)
-        selected_action = actions[0, 3, 1]
-        rl_out = {
-            "reward": rewards,
-            "actions": actions,
-            "max_aug_reward": torch.tensor([1.0]),
-            "best_aug_actions": selected_action[None, :],
-        }
+        rl_out = official_rl4co_output(rewards, actions, torch)
         selected = select_rl4co_output(rl_out, problem_size=2, torch=torch)
         self.assertEqual(selected["selected_candidate"]["flat_index"], 7)
         self.assertEqual(selected["selected_candidate"]["official_flat_index"], 7)

@@ -62,25 +62,61 @@ def timed_call(call, *, torch, device, timed=True):
     return value, elapsed
 
 
+def rl4co_unbatchify_tensor(value, shape):
+    """Exact tensor layout used by pinned RL4CO 0.6 ``unbatchify``.
+
+    This intentionally mirrors ``rl4co.utils.ops._unbatchify_single`` rather
+    than treating the policy's flat first dimension as reshape-compatible.
+    """
+    shape = (shape,) if isinstance(shape, int) else tuple(shape)
+    result = value
+    for repeats in reversed(shape):
+        if (isinstance(repeats, bool) or not isinstance(repeats, int) or
+                repeats <= 0 or result.shape[0] % repeats):
+            raise RuntimeError("invalid RL4CO unbatchify shape")
+        current = result.shape
+        result = result.view(
+            repeats, current[0] // repeats, *current[1:]
+        ).permute(1, 0, *range(2, len(current) + 1))
+    return result
+
+
+def _require_official_tensor(out, name, expected, *, torch):
+    observed = out.get(name)
+    if (observed is None or tuple(observed.shape) != tuple(expected.shape) or
+            not torch.equal(observed, expected)):
+        raise RuntimeError(f"recomputed official {name} mismatch")
+
+
 def select_rl4co_batch_output(out, *, problem_size: int, torch):
     """Audit official two-level selection independently for every original instance."""
-    reward = out["reward"]
-    if reward.ndim == 1:
-        width = 8 * problem_size
-        if reward.numel() % width:
-            raise RuntimeError(f"unexpected official reward shape {tuple(reward.shape)}")
-        reward = reward.reshape(reward.numel() // width, 8, problem_size)
+    flat_reward = out["reward"]
+    width = 8 * problem_size
+    if flat_reward.ndim != 1 or flat_reward.numel() % width:
+        raise RuntimeError(f"unexpected official reward shape {tuple(flat_reward.shape)}")
+    reward = rl4co_unbatchify_tensor(flat_reward, (8, problem_size))
     if reward.ndim != 3 or tuple(reward.shape[1:]) != (8, problem_size):
-        raise RuntimeError(f"unexpected official reward shape {tuple(reward.shape)}")
+        raise RuntimeError(f"unexpected unbatchified reward shape {tuple(reward.shape)}")
     actions = out["actions"]
     batch_size = int(reward.shape[0])
     if (actions.ndim != 4 or int(actions.shape[0]) != batch_size or
             tuple(actions.shape[1:3]) != (8, problem_size)):
         raise RuntimeError(f"unexpected official action shape {tuple(actions.shape)}")
     best_start_reward, start_indices = reward.max(dim=-1)
+    _require_official_tensor(
+        out, "max_reward", best_start_reward, torch=torch)
+    batch_indices = torch.arange(batch_size, device=actions.device)[:, None]
+    augmentation_indices = torch.arange(8, device=actions.device)[None, :]
+    best_multistart_actions = actions[
+        batch_indices, augmentation_indices, start_indices]
+    _require_official_tensor(
+        out, "best_multistart_actions", best_multistart_actions, torch=torch)
     best_reward, aug_indices = best_start_reward.max(dim=1)
-    if "max_aug_reward" not in out or not torch.equal(best_reward, out["max_aug_reward"]):
-        raise RuntimeError("recomputed official reward selection mismatch")
+    _require_official_tensor(out, "max_aug_reward", best_reward, torch=torch)
+    best_aug_actions = best_multistart_actions[
+        torch.arange(batch_size, device=actions.device), aug_indices]
+    _require_official_tensor(
+        out, "best_aug_actions", best_aug_actions, torch=torch)
     selected_actions = []
     selections = []
     for batch_index in range(batch_size):
@@ -95,13 +131,15 @@ def select_rl4co_batch_output(out, *, problem_size: int, torch):
                 "augmentation_index": aug, "start_index": start,
                 "flat_index": aug * problem_size + start,
                 "official_flat_index": aug * problem_size + start,
-                "layout": "augmentation-major",
+                "layout": (
+                    "logical augmentation-major candidate identity after official "
+                    "unbatchify; not the flat reward storage offset"
+                ),
             },
         })
     selected_tensor = torch.stack(selected_actions, dim=0)
-    if ("best_aug_actions" not in out or
-            not torch.equal(selected_tensor, out["best_aug_actions"])):
-        raise RuntimeError("recomputed official action selection mismatch")
+    if not torch.equal(selected_tensor, best_aug_actions):
+        raise RuntimeError("internal selected action audit mismatch")
     return selections
 
 
