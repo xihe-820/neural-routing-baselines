@@ -1,5 +1,6 @@
 import inspect
 import json
+from copy import deepcopy
 from pathlib import Path
 import subprocess
 import tempfile
@@ -9,6 +10,7 @@ import numpy as np
 import torch
 
 from methods.glop.paper_protocol import formal_protocol
+from methods.glop.paper_results import fingerprint
 from methods.glop.tsp.parallel_eval import (_build_candidate_batch,
                                              _solve_batch,
                                              _verify_bs1_summary,
@@ -26,6 +28,7 @@ REVISERS = [{
     "checkpoint_sha256": "1" * 64,
     "args_sha256": "2" * 64,
 }]
+CURRENT_PROTOCOL = formal_protocol("TSP", 500, "official_more")
 
 
 def _bs1_summary(**changes):
@@ -36,6 +39,7 @@ def _bs1_summary(**changes):
             "method": "GLOP", "variant": "official_more", "problem": "TSP",
             "problem_size": 500,
             "official_protocol_name": "official_more",
+            "paper_protocol": deepcopy(CURRENT_PROTOCOL),
             "dataset": {"path": "/data/tsp500_concorde_16.546.pkl",
                         "sha256": "a" * 64, "count": 128},
             "upstream": {"commit": UPSTREAM_COMMIT, "dirty": False},
@@ -59,7 +63,8 @@ def _check_bs1(summary):
             path, problem_size=500, protocol_name="official_more",
             dataset_path=Path("/current/tsp500_concorde_16.546.pkl"),
             dataset_sha256="a" * 64, dataset_count=128,
-            upstream_commit=UPSTREAM_COMMIT, reviser_identities=REVISERS)
+            upstream_commit=UPSTREAM_COMMIT, reviser_identities=REVISERS,
+            current_protocol=CURRENT_PROTOCOL)
 
 
 def _records(count, batch_size=16):
@@ -93,6 +98,29 @@ def _timings(count, batch_size, runtime=2.0):
 
 
 class GLOPParallelProtocolTests(unittest.TestCase):
+    def test_bs1_same_name_with_tampered_revision_iters_fails(self):
+        tampered = deepcopy(CURRENT_PROTOCOL)
+        tampered["revision_iters"] = [20, 24, 5]
+        with self.assertRaisesRegex(ValueError, "frozen paper protocol"):
+            _check_bs1(_bs1_summary(
+                consistency_identity__paper_protocol=tampered))
+
+    def test_bs1_same_name_with_tampered_width_and_candidates_fails(self):
+        tampered = deepcopy(CURRENT_PROTOCOL)
+        tampered["paper_nominal_width"] = 9
+        tampered["ri_order_width"] = 9
+        tampered["effective_candidate_count"] = 9
+        with self.assertRaisesRegex(ValueError, "frozen paper protocol"):
+            _check_bs1(_bs1_summary(
+                consistency_identity__paper_protocol=tampered))
+
+    def test_bs1_exact_complete_paper_protocol_passes(self):
+        result = _check_bs1(_bs1_summary())
+        identity = result["identity"]
+        self.assertEqual(identity["paper_protocol"], CURRENT_PROTOCOL)
+        self.assertEqual(identity["paper_protocol_fingerprint"],
+                         fingerprint(CURRENT_PROTOCOL))
+
     def test_bs1_dataset_sha_mismatch_fails(self):
         with self.assertRaisesRegex(ValueError, "dataset identity"):
             _check_bs1(_bs1_summary(

@@ -60,7 +60,7 @@ def _audit_reviser_sha_identities(asset_root, protocol):
 
 def _verify_bs1_summary(path, *, problem_size, protocol_name, dataset_path,
                         dataset_sha256, dataset_count, upstream_commit,
-                        reviser_identities):
+                        reviser_identities, current_protocol):
     """Bind a parallel cell to its exact frozen BS1 PAPER_READY evidence."""
     summary_path = Path(path)
     if not summary_path.is_file():
@@ -71,6 +71,7 @@ def _verify_bs1_summary(path, *, problem_size, protocol_name, dataset_path,
         dataset = identity["dataset"]
         upstream = identity["upstream"]
         assets = identity["assets"]
+        bs1_protocol = identity["paper_protocol"]
     except (json.JSONDecodeError, KeyError, TypeError) as exc:
         raise ValueError("BS1 summary lacks formal consistency identity") from exc
     expected_size = int(problem_size)
@@ -87,6 +88,8 @@ def _verify_bs1_summary(path, *, problem_size, protocol_name, dataset_path,
             identity.get("variant") != protocol_name or
             identity.get("official_protocol_name") != protocol_name):
         raise ValueError("BS1 summary protocol mismatch")
+    if bs1_protocol != current_protocol:
+        raise ValueError("BS1 summary frozen paper protocol mismatch")
     if (Path(dataset.get("path", "")).name != Path(dataset_path).name or
             dataset.get("sha256") != dataset_sha256 or
             dataset.get("count") != expected_count or
@@ -106,6 +109,8 @@ def _verify_bs1_summary(path, *, problem_size, protocol_name, dataset_path,
             "problem": summary["problem"], "problem_size": expected_size,
             "variant": summary["variant"],
             "official_protocol_name": identity["official_protocol_name"],
+            "paper_protocol": bs1_protocol,
+            "paper_protocol_fingerprint": fingerprint(bs1_protocol),
             "dataset_filename": Path(dataset["path"]).name,
             "dataset_sha256": dataset["sha256"],
             "dataset_count": dataset["count"],
@@ -273,7 +278,8 @@ def main():
         dataset_sha256=prepared["dataset_sha256"],
         dataset_count=prepared["dataset_count"],
         upstream_commit=upstream["commit"],
-        reviser_identities=current_reviser_identities)
+        reviser_identities=current_reviser_identities,
+        current_protocol=protocol)
 
     import torch
     device = cuda_device(args.device, torch)
