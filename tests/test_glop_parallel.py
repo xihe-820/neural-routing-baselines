@@ -1,6 +1,8 @@
 import inspect
+import json
 from pathlib import Path
 import subprocess
+import tempfile
 import unittest
 
 import numpy as np
@@ -9,6 +11,7 @@ import torch
 from methods.glop.paper_protocol import formal_protocol
 from methods.glop.tsp.parallel_eval import (_build_candidate_batch,
                                              _solve_batch,
+                                             _verify_bs1_summary,
                                              main as parallel_main)
 from methods.glop.tsp.parallel_results import (TIMING_SEMANTICS,
                                                 exact_batch_ranges,
@@ -17,6 +20,46 @@ from methods.glop.tsp.parallel_results import (TIMING_SEMANTICS,
 
 
 ROOT = Path(__file__).resolve().parents[1]
+UPSTREAM_COMMIT = "e540bc0153a0598e923e35116deeaecaf9c1cfff"
+REVISERS = [{
+    "reviser_size": 100,
+    "checkpoint_sha256": "1" * 64,
+    "args_sha256": "2" * 64,
+}]
+
+
+def _bs1_summary(**changes):
+    result = {
+        "status": "PAPER_READY", "method": "GLOP", "variant": "official_more",
+        "problem": "TSP", "problem_size": 500, "instance_count": 128,
+        "consistency_identity": {
+            "method": "GLOP", "variant": "official_more", "problem": "TSP",
+            "problem_size": 500,
+            "official_protocol_name": "official_more",
+            "dataset": {"path": "/data/tsp500_concorde_16.546.pkl",
+                        "sha256": "a" * 64, "count": 128},
+            "upstream": {"commit": UPSTREAM_COMMIT, "dirty": False},
+            "assets": {"revisers": REVISERS},
+        },
+    }
+    for dotted, value in changes.items():
+        target = result
+        parts = dotted.split("__")
+        for part in parts[:-1]:
+            target = target[part]
+        target[parts[-1]] = value
+    return result
+
+
+def _check_bs1(summary):
+    with tempfile.TemporaryDirectory() as directory:
+        path = Path(directory) / "summary.json"
+        path.write_text(json.dumps(summary) + "\n")
+        return _verify_bs1_summary(
+            path, problem_size=500, protocol_name="official_more",
+            dataset_path=Path("/current/tsp500_concorde_16.546.pkl"),
+            dataset_sha256="a" * 64, dataset_count=128,
+            upstream_commit=UPSTREAM_COMMIT, reviser_identities=REVISERS)
 
 
 def _records(count, batch_size=16):
@@ -50,6 +93,32 @@ def _timings(count, batch_size, runtime=2.0):
 
 
 class GLOPParallelProtocolTests(unittest.TestCase):
+    def test_bs1_dataset_sha_mismatch_fails(self):
+        with self.assertRaisesRegex(ValueError, "dataset identity"):
+            _check_bs1(_bs1_summary(
+                consistency_identity__dataset__sha256="f" * 64))
+
+    def test_bs1_protocol_mismatch_fails(self):
+        with self.assertRaisesRegex(ValueError, "protocol mismatch"):
+            _check_bs1(_bs1_summary(variant="official_standard"))
+
+    def test_bs1_size_mismatch_fails(self):
+        with self.assertRaisesRegex(ValueError, "problem size"):
+            _check_bs1(_bs1_summary(problem_size=100))
+
+    def test_bs1_non_paper_ready_fails(self):
+        with self.assertRaisesRegex(ValueError, "not PAPER_READY"):
+            _check_bs1(_bs1_summary(status="KIT_VALIDATED"))
+
+    def test_matching_bs1_identity_passes_and_records_provenance(self):
+        result = _check_bs1(_bs1_summary())
+        self.assertTrue(Path(result["path"]).is_absolute())
+        self.assertEqual(len(result["sha256"]), 64)
+        self.assertEqual(result["identity"]["dataset_sha256"], "a" * 64)
+        self.assertEqual(result["identity"]["official_glop_commit"],
+                         UPSTREAM_COMMIT)
+        self.assertEqual(result["identity"]["revisers"], REVISERS)
+
     def test_only_native_batch_sizes_16_and_128(self):
         for batch_size in (1, 15, 17, 64, 256):
             with self.subTest(batch_size=batch_size):

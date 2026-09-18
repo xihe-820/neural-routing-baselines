@@ -16,11 +16,12 @@ sys.path.insert(0, str(ROOT))
 from common.hashing import sha256_file
 from common.objective_agreement import objective_agrees
 from common.provenance import environment_provenance, git_provenance, source_provenance
+from methods.glop.paper_protocol import REVISER_ASSETS
 from methods.glop.paper_results import fingerprint, utc_now, write_json
 from methods.glop.runtime import (activate_upstream, cuda_device, load_revisers,
                                   make_shared_tsp_orders, official_seeded_setup,
                                   random_insertion_identity, run_warmup_isolated,
-                                  verify_upstream)
+                                  verify_file, verify_upstream)
 from methods.glop.tsp.adapter import adapt_points, validate_initial_permutations
 from methods.glop.tsp.decode import decode_coordinate_tour
 from methods.glop.tsp.parallel_results import (
@@ -28,6 +29,90 @@ from methods.glop.tsp.parallel_results import (
     SUMMARY_FILE, TIMING_SEMANTICS, VALIDATED_RECORDS_FILE, exact_batch_ranges,
     finalize_parallel, parallel_scope)
 from problems.tsp.validate import validate
+
+
+def _reviser_sha_identities(revisers):
+    try:
+        return [{
+            "reviser_size": int(row["reviser_size"]),
+            "checkpoint_sha256": row["checkpoint_sha256"],
+            "args_sha256": row["args_sha256"],
+        } for row in revisers]
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError("BS1 summary has invalid reviser SHA identity") from exc
+
+
+def _audit_reviser_sha_identities(asset_root, protocol):
+    identities = []
+    for size in protocol["revision_lens"]:
+        spec = REVISER_ASSETS[size]
+        checkpoint = Path(asset_root) / spec["path"]
+        args_path = Path(asset_root) / spec["args_path"]
+        identities.append({
+            "reviser_size": size,
+            "checkpoint_sha256": verify_file(checkpoint, spec),
+            "args_sha256": verify_file(
+                args_path, spec, sha_key="args_sha256",
+                size_key="args_size_bytes"),
+        })
+    return identities
+
+
+def _verify_bs1_summary(path, *, problem_size, protocol_name, dataset_path,
+                        dataset_sha256, dataset_count, upstream_commit,
+                        reviser_identities):
+    """Bind a parallel cell to its exact frozen BS1 PAPER_READY evidence."""
+    summary_path = Path(path)
+    if not summary_path.is_file():
+        raise FileNotFoundError(summary_path)
+    try:
+        summary = json.loads(summary_path.read_text())
+        identity = summary["consistency_identity"]
+        dataset = identity["dataset"]
+        upstream = identity["upstream"]
+        assets = identity["assets"]
+    except (json.JSONDecodeError, KeyError, TypeError) as exc:
+        raise ValueError("BS1 summary lacks formal consistency identity") from exc
+    expected_size = int(problem_size)
+    expected_count = int(dataset_count)
+    if summary.get("status") != "PAPER_READY":
+        raise ValueError("BS1 summary is not PAPER_READY")
+    if (summary.get("method") != "GLOP" or summary.get("problem") != "TSP" or
+            identity.get("method") != "GLOP" or identity.get("problem") != "TSP"):
+        raise ValueError("BS1 summary method/problem identity mismatch")
+    if (summary.get("problem_size") != expected_size or
+            identity.get("problem_size") != expected_size):
+        raise ValueError("BS1 summary problem size mismatch")
+    if (summary.get("variant") != protocol_name or
+            identity.get("variant") != protocol_name or
+            identity.get("official_protocol_name") != protocol_name):
+        raise ValueError("BS1 summary protocol mismatch")
+    if (Path(dataset.get("path", "")).name != Path(dataset_path).name or
+            dataset.get("sha256") != dataset_sha256 or
+            dataset.get("count") != expected_count or
+            summary.get("instance_count") != expected_count):
+        raise ValueError("BS1 summary dataset identity mismatch")
+    if (upstream.get("commit") != upstream_commit or
+            upstream.get("dirty") is not False):
+        raise ValueError("BS1 summary official GLOP identity mismatch")
+    observed_revisers = _reviser_sha_identities(assets.get("revisers"))
+    if observed_revisers != reviser_identities:
+        raise ValueError("BS1 summary reviser SHA identity mismatch")
+    return {
+        "path": str(summary_path.resolve()),
+        "sha256": sha256_file(summary_path),
+        "identity": {
+            "status": summary["status"], "method": summary["method"],
+            "problem": summary["problem"], "problem_size": expected_size,
+            "variant": summary["variant"],
+            "official_protocol_name": identity["official_protocol_name"],
+            "dataset_filename": Path(dataset["path"]).name,
+            "dataset_sha256": dataset["sha256"],
+            "dataset_count": dataset["count"],
+            "official_glop_commit": upstream["commit"],
+            "revisers": observed_revisers,
+        },
+    }
 
 
 def _build_candidate_batch(batched, permutations, *, protocol, device, torch):
@@ -163,6 +248,7 @@ def main():
                         required=True)
     parser.add_argument("--upstream", type=Path, required=True)
     parser.add_argument("--asset-root", type=Path, required=True)
+    parser.add_argument("--bs1-summary", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--warmup-batches", type=int, choices=[0, 1], default=1)
     parser.add_argument("--device", default="cuda:0")
@@ -179,6 +265,15 @@ def main():
     upstream = verify_upstream(args.upstream)
     if project["dirty"]:
         raise ValueError("formal GLOP parallel evaluation requires a clean project checkout")
+    current_reviser_identities = _audit_reviser_sha_identities(
+        args.asset_root, protocol)
+    bs1_reference = _verify_bs1_summary(
+        args.bs1_summary, problem_size=args.problem_size,
+        protocol_name=args.protocol, dataset_path=dataset_path,
+        dataset_sha256=prepared["dataset_sha256"],
+        dataset_count=prepared["dataset_count"],
+        upstream_commit=upstream["commit"],
+        reviser_identities=current_reviser_identities)
 
     import torch
     device = cuda_device(args.device, torch)
@@ -210,6 +305,8 @@ def main():
         lambda: load_revisers(
             args.asset_root, protocol, device=device, torch=torch,
             load_model=load_model))
+    if _reviser_sha_identities(assets) != current_reviser_identities:
+        raise ValueError("loaded reviser identity changed after BS1 provenance gate")
     shared_started = time.perf_counter()
     orders = make_shared_tsp_orders(
         torch, problem_size=args.problem_size,
@@ -233,6 +330,7 @@ def main():
         "method": "GLOP", "problem": "TSP", "problem_size": args.problem_size,
         "protocol": args.protocol, "parallel_scope": scope,
         "project": project, "upstream": upstream,
+        "bs1_paper_ready_reference": bs1_reference,
         "assets": {"revisers": assets},
         "dataset": {
             "path": str(dataset_path.resolve()),

@@ -1280,6 +1280,12 @@ export BASELINE_PROJECT_ROOT=/inspire/hdd/global_user/majiale-253108540229/zhang
 export GLOP_UPSTREAM="$BASELINE_PROJECT_ROOT/external/GLOP"
 export GLOP_PARALLEL_DATASET_ROOT=/inspire/hdd/global_user/majiale-253108540229/zhang/datasets/ML4CO-Bench-101-SL
 read -r -p 'Official GLOP pretrained root: ' GLOP_ASSET_ROOT
+read -r -p 'TSP100 standard BS1 PAPER_READY summary.json: ' GLOP_BS1_TSP100_STANDARD
+read -r -p 'TSP100 more BS1 PAPER_READY summary.json: ' GLOP_BS1_TSP100_MORE
+read -r -p 'TSP500 standard BS1 PAPER_READY summary.json: ' GLOP_BS1_TSP500_STANDARD
+read -r -p 'TSP500 more BS1 PAPER_READY summary.json: ' GLOP_BS1_TSP500_MORE
+read -r -p 'TSP1000 standard BS1 PAPER_READY summary.json: ' GLOP_BS1_TSP1000_STANDARD
+read -r -p 'TSP1000 more BS1 PAPER_READY summary.json: ' GLOP_BS1_TSP1000_MORE
 export GLOP_PARALLEL_ROOT="/inspire/hdd/global_user/majiale-253108540229/zhang/verification_evidence/neural-routing-baselines/glop/$(git -C "$BASELINE_PROJECT_ROOT" rev-parse --short=8 HEAD)/parallel_table"
 cd "$BASELINE_PROJECT_ROOT"
 test -z "$(git status --porcelain)"
@@ -1313,27 +1319,28 @@ invocation is one real native-batch run and writes its own four-file artifact.
 
 ```bash
 run_glop_parallel_cell () {
-  size="$1"; protocol="$2"; batch_size="$3"
+  size="$1"; protocol="$2"; batch_size="$3"; bs1_summary="$4"
   python -B methods/glop/tsp/parallel_eval.py \
     --input "$GLOP_PARALLEL_ROOT/inputs/tsp${size}/${protocol}.npz" \
     --problem-size "$size" --protocol "$protocol" --batch-size "$batch_size" \
     --upstream "$GLOP_UPSTREAM" --asset-root "$GLOP_ASSET_ROOT" \
+    --bs1-summary "$bs1_summary" \
     --output-dir "$GLOP_PARALLEL_ROOT/results/tsp${size}/${protocol}/bs${batch_size}" \
     --device cuda:0
 }
 
-run_glop_parallel_cell 100 official_standard 16
-run_glop_parallel_cell 100 official_standard 128
-run_glop_parallel_cell 100 official_more 16
-run_glop_parallel_cell 100 official_more 128
-run_glop_parallel_cell 500 official_standard 16
-run_glop_parallel_cell 500 official_standard 128
-run_glop_parallel_cell 500 official_more 16
-run_glop_parallel_cell 500 official_more 128
-run_glop_parallel_cell 1000 official_standard 16
-run_glop_parallel_cell 1000 official_standard 128
-run_glop_parallel_cell 1000 official_more 16
-run_glop_parallel_cell 1000 official_more 128
+run_glop_parallel_cell 100 official_standard 16 "$GLOP_BS1_TSP100_STANDARD"
+run_glop_parallel_cell 100 official_standard 128 "$GLOP_BS1_TSP100_STANDARD"
+run_glop_parallel_cell 100 official_more 16 "$GLOP_BS1_TSP100_MORE"
+run_glop_parallel_cell 100 official_more 128 "$GLOP_BS1_TSP100_MORE"
+run_glop_parallel_cell 500 official_standard 16 "$GLOP_BS1_TSP500_STANDARD"
+run_glop_parallel_cell 500 official_standard 128 "$GLOP_BS1_TSP500_STANDARD"
+run_glop_parallel_cell 500 official_more 16 "$GLOP_BS1_TSP500_MORE"
+run_glop_parallel_cell 500 official_more 128 "$GLOP_BS1_TSP500_MORE"
+run_glop_parallel_cell 1000 official_standard 16 "$GLOP_BS1_TSP1000_STANDARD"
+run_glop_parallel_cell 1000 official_standard 128 "$GLOP_BS1_TSP1000_STANDARD"
+run_glop_parallel_cell 1000 official_more 16 "$GLOP_BS1_TSP1000_MORE"
+run_glop_parallel_cell 1000 official_more 128 "$GLOP_BS1_TSP1000_MORE"
 ```
 
 Each successful cell must contain `metadata.json`, `validated_records.jsonl`,
