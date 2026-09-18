@@ -9,13 +9,15 @@ CHECKPOINTS = {
 }
 
 
-def protocol(problem_size):
+def protocol(problem_size, batch_size=1):
     if problem_size not in CHECKPOINTS:
         raise ValueError("MoSES(CaDA) formal scope is CVRPTW50/100")
+    if batch_size not in (1, 10):
+        raise ValueError("MoSES(CaDA) formal original-instance batch size is 1 or 10")
     return {
         "method": "MoSES(CaDA)", "backbone": "CaDA",
         "model_name": "cada_multilora", "problem": "CVRPTW",
-        "problem_size": problem_size, "original_instance_batch_size": 1,
+        "problem_size": problem_size, "original_instance_batch_size": batch_size,
         "num_augmentations": 8, "augmentation": "dihedral8",
         "first_augmentation_identity": True, "num_starts": problem_size,
         "policy_test_decode_type": "greedy", "decode_type": "greedy",

@@ -8,7 +8,9 @@ import importlib.util
 from pathlib import Path
 import sys
 
-from common.cvrptw_runtime import select_rl4co_output, timed_call, to_tensordict
+from common.cvrptw_runtime import (select_rl4co_batch_output,
+                                   select_rl4co_output, timed_call,
+                                   to_tensordict)
 
 
 CHECKPOINT_DIAGNOSTIC_FIELDS = (
@@ -321,6 +323,12 @@ class Runtime:
         return selection
 
     def solve(self, native, *, timed=True):
+        selections, elapsed = self.solve_batch(native, timed=timed)
+        if len(selections) != 1:
+            raise RuntimeError("MoSES solve() is the batch-one compatibility API")
+        return selections[0], elapsed
+
+    def solve_batch(self, native, *, timed=True):
         td = to_tensordict(native, torch=self.torch, device=self.device)
 
         def call():
@@ -328,8 +336,6 @@ class Runtime:
             out = self.official_test(self.policy, reset, self.env, num_augment=8,
                                      augment_fn="dihedral8", num_starts=self.problem_size,
                                      device=self.device)
-            return select_rl4co_output(out, problem_size=self.problem_size,
-                                       torch=self.torch)
-        selection, elapsed = timed_call(call, torch=self.torch, device=self.device,
-                                        timed=timed)
-        return selection, elapsed
+            return select_rl4co_batch_output(
+                out, problem_size=self.problem_size, torch=self.torch)
+        return timed_call(call, torch=self.torch, device=self.device, timed=timed)

@@ -11,6 +11,8 @@ from common.paper_results import (METADATA_FILE, SCHEMA_VERSION,
                                   json_fingerprint, read_jsonl, utc_now,
                                   validate_record)
 from methods.mvmoe.cvrptw.paper_protocol import scaled_paper_inference_config
+from methods.mvmoe.cvrptw.batch_artifacts import (BATCH_TIMINGS_FILE,
+                                                  validate_batch_timing)
 
 
 def validate_scaled_record(record, *, require_kit=False):
@@ -59,6 +61,7 @@ def summarize_scaled_chunks(chunk_dirs):
     if not paths:
         raise ValueError("at least one paper chunk is required")
     all_records = []
+    all_batch_timings = []
     baseline = None
     chunk_descriptions = []
     for directory in paths:
@@ -88,18 +91,47 @@ def summarize_scaled_chunks(chunk_dirs):
         if len(indices) != len(set(indices)) or set(indices) != set(expected_chunk):
             raise ValueError(f"chunk {directory} has duplicate, missing, or extra indices")
         all_records.extend(records)
+        batch_size = identity["paper_protocol"].get("original_batch_size", 1)
+        timings_hash = metadata.get("batch_timings_sha256")
+        if timings_hash is not None:
+            timings_path = directory / metadata.get(
+                "batch_timings_file", BATCH_TIMINGS_FILE)
+            if timings_hash != sha256_file(timings_path):
+                raise ValueError(f"native-batch timing hash mismatch in {directory}")
+            timings = read_jsonl(timings_path)
+            timing_indices = [validate_batch_timing(row, batch_size=batch_size)
+                              for row in timings]
+            if timing_indices != list(range(len(expected_chunk) // batch_size)):
+                raise ValueError(f"native-batch timing coverage mismatch in {directory}")
+            expected_groups = [
+                expected_chunk[start:start + batch_size]
+                for start in range(0, len(expected_chunk), batch_size)]
+            if [row["dataset_indices"] for row in timings] != expected_groups:
+                raise ValueError(f"native-batch timing indices mismatch in {directory}")
+            all_batch_timings.extend(timings)
+        elif batch_size == 1:
+            all_batch_timings.extend({
+                "batch_index": index,
+                "dataset_indices": [record["dataset_instance_index"]],
+                "batch_size": 1,
+                "runtime_seconds": record["runtime_seconds"],
+            } for index, record in enumerate(records))
+        else:
+            raise ValueError(f"BS{batch_size} chunk has no native-batch timings")
         chunk_descriptions.append({
             "path": str(directory.resolve()),
             "offset": metadata["resume_identity"]["chunk"]["offset"],
             "count": metadata["resume_identity"]["chunk"]["count"],
             "validated_records_sha256": metadata["validated_records_sha256"],
+            "batch_timings_sha256": timings_hash,
         })
 
     if (baseline["method"] != "MVMoE" or baseline["variant"] != "MVMoE/4E" or
             baseline["problem"] != "CVRPTW" or
             baseline["problem_size"] not in (50, 100) or
             baseline["paper_protocol"] != scaled_paper_inference_config(
-                baseline["problem_size"])):
+                baseline["problem_size"],
+                baseline["paper_protocol"].get("original_batch_size", 1))):
         raise ValueError("paper chunks do not use the exact scaled MVMoE CVRPTW protocol")
     expected_count = baseline["dataset_count"]
     if expected_count != 1000:
@@ -122,7 +154,12 @@ def summarize_scaled_chunks(chunk_dirs):
     mean_objective = sum(float(r["independent_objective"])
                          for r in all_records) / expected_count
     mean_drop = sum(float(r["gap_percent"]) for r in all_records) / expected_count
-    mean_time = sum(float(r["runtime_seconds"]) for r in all_records) / expected_count
+    batch_size = baseline["paper_protocol"].get("original_batch_size", 1)
+    expected_batches = expected_count // batch_size
+    if len(all_batch_timings) != expected_batches:
+        raise ValueError("full-set native-batch timing count mismatch")
+    total_time = sum(float(row["runtime_seconds"]) for row in all_batch_timings)
+    mean_time = total_time / expected_batches
     for value, field in ((mean_objective, "mean_objective"),
                          (mean_drop, "mean_drop_percent"),
                          (mean_time, "mean_runtime_seconds")):
@@ -136,9 +173,13 @@ def summarize_scaled_chunks(chunk_dirs):
         "problem": baseline["problem"],
         "problem_size": baseline["problem_size"],
         "instance_count": expected_count,
+        "batch_size": batch_size,
+        "num_batches": expected_batches,
         "obj_mean_independent_objective": mean_objective,
         "drop_mean_per_instance_gap_percent": mean_drop,
-        "time_mean_single_instance_seconds": mean_time,
+        "time_mean_batch_seconds": mean_time,
+        "time_total_seconds": total_time,
+        "time_mean_single_instance_seconds": mean_time if batch_size == 1 else None,
         "drop_definition": (
             "mean_i((independent_objective_i-reference_objective_i)"
             "/reference_objective_i*100)"),

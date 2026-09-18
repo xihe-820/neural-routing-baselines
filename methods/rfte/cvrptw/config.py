@@ -7,13 +7,15 @@ CHECKPOINTS = {50: "checkpoints/50/rf-transformer.ckpt",
                100: "checkpoints/100/rf-transformer.ckpt"}
 
 
-def protocol(problem_size):
+def protocol(problem_size, batch_size=1):
     if problem_size not in CHECKPOINTS:
         raise ValueError("RF-TE formal scope is CVRPTW50/100")
+    if batch_size not in (1, 10):
+        raise ValueError("RF-TE formal original-instance batch size is 1 or 10")
     return {
         "method": "RF-TE", "architecture": "RouteFinderBase/Transformer",
         "problem": "CVRPTW", "problem_size": problem_size,
-        "original_instance_batch_size": 1, "num_augmentations": 8,
+        "original_instance_batch_size": batch_size, "num_augmentations": 8,
         "augmentation": "dihedral8", "num_starts": problem_size,
         "start_selector": "all customers 1..N", "decode_type": "checkpoint test greedy",
         "temperature": "checkpoint inherited; server preflight requires 1.0",

@@ -24,7 +24,9 @@ def summarize_for_protocol(chunk_dirs):
     if identity.get("problem") == "CVRPTW":
         size = identity.get("problem_size")
         protocol = identity.get("paper_protocol")
-        if protocol == scaled_paper_inference_config(size):
+        batch_size = protocol.get("original_batch_size") if isinstance(protocol, dict) else None
+        if (batch_size in (1, 10) and
+                protocol == scaled_paper_inference_config(size, batch_size)):
             from methods.mvmoe.cvrptw.paper_results import summarize_scaled_chunks
             return summarize_scaled_chunks(paths)
         if protocol == unscaled_control_inference_config(size):

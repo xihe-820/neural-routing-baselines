@@ -18,13 +18,15 @@ SCALED_PROTOCOL_FIELDS = {
 }
 
 
-def unscaled_control_inference_config(problem_size):
+def unscaled_control_inference_config(problem_size, original_batch_size=1):
     """Return the frozen identity of the verified CVRPTW A control."""
-    return paper_inference_config(problem_size, problem="CVRPTW")
+    return paper_inference_config(
+        problem_size, problem="CVRPTW",
+        original_batch_size=original_batch_size)
 
 
-def scaled_paper_inference_config(problem_size):
+def scaled_paper_inference_config(problem_size, original_batch_size=1):
     """Return the canonical formal CVRPTW B identity."""
-    config = unscaled_control_inference_config(problem_size)
+    config = unscaled_control_inference_config(problem_size, original_batch_size)
     config.update(SCALED_PROTOCOL_FIELDS)
     return config

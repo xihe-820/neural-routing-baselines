@@ -10,7 +10,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from common.cvrptw_artifacts import require_our5_gate
+from common.cvrptw_artifacts import require_our5_gate, require_validation_gate
 from common.cvrptw_formal import dataset_config
 from common.hashing import sha256_file
 from common.provenance import (git_provenance,
@@ -39,16 +39,21 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--method", choices=tuple(RUNNERS), required=True)
     parser.add_argument("--problem-size", type=int, choices=(50, 100), required=True)
+    parser.add_argument("--batch-size", type=int, choices=(1, 10), default=1)
     parser.add_argument("--python", type=Path, required=True)
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--dataset", type=Path, required=True)
     parser.add_argument("--upstream", type=Path, required=True)
     parser.add_argument("--checkpoint", type=Path, required=True)
     parser.add_argument("--expected-checkpoint-sha256", required=True)
-    parser.add_argument("--our5-evidence", type=Path, required=True)
+    parser.add_argument("--validation-gate-evidence", type=Path)
+    parser.add_argument("--our5-evidence", type=Path,
+                        help="legacy CaDA/BS1 production gate")
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--execute", action="store_true")
     args = parser.parse_args()
+    if args.method == "cada" and args.batch_size != 1:
+        raise ValueError("CaDA is outside this BS10 phase")
     method_name, runner, upstream_url, upstream_commit, checkpoint_paths = RUNNERS[args.method]
     cfg = dataset_config(args.problem_size)
     project = git_provenance(ROOT)
@@ -67,18 +72,31 @@ def main():
         raise ValueError("production launcher checkpoint path gate failed")
     if not args.input.is_file() or not args.input.with_suffix(args.input.suffix + ".json").is_file():
         raise ValueError("production launcher prepared input or metadata is missing")
-    require_our5_gate(args.our5_evidence, method=method_name,
-                      problem_size=args.problem_size, dataset_sha256=cfg["sha256"],
-                      checkpoint_sha256=args.expected_checkpoint_sha256)
+    gate_args = {
+        "method": method_name, "problem_size": args.problem_size,
+        "dataset_sha256": cfg["sha256"],
+        "checkpoint_sha256": args.expected_checkpoint_sha256,
+    }
+    if args.validation_gate_evidence is not None:
+        require_validation_gate(
+            args.validation_gate_evidence, batch_size=args.batch_size, **gate_args)
+    elif args.method == "cada" and args.our5_evidence is not None:
+        require_our5_gate(args.our5_evidence, **gate_args)
+    else:
+        raise ValueError("production requires matching validation-gate evidence")
     command = [
         str(args.python), "-B", str(ROOT / runner), "--scope", "production",
-        "--problem-size", str(args.problem_size), "--input", str(args.input),
+        "--problem-size", str(args.problem_size), "--batch-size", str(args.batch_size),
+        "--input", str(args.input),
         "--dataset", str(args.dataset), "--upstream", str(args.upstream),
         "--checkpoint", str(args.checkpoint),
         "--expected-checkpoint-sha256", args.expected_checkpoint_sha256,
-        "--our5-evidence", str(args.our5_evidence),
         "--output-dir", str(args.output_dir),
     ]
+    if args.validation_gate_evidence is not None:
+        command.extend(["--validation-gate-evidence", str(args.validation_gate_evidence)])
+    else:
+        command.extend(["--our5-evidence", str(args.our5_evidence)])
     print(json.dumps({"gate": "PASS", "execute": args.execute, "command": command}, indent=2))
     if args.execute:
         raise SystemExit(subprocess.run(command, cwd=ROOT, check=False).returncode)

@@ -13,6 +13,7 @@ from methods.mvmoe.cvrp.run import MODEL_CONFIG as CVRP_INTEGRATION_MODEL_CONFIG
 from methods.mvmoe.cvrptw.config import get_size_config
 from methods.mvmoe.cvrptw.paper_protocol import (
     scaled_paper_inference_config, unscaled_control_inference_config)
+from methods.mvmoe.cvrptw.batch_artifacts import BATCH_TIMINGS_FILE
 from methods.mvmoe.cvrptw.run import MODEL_CONFIG as CVRPTW_INTEGRATION_MODEL_CONFIG
 from methods.mvmoe.paper_config import MODEL_CONFIG, paper_inference_config
 from scripts.summarize_paper_results import summarize_for_protocol
@@ -53,9 +54,11 @@ def record(index, independent, reference, *, feasible=True, runtime=0.1,
     return value
 
 
-def identity(indices, *, dataset_count=10000, problem="CVRP", problem_size=50):
+def identity(indices, *, dataset_count=10000, problem="CVRP", problem_size=50,
+             batch_size=1):
     protocol = (paper_inference_config(problem_size, problem="CVRP")
-                if problem == "CVRP" else scaled_paper_inference_config(problem_size))
+                if problem == "CVRP" else scaled_paper_inference_config(
+                    problem_size, batch_size))
     return {
         "method": "MVMoE", "variant": "MVMoE/4E", "problem": problem,
         "problem_size": problem_size,
@@ -77,13 +80,14 @@ def identity(indices, *, dataset_count=10000, problem="CVRP", problem_size=50):
 
 
 def write_chunk(root, name, records, *, mutate_identity=None, expected_indices=None,
-                dataset_count=10000, problem="CVRP", problem_size=50):
+                dataset_count=10000, problem="CVRP", problem_size=50,
+                batch_size=1, batch_timings=None):
     directory = root / name
     directory.mkdir()
     indices = expected_indices if expected_indices is not None else [
         item["dataset_instance_index"] for item in records]
     value = identity(indices, dataset_count=dataset_count, problem=problem,
-                     problem_size=problem_size)
+                     problem_size=problem_size, batch_size=batch_size)
     if mutate_identity:
         mutate_identity(value)
     records_path = directory / VALIDATED_RECORDS_FILE
@@ -98,6 +102,15 @@ def write_chunk(root, name, records, *, mutate_identity=None, expected_indices=N
         "validated_records_file": VALIDATED_RECORDS_FILE,
         "validated_records_sha256": sha256_file(records_path),
     }
+    if batch_timings is not None:
+        timings_path = directory / BATCH_TIMINGS_FILE
+        with timings_path.open("w") as stream:
+            for timing in batch_timings:
+                stream.write(json.dumps(timing) + "\n")
+        metadata.update(
+            batch_timings_file=BATCH_TIMINGS_FILE,
+            batch_timings_sha256=sha256_file(timings_path),
+        )
     (directory / METADATA_FILE).write_text(json.dumps(metadata) + "\n")
     return directory
 
@@ -318,6 +331,34 @@ class PaperAggregationTests(unittest.TestCase):
         self.assertEqual(
             summary["consistency_identity"]["paper_protocol"]["input_scaling"],
             "continuous_official_style")
+
+    def test_scaled_bs10_summary_uses_native_batch_latency_and_total(self):
+        records = []
+        timings = []
+        for batch_index in range(100):
+            runtime = 0.2 + batch_index / 1000.0
+            indices = list(range(batch_index * 10, (batch_index + 1) * 10))
+            timings.append({
+                "batch_index": batch_index, "dataset_indices": indices,
+                "batch_size": 10, "runtime_seconds": runtime,
+            })
+            for position, index in enumerate(indices):
+                item = record(index, 2.0, 1.0, runtime=runtime, scaled=True)
+                item.update(batch_index=batch_index, position_in_batch=position)
+                records.append(item)
+        chunk = write_chunk(
+            self.root, "scaled-bs10", records, dataset_count=1000,
+            problem="CVRPTW", batch_size=10, batch_timings=timings)
+        summary = summarize_for_protocol([chunk])
+        self.assertEqual(summary["batch_size"], 10)
+        self.assertEqual(summary["num_batches"], 100)
+        self.assertAlmostEqual(
+            summary["time_mean_batch_seconds"],
+            sum(row["runtime_seconds"] for row in timings) / 100)
+        self.assertAlmostEqual(
+            summary["time_total_seconds"],
+            sum(row["runtime_seconds"] for row in timings))
+        self.assertIsNone(summary["time_mean_single_instance_seconds"])
 
     def test_scaled_record_conversion_or_identity_mismatch_is_rejected(self):
         for name, mutation in (

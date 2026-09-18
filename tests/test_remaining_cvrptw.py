@@ -9,13 +9,18 @@ import unittest
 
 import numpy as np
 
-from common.cvrptw_artifacts import (append, finalize, initialize,
+from common.cvrptw_artifacts import (append, append_batch, finalize, initialize,
+                                     require_small_gate, require_validation_gate,
                                      require_our2_gate, require_our5_gate,
-                                     require_our5_prefix_matches_our2)
+                                     require_our5_prefix_matches_our2,
+                                     scope_instance_count)
 from common.cvrptw_formal import (DATASETS, TIMING_SEMANTICS,
                                   canonicalize_official_actions,
                                   instance_drop_percent, native_numpy_instance)
-from common.cvrptw_runtime import select_cada_output, select_rl4co_output
+from common.cvrptw_runtime import (select_cada_output,
+                                   select_rl4co_batch_output,
+                                   select_rl4co_output, stack_native,
+                                   to_tensordict)
 from methods.cada.cvrptw.adapter import adapt_instance as cada_adapt
 from methods.cada.cvrptw.decode import ActionCapture
 from methods.cada.cvrptw.official_runtime import checkpoint_metadata as cada_metadata
@@ -100,6 +105,45 @@ class AdapterDecoderProtocolTests(unittest.TestCase):
         for protocol in (rfte_protocol, cada_protocol, moses_protocol):
             with self.assertRaises(ValueError):
                 protocol(200)
+
+    def test_batch_protocols_accept_only_one_or_ten(self):
+        for protocol in (rfte_protocol, moses_protocol):
+            for batch_size in (1, 10):
+                self.assertEqual(
+                    protocol(50, batch_size)["original_instance_batch_size"],
+                    batch_size)
+            with self.assertRaises(ValueError):
+                protocol(50, 2)
+
+    def test_stack_native_and_tensordict_preserve_original_batch_axis(self):
+        class FakeTensorDict(dict):
+            def __init__(self, values, batch_size, device):
+                super().__init__(values)
+                self.batch_size, self.device = batch_size, device
+
+        fake_module = ModuleType("tensordict")
+        fake_module.TensorDict = FakeTensorDict
+        import torch
+        prior = sys.modules.get("tensordict")
+        sys.modules["tensordict"] = fake_module
+        try:
+            for batch_size in (1, 10):
+                rows = []
+                for index in range(batch_size):
+                    native, _ = rfte_adapt(*instance(50), problem_size=50)
+                    native["locs"] = native["locs"] + index
+                    rows.append(native)
+                batch = stack_native(rows)
+                self.assertEqual(batch["locs"].shape[0], batch_size)
+                td = to_tensordict(
+                    batch, torch=torch, device="cpu",
+                    expected_batch_size=batch_size)
+                self.assertEqual(td.batch_size, [batch_size])
+        finally:
+            if prior is None:
+                sys.modules.pop("tensordict", None)
+            else:
+                sys.modules["tensordict"] = prior
 
     def test_action_capture_restores_even_on_error(self):
         class Tensor:
@@ -246,11 +290,45 @@ class CheckpointAndTimingTests(unittest.TestCase):
                          "2eac9b038ae4655581aa73e4dbe8ad529aefd1963368c9a92d254b6269f8aabf")
 
     def test_timing_boundary_places_reset_inside_timed_callable(self):
-        source = inspect.getsource(rfte_runtime.Runtime.solve)
+        source = inspect.getsource(rfte_runtime.Runtime.solve_batch)
         self.assertLess(source.index("def call"), source.index("self.env.reset"))
-        self.assertLess(source.index("select_rl4co_output"), source.index("timed_call(call"))
+        self.assertLess(source.index("select_rl4co_batch_output"),
+                        source.index("timed_call(call"))
         self.assertLess(source.index("self.env.reset"), source.index("timed_call(call"))
         self.assertIn("official environment load/reset", TIMING_SEMANTICS)
+
+    def test_rl4co_batch_selection_is_independent_per_original_instance(self):
+        import torch
+        batch_size, problem_size, steps = 10, 3, 5
+        rewards = torch.full((batch_size, 8, problem_size), -1000.0)
+        actions = torch.arange(
+            batch_size * 8 * problem_size * steps).reshape(
+                batch_size, 8, problem_size, steps)
+        best_actions = []
+        best_rewards = []
+        expected = []
+        for batch_index in range(batch_size):
+            aug = batch_index % 8
+            start = (batch_index + 1) % problem_size
+            reward = float(100 + batch_index)
+            rewards[batch_index, aug, start] = reward
+            best_actions.append(actions[batch_index, aug, start])
+            best_rewards.append(reward)
+            expected.append((aug, start))
+        out = {
+            "reward": rewards.reshape(-1), "actions": actions,
+            "max_aug_reward": torch.tensor(best_rewards),
+            "best_aug_actions": torch.stack(best_actions),
+        }
+        selected = select_rl4co_batch_output(
+            out, problem_size=problem_size, torch=torch)
+        self.assertEqual(len(selected), batch_size)
+        for batch_index, row in enumerate(selected):
+            aug, start = expected[batch_index]
+            self.assertEqual(
+                (row["selected_candidate"]["augmentation_index"],
+                 row["selected_candidate"]["start_index"]), (aug, start))
+            self.assertEqual(row["raw_action"], best_actions[batch_index].tolist())
 
     def test_exact_candidate_indices_for_rl4co_and_cada_layouts(self):
         import torch
@@ -292,7 +370,7 @@ class ArtifactTests(unittest.TestCase):
             "route_loads": [1.0], "route_timelines": [], "status": "KIT_VALIDATED",
         }
 
-    def identity(self, scope="our_5", count=5):
+    def identity(self, scope="our_5", count=5, batch_size=1):
         return {"method": "RF-TE", "variant": "RouteFinder Transformer",
                 "problem": "CVRPTW", "problem_size": 50, "scope": scope,
                 "dataset": {"sha256": DATASETS[50]["sha256"], "count": 1000},
@@ -300,7 +378,9 @@ class ArtifactTests(unittest.TestCase):
                 "chunk": {"expected_indices": list(range(count))},
                 "project": {"commit": "p", "dirty": False},
                 "upstream": {"commit": "u", "dirty": False},
-                "protocol": {"fixed": True}, "environment": {"gpu": "RTX 4090"},
+                "protocol": {"fixed": True,
+                             "original_instance_batch_size": batch_size},
+                "environment": {"gpu": "RTX 4090"},
                 "source_provenance": [], "timing_semantics": TIMING_SEMANTICS}
 
     def test_drop_is_per_instance(self):
@@ -351,6 +431,59 @@ class ArtifactTests(unittest.TestCase):
             (our5 / "validated_records.jsonl").write_text("\n".join(rows) + "\n")
             with self.assertRaisesRegex(ValueError, "differs"):
                 require_our5_prefix_matches_our2(our5, metadata2, records2)
+
+    def test_bs10_complete_batch_resume_summary_and_gate_identity(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            small = root / "small"
+            identity = self.identity("small_gate", 20, batch_size=10)
+            initialize(small, identity)
+            for batch_index in range(2):
+                indices = list(range(batch_index * 10, (batch_index + 1) * 10))
+                runtime = 0.2 + batch_index
+                records = [self.record(index) for index in indices]
+                for record in records:
+                    record["runtime_seconds"] = runtime
+                append_batch(small, records, {
+                    "batch_index": batch_index, "dataset_indices": indices,
+                    "batch_size": 10, "runtime_seconds": runtime,
+                })
+            _, completed = initialize(small, identity)
+            self.assertEqual(completed, set(range(20)))
+            summary = finalize(small)
+            self.assertEqual(summary["num_instances"], 20)
+            self.assertEqual(summary["num_batches"], 2)
+            self.assertEqual(summary["batch_size"], 10)
+            self.assertAlmostEqual(summary["mean_batch_runtime_seconds"], 0.7)
+            self.assertAlmostEqual(summary["total_runtime_seconds"], 1.4)
+            require_small_gate(
+                small, method="RF-TE", problem_size=50,
+                dataset_sha256=DATASETS[50]["sha256"],
+                checkpoint_sha256="a" * 64, batch_size=10)
+            with self.assertRaisesRegex(ValueError, "batch_size"):
+                require_small_gate(
+                    small, method="RF-TE", problem_size=50,
+                    dataset_sha256=DATASETS[50]["sha256"],
+                    checkpoint_sha256="a" * 64, batch_size=1)
+
+    def test_bs10_partial_batch_resume_fails_closed(self):
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp)
+            identity = self.identity("small_gate", 20, batch_size=10)
+            initialize(path, identity)
+            (path / "validated_records.jsonl").write_text(
+                json.dumps(self.record(0)) + "\n")
+            with self.assertRaisesRegex(ValueError, "partial/corrupt"):
+                initialize(path, identity)
+
+    def test_batch_scope_counts_are_real_native_batches(self):
+        self.assertEqual(scope_instance_count("preflight", 10, 1000), 10)
+        self.assertEqual(scope_instance_count("small_gate", 10, 1000), 20)
+        self.assertEqual(scope_instance_count("validation_gate", 10, 1000), 50)
+        self.assertEqual(scope_instance_count("production", 10, 1000), 1000)
+        self.assertEqual(1000 // 10, 100)
+        with self.assertRaises(ValueError):
+            scope_instance_count("our_5", 10, 1000)
 
 
 if __name__ == "__main__":

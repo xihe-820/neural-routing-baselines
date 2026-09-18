@@ -12,6 +12,7 @@ from methods.rfte.cvrptw.official_runtime import Runtime
 if __name__ == "__main__":
     base = Path(__file__).resolve().parent
     run({"name": "RF-TE", "variant": "RouteFinder Transformer", "root": ROOT,
+         "formal_batch_sizes": (1, 10), "batch_aware_protocol": True,
          "upstream_url": UPSTREAM_URL, "upstream_commit": UPSTREAM_COMMIT,
          "checkpoints": CHECKPOINTS, "protocol": protocol}, adapt_instance,
         decode_selected_action, Runtime,

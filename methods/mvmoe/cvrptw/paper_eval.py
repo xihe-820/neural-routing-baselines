@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Paper evaluation of official MVMoE/4E on CVRPTW50/100, batch one."""
+"""Paper evaluation of official MVMoE/4E on CVRPTW50/100, BS1 or BS10."""
 from __future__ import annotations
 
 import argparse
@@ -13,11 +13,12 @@ ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 from common.hashing import sha256_file
 from common.objective_agreement import objective_agrees
-from common.paper_results import (TIMING_SEMANTICS, append_record, finalize_chunk,
-                                  initialize_chunk)
+from common.paper_results import TIMING_SEMANTICS
 from common.provenance import (environment_provenance, git_provenance,
                                normalize_git_repository_identity, source_provenance)
 from methods.mvmoe.cvrptw.adapter import adapt_batch
+from methods.mvmoe.cvrptw.batch_artifacts import (
+    append_batch_records, finalize_batch_chunk, initialize_batch_chunk)
 from methods.mvmoe.cvrptw.config import SUPPORTED_SIZES, get_size_config
 from methods.mvmoe.cvrptw.decode import select_best_candidates
 from methods.mvmoe.cvrptw.paper_protocol import (SCALED_PROTOCOL_FIELDS,
@@ -26,16 +27,27 @@ from methods.mvmoe.cvrptw.scaling import (assert_continuous_env,
                                           scale_prepared_instance)
 from methods.mvmoe.paper_config import MODEL_CONFIG, UPSTREAM_COMMIT, UPSTREAM_URL
 from methods.mvmoe.paper_runtime import (compact_constraint_details, cuda_device,
-                                         seed_official_inference, solve_one)
+                                         seed_official_inference, solve_batch)
 from problems.cvrptw.validate import validate
 
 
-def require_scaled_artifact_path(output_dir, problem_size):
+MVMOE_BATCH_TIMING_SEMANTICS = (
+    "native original-instance inference-batch wall-clock seconds; scaling and input "
+    "adaptation are excluded; CUDA synchronization precedes timing; timed work includes "
+    "official environment load/reset, Aug8/POMO rollout, selected results transfer and "
+    "best-candidate selection; latency is never divided by original batch size; model, "
+    "checkpoint and dataset loading, warm-up, validation and artifact I/O are excluded"
+)
+
+
+def require_scaled_artifact_path(output_dir, problem_size, batch_size=1):
     """Keep canonical scaled chunks out of the verified unscaled directories."""
     expected = f"cvrptw{int(problem_size)}_scaled"
     if expected not in Path(output_dir).resolve().parts:
         raise ValueError(
             f"scaled CVRPTW formal output must be under an {expected} directory")
+    if batch_size == 10 and "bs10" not in Path(output_dir).resolve().parts:
+        raise ValueError("MVMoE BS10 formal output must be under a bs10 directory")
 
 
 def _slice_native(arrays, index, *, problem_size, device):
@@ -58,6 +70,20 @@ def _slice_native(arrays, index, *, problem_size, device):
         "distance_rounding": False,
     })
     return scaled, native, depot_window, mapping
+
+
+def _slice_native_batch(arrays, indices, *, problem_size, device):
+    """Scale each row independently, then concatenate only at the model boundary."""
+    import torch
+
+    rows = [_slice_native(arrays, index, problem_size=problem_size, device=device)
+            for index in indices]
+    scaled_rows = [row[0] for row in rows]
+    native = tuple(torch.cat([row[1][field] for row in rows], dim=0)
+                   for field in range(len(rows[0][1])))
+    depot_windows = np.asarray([row[2] for row in rows], dtype=np.float32)
+    mappings = [row[3] for row in rows]
+    return scaled_rows, native, depot_windows, mappings
 
 
 def validate_scaled_solution(arrays, index, scaled, route, depot_window):
@@ -105,10 +131,19 @@ def main():
     parser.add_argument("--upstream", type=Path, required=True)
     parser.add_argument("--checkpoint", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
-    parser.add_argument("--warmup-instances", type=int, choices=range(0, 6), default=2)
+    parser.add_argument("--batch-size", type=int, choices=(1, 10), default=1)
+    parser.add_argument("--warmup-batches", type=int, choices=range(0, 6))
+    parser.add_argument("--warmup-instances", type=int, choices=range(0, 6),
+                        help="legacy BS1 alias for --warmup-batches")
     parser.add_argument("--device", default="cuda:0")
     args = parser.parse_args()
-    require_scaled_artifact_path(args.output_dir, args.problem_size)
+    if args.warmup_batches is not None and args.warmup_instances is not None:
+        raise ValueError("choose only one warm-up option")
+    if args.warmup_instances is not None and args.batch_size != 1:
+        raise ValueError("--warmup-instances is a BS1 compatibility option")
+    warmup_batches = (args.warmup_instances if args.warmup_instances is not None
+                      else (2 if args.warmup_batches is None else args.warmup_batches))
+    require_scaled_artifact_path(args.output_dir, args.problem_size, args.batch_size)
 
     expected = get_size_config(args.problem_size)
     metadata_path = args.input_metadata or args.input.with_suffix(args.input.suffix + ".json")
@@ -139,7 +174,7 @@ def main():
     if project["dirty"]:
         raise ValueError("formal paper evaluation requires a clean project checkout")
     environment = environment_provenance(device)
-    protocol = scaled_paper_inference_config(args.problem_size)
+    protocol = scaled_paper_inference_config(args.problem_size, args.batch_size)
     observed_scaling_protocol = {
         key: protocol.get(key) for key in SCALED_PROTOCOL_FIELDS}
     if observed_scaling_protocol != SCALED_PROTOCOL_FIELDS:
@@ -158,6 +193,8 @@ def main():
     indices = [int(value) for value in arrays["indices"]]
     if count == 0 or indices != list(range(indices[0], indices[0] + count)):
         raise ValueError("prepared chunk indices must be nonempty and contiguous")
+    if indices[0] % args.batch_size or count % args.batch_size:
+        raise ValueError("prepared chunk must align to complete native inference batches")
     if prepared.get("dataset_indices") != indices or len(prepared.get("instance_names", [])) != count:
         raise ValueError("prepared metadata does not match NPZ instance identities")
     if not np.all(arrays["capacities"] == expected["capacity"]):
@@ -168,6 +205,7 @@ def main():
         Path(__file__).with_name("decode.py"), Path(__file__).with_name("config.py"),
         Path(__file__).with_name("scaling.py"),
         Path(__file__).with_name("paper_protocol.py"),
+        Path(__file__).with_name("batch_artifacts.py"),
         ROOT / "methods/mvmoe/paper_config.py", ROOT / "methods/mvmoe/paper_runtime.py",
         ROOT / "problems/cvrptw/validate.py", ROOT / "problems/cvrp/validate.py",
         ROOT / "problems/cvrp/objective.py", ROOT / "common/objective_agreement.py",
@@ -183,14 +221,15 @@ def main():
         "prepared_input": {"path": str(args.input.resolve()), "sha256": input_hash,
                            "metadata_path": str(metadata_path.resolve())},
         "chunk": {"offset": indices[0], "count": count, "expected_indices": indices},
-        "warmup": {"instances": args.warmup_instances,
-                   "policy": "first chunk instances, then rerun formally; excluded from timing"},
+        "warmup": {"batches": warmup_batches, "batch_size": args.batch_size,
+                   "policy": "first chunk native batches, then rerun formally; excluded from timing"},
         "environment": environment, "source_provenance": sources,
-        "timing_semantics": TIMING_SEMANTICS,
+        "timing_semantics": (TIMING_SEMANTICS if args.batch_size == 1
+                             else MVMOE_BATCH_TIMING_SEMANTICS),
     }
-    _, completed = initialize_chunk(args.output_dir, resume_identity)
+    _, completed, _ = initialize_batch_chunk(args.output_dir, resume_identity)
     if completed == set(indices):
-        finalize_chunk(args.output_dir)
+        finalize_batch_chunk(args.output_dir)
         print(args.output_dir / "metadata.json")
         return
 
@@ -207,84 +246,105 @@ def main():
                    loc_scaler=None, device=device)
     assert_continuous_env(env)
 
-    for local_index in range(min(args.warmup_instances, count)):
-        _, native, depot_window, _ = _slice_native(
-            arrays, local_index, problem_size=args.problem_size, device=device)
-        env.depot_start, env.depot_end = depot_window
+    batch_count = count // args.batch_size
+    for batch_index in range(min(warmup_batches, batch_count)):
+        first = batch_index * args.batch_size
+        local_indices = list(range(first, first + args.batch_size))
+        _, native, depot_windows, _ = _slice_native_batch(
+            arrays, local_indices, problem_size=args.problem_size, device=device)
         assert_continuous_env(env)
-        solve_one(model, env, native, selector=select_best_candidates,
-                  problem_size=args.problem_size, device=device, torch=torch, timed=False)
-
-    for local_index, dataset_index in enumerate(indices):
-        if dataset_index in completed:
-            continue
-        scaled, native, depot_window, mapping = _slice_native(
-            arrays, local_index, problem_size=args.problem_size, device=device)
-        env.depot_start, env.depot_end = depot_window
-        assert_continuous_env(env)
-        selection, runtime = solve_one(
+        solve_batch(
             model, env, native, selector=select_best_candidates,
-            problem_size=args.problem_size, device=device, torch=torch, timed=True)
-        domain_result = validate_scaled_solution(
-            arrays, local_index, scaled, selection["canonical_solution"], depot_window)
-        validation = domain_result["original_validation"]
-        independent = domain_result["original_objective"]
-        scaled_reported = selection["reported_objective"]
-        scaled_reported_agrees = objective_agrees(
-            scaled_reported, domain_result["scaled_route_objective"])
-        reported = scaled_reported * scaled["scaler"]
-        agrees = scaled_reported_agrees and objective_agrees(reported, independent)
-        reference = float(arrays["references"][local_index])
-        passed = validation["feasible"] and agrees
-        tolerance = float(arrays["time_tolerances"][local_index])
-        record = {
-            "dataset_instance_index": dataset_index,
-            "instance_id": prepared["instance_names"][local_index],
-            "canonical_solution": selection["canonical_solution"],
-            "reported_objective": reported,
-            "independent_objective": independent,
-            "reference_objective": reference,
-            "gap_percent": ((independent - reference) / reference * 100.0)
-            if independent is not None else None,
-            "runtime_seconds": runtime,
-            "independent_feasible": bool(validation["feasible"]),
-            "reported_objective_agrees": bool(agrees),
-            "scaled_reported_objective": scaled_reported,
-            "scaled_reported_objective_agrees": bool(scaled_reported_agrees),
-            "scaled_route_objective": domain_result["scaled_route_objective"],
-            "scaled_objective_times_s": domain_result["scaled_objective_times_s"],
-            "scaled_to_original_objective_agrees": bool(
-                domain_result["scaled_to_original_objective_agrees"]),
-            "scaler": scaled["scaler"],
-            "original_depot_tw_end": scaled["depot_tw_end"],
-            "original_coordinate_max": scaled["coordinate_max"],
-            "scaled_depot_tw_end": scaled["scaled_depot_tw_end"],
-            "scaled_coordinate_max": scaled["scaled_coordinate_max"],
-            "input_scaling_protocol": protocol["input_scaling"],
-            "input_mapping": mapping,
-            "selection": {key: value for key, value in selection.items()
-                          if key not in ("canonical_solution", "reported_objective")},
-            "constraint_details": compact_constraint_details(
-                validation["constraint_details"], problem="CVRPTW"),
-            "depot_time_window": list(depot_window),
-            "original_depot_time_window": arrays["time_windows"][
-                local_index, 0].astype(float).tolist(),
-            "time_tolerance": tolerance,
-            "evidence_status": "INDEPENDENT_VERIFIED" if passed else "FAILED",
-        }
-        if not passed:
-            raise RuntimeError(f"independent validation failed at dataset index {dataset_index}")
-        append_record(args.output_dir, record)
+            problem_size=args.problem_size, batch_size=args.batch_size,
+            device=device, torch=torch, timed=False, depot_windows=depot_windows)
+
+    for batch_index in range(batch_count):
+        first = batch_index * args.batch_size
+        local_indices = list(range(first, first + args.batch_size))
+        dataset_indices = [indices[index] for index in local_indices]
+        completed_here = [index in completed for index in dataset_indices]
+        if all(completed_here):
+            continue
+        if any(completed_here):
+            raise RuntimeError("MVMoE resume encountered a partial native batch")
+        scaled_rows, native, depot_windows, mappings = _slice_native_batch(
+            arrays, local_indices, problem_size=args.problem_size, device=device)
+        assert_continuous_env(env)
+        selections, runtime = solve_batch(
+            model, env, native, selector=select_best_candidates,
+            problem_size=args.problem_size, batch_size=args.batch_size,
+            device=device, torch=torch, timed=True, depot_windows=depot_windows)
+        records = []
+        for position, (local_index, dataset_index, scaled, selection, depot_window,
+                       mapping) in enumerate(zip(
+                           local_indices, dataset_indices, scaled_rows, selections,
+                           depot_windows, mappings)):
+            domain_result = validate_scaled_solution(
+                arrays, local_index, scaled, selection["canonical_solution"], depot_window)
+            validation = domain_result["original_validation"]
+            independent = domain_result["original_objective"]
+            scaled_reported = selection["reported_objective"]
+            scaled_reported_agrees = objective_agrees(
+                scaled_reported, domain_result["scaled_route_objective"])
+            reported = scaled_reported * scaled["scaler"]
+            agrees = scaled_reported_agrees and objective_agrees(reported, independent)
+            reference = float(arrays["references"][local_index])
+            passed = validation["feasible"] and agrees
+            tolerance = float(arrays["time_tolerances"][local_index])
+            record = {
+                "dataset_instance_index": dataset_index,
+                "instance_id": prepared["instance_names"][local_index],
+                "batch_index": batch_index, "position_in_batch": position,
+                "canonical_solution": selection["canonical_solution"],
+                "reported_objective": reported,
+                "independent_objective": independent,
+                "reference_objective": reference,
+                "gap_percent": ((independent - reference) / reference * 100.0)
+                if independent is not None else None,
+                "runtime_seconds": runtime,
+                "runtime_seconds_semantics": "shared native inference-batch latency",
+                "independent_feasible": bool(validation["feasible"]),
+                "reported_objective_agrees": bool(agrees),
+                "scaled_reported_objective": scaled_reported,
+                "scaled_reported_objective_agrees": bool(scaled_reported_agrees),
+                "scaled_route_objective": domain_result["scaled_route_objective"],
+                "scaled_objective_times_s": domain_result["scaled_objective_times_s"],
+                "scaled_to_original_objective_agrees": bool(
+                    domain_result["scaled_to_original_objective_agrees"]),
+                "scaler": scaled["scaler"],
+                "original_depot_tw_end": scaled["depot_tw_end"],
+                "original_coordinate_max": scaled["coordinate_max"],
+                "scaled_depot_tw_end": scaled["scaled_depot_tw_end"],
+                "scaled_coordinate_max": scaled["scaled_coordinate_max"],
+                "input_scaling_protocol": protocol["input_scaling"],
+                "input_mapping": mapping,
+                "selection": {key: value for key, value in selection.items()
+                              if key not in ("canonical_solution", "reported_objective")},
+                "constraint_details": compact_constraint_details(
+                    validation["constraint_details"], problem="CVRPTW"),
+                "depot_time_window": np.asarray(depot_window).astype(float).tolist(),
+                "original_depot_time_window": arrays["time_windows"][
+                    local_index, 0].astype(float).tolist(),
+                "time_tolerance": tolerance,
+                "evidence_status": "INDEPENDENT_VERIFIED" if passed else "FAILED",
+            }
+            if not passed:
+                raise RuntimeError(
+                    f"independent validation failed at dataset index {dataset_index}")
+            records.append(record)
+        append_batch_records(args.output_dir, records, {
+            "batch_index": batch_index, "dataset_indices": dataset_indices,
+            "batch_size": args.batch_size, "runtime_seconds": runtime,
+        })
         print(json.dumps({
             "method": "MVMoE", "problem": "CVRPTW", "size": args.problem_size,
-            "original_batch_size": 1, "pomo_size": args.problem_size, "augmentation": 8,
-            "checkpoint_sha256": checkpoint_hash, "dataset_sha256": prepared["dataset_sha256"],
-            "gpu": environment["gpu"], "dataset_instance_index": dataset_index,
-            "objective": independent, "reference": reference,
-            "gap_percent": record["gap_percent"], "runtime_seconds": runtime,
-            "feasible": validation["feasible"],
+            "original_batch_size": args.batch_size, "pomo_size": args.problem_size,
+            "augmentation": 8, "checkpoint_sha256": checkpoint_hash,
+            "dataset_sha256": prepared["dataset_sha256"], "gpu": environment["gpu"],
+            "batch_index": batch_index, "dataset_indices": dataset_indices,
+            "runtime_seconds": runtime,
         }, sort_keys=True, allow_nan=False), flush=True)
-    finalize_chunk(args.output_dir)
+    finalize_batch_chunk(args.output_dir)
     print(args.output_dir / "metadata.json")
 
 

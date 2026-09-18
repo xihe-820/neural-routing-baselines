@@ -26,7 +26,8 @@ DATASETS = {
 }
 
 TIMING_SEMANTICS = (
-    "single-original-instance wall-clock seconds; input conversion is outside the timed "
+    "native original-instance inference-batch wall-clock seconds; batch size is recorded "
+    "explicitly and latency is never divided by batch size; input conversion is outside the timed "
     "region; CUDA synchronize precedes perf_counter; the timed region contains official "
     "environment load/reset, the complete Aug8/all-customer-multistart autoregressive "
     "rollout and candidate selection, transfer of the selected reward/action/indices to CPU, "

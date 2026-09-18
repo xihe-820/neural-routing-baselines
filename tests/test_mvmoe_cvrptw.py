@@ -1,10 +1,16 @@
 import unittest
+import json
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import numpy as np
 
 from methods.mvmoe.cvrptw.adapter import adapt_batch
 from methods.mvmoe.cvrptw.config import SIZE_CONFIGS, get_size_config
 from methods.mvmoe.cvrptw.decode import decode_selected_nodes, select_best_candidates
+from methods.mvmoe.cvrptw.paper_eval import _slice_native_batch
+from methods.mvmoe.cvrptw.batch_artifacts import (
+    append_batch_records, initialize_batch_chunk)
 
 
 def valid_batch(problem_size, batch=2):
@@ -91,6 +97,28 @@ class MVMoECVRPTWAdapterTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "50 or 100"):
             get_size_config(75)
 
+    def test_bs10_scaling_is_independent_for_ten_different_scalers(self):
+        data = list(valid_batch(50, batch=10))
+        for index in range(10):
+            data[0][index] = [0.1 + index, 0.2]
+            data[1][index, 0] = [2.0 + index, 0.5]
+            data[4][index, 0, 1] = 4.6 + index
+        arrays = {
+            "depots": data[0], "points": data[1], "demands": data[2],
+            "capacities": data[3], "time_windows": data[4],
+            "service_times": data[5],
+        }
+        scaled, native, windows, mappings = _slice_native_batch(
+            arrays, list(range(10)), problem_size=50, device="cpu")
+        self.assertEqual(tuple(native[0].shape), (10, 1, 2))
+        scalers = [row["scaler"] for row in scaled]
+        self.assertEqual(len(set(scalers)), 10)
+        for index, scaler in enumerate(scalers):
+            np.testing.assert_allclose(
+                native[0][index, 0].numpy(), data[0][index] / scaler)
+            self.assertAlmostEqual(windows[index, 1], data[4][index, 0, 1] / scaler)
+            self.assertEqual(mappings[index]["scaler"], scaler)
+
 
 class MVMoECVRPTWDecoderTests(unittest.TestCase):
     def test_single_route(self):
@@ -135,6 +163,66 @@ class MVMoECVRPTWDecoderTests(unittest.TestCase):
         self.assertEqual((result["best_aug_idx"], result["best_pomo_idx"]), (1, 1))
         self.assertEqual(result["reported_objective"], 7.0)
         self.assertEqual(result["canonical_solution"], [0, 1, 0, 2, 0])
+
+    def test_bs10_selection_never_mixes_original_instances(self):
+        batch, problem, steps = 10, 3, 6
+        reward = np.full((8 * batch, problem), -1000.0, dtype=np.float32)
+        actions = np.zeros((8 * batch, problem, steps), dtype=np.int64)
+        expected = []
+        for batch_index in range(batch):
+            aug, pomo = batch_index % 8, batch_index % problem
+            flat = aug * batch + batch_index
+            reward[flat, pomo] = 100 + batch_index
+            actions[flat, pomo] = [0, 1, 2, 3, 0, 0]
+            expected.append((aug, pomo))
+        selected = select_best_candidates(
+            reward, actions, aug_factor=8, batch_size=batch,
+            problem_size=problem)
+        self.assertEqual(len(selected), batch)
+        self.assertEqual(
+            [(row["best_aug_idx"], row["best_pomo_idx"]) for row in selected],
+            expected)
+
+
+class MVMoEBatchArtifactTests(unittest.TestCase):
+    def identity(self):
+        return {
+            "method": "MVMoE", "variant": "MVMoE/4E", "problem": "CVRPTW",
+            "problem_size": 50,
+            "paper_protocol": {"original_batch_size": 10},
+            "chunk": {"offset": 0, "count": 20,
+                      "expected_indices": list(range(20))},
+        }
+
+    @staticmethod
+    def record(index, batch_index, position, runtime):
+        return {
+            "dataset_instance_index": index, "instance_id": f"x{index}",
+            "canonical_solution": [0, 1, 0], "reported_objective": 2.0,
+            "independent_objective": 2.0, "reference_objective": 1.0,
+            "gap_percent": 100.0, "runtime_seconds": runtime,
+            "independent_feasible": True, "reported_objective_agrees": True,
+            "evidence_status": "INDEPENDENT_VERIFIED",
+            "batch_index": batch_index, "position_in_batch": position,
+        }
+
+    def test_resume_advances_only_after_complete_native_batch(self):
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp)
+            identity = self.identity()
+            initialize_batch_chunk(path, identity)
+            records = [self.record(index, 0, index, 0.4) for index in range(10)]
+            append_batch_records(path, records, {
+                "batch_index": 0, "dataset_indices": list(range(10)),
+                "batch_size": 10, "runtime_seconds": 0.4,
+            })
+            _, completed, batches = initialize_batch_chunk(path, identity)
+            self.assertEqual(completed, set(range(10)))
+            self.assertEqual(batches, 1)
+            with (path / "inference_records.jsonl").open("a") as stream:
+                stream.write(json.dumps(self.record(10, 1, 0, 0.5)) + "\n")
+            with self.assertRaisesRegex(ValueError, "partial"):
+                initialize_batch_chunk(path, identity)
 
 
 if __name__ == "__main__":

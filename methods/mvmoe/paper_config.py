@@ -1,4 +1,4 @@
-"""Immutable MVMoE/4E settings for batch-one paper evaluation."""
+"""Immutable MVMoE/4E settings for formal paper evaluation."""
 from __future__ import annotations
 
 
@@ -26,12 +26,14 @@ MODEL_CONFIG = {
 }
 
 
-def paper_inference_config(problem_size, *, problem):
+def paper_inference_config(problem_size, *, problem, original_batch_size=1):
     """Return the non-overridable formal inference protocol."""
     if int(problem_size) not in (50, 100):
         raise ValueError("MVMoE paper evaluation supports only problem_size 50 or 100")
     if problem not in ("CVRP", "CVRPTW"):
         raise ValueError("MVMoE paper evaluation supports CVRP or CVRPTW")
+    if original_batch_size not in (1, 10):
+        raise ValueError("MVMoE formal original batch size is 1 or 10")
     config = {
         "variant": "MVMoE/4E",
         "model_type": "MOE",
@@ -40,7 +42,7 @@ def paper_inference_config(problem_size, *, problem):
         "routing_method": "input_choice",
         "problem_size": int(problem_size),
         "pomo_size": int(problem_size),
-        "original_batch_size": 1,
+        "original_batch_size": original_batch_size,
         "aug_factor": 8,
         "eval_type": "argmax",
         "seed": 2024,

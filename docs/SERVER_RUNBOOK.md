@@ -300,6 +300,65 @@ python -B scripts/summarize_paper_results.py \
 Only the four complete summaries may report `PAPER_READY`; preflight chunks are
 never paper results.
 
+### MVMoE CVRPTW native BS10 extension
+
+The original scaled BS1 evidence remains valid. The commands below create a
+separate BS10 tree and use the same checkpoint, per-instance scaler, Aug8,
+POMO=N, argmax selection, independent validator, and Kit gate. Each call to the
+official environment receives ten original instances at once.
+
+```bash
+for size in 50 100; do
+  dataset_var="CVRPTW${size}_DATASET"
+  checkpoint_var="MVMOE_N${size}_CHECKPOINT"
+  dataset="${!dataset_var}"
+  checkpoint="${!checkpoint_var}"
+  python -B methods/mvmoe/cvrptw/prepare_instances.py \
+    --dataset "$dataset" --problem-size "$size" --offset 0 --count 10 \
+    --output "$MVMOE_PAPER_ROOT/cvrptw${size}_scaled/bs10/preflight/input.npz"
+  python -B methods/mvmoe/cvrptw/paper_eval.py \
+    --problem-size "$size" --batch-size 10 \
+    --input "$MVMOE_PAPER_ROOT/cvrptw${size}_scaled/bs10/preflight/input.npz" \
+    --upstream "$MVMOE_UPSTREAM" --checkpoint "$checkpoint" \
+    --output-dir "$MVMOE_PAPER_ROOT/cvrptw${size}_scaled/bs10/preflight/chunk_00000_00010" \
+    --warmup-batches 0 --device cuda:0
+done
+```
+
+Only after both one-batch preflights pass, prepare and run four aligned
+250-instance chunks per size. Re-running an identical command resumes at the
+next complete ten-instance batch; a partial batch fails closed.
+
+```bash
+for size in 50 100; do
+  dataset_var="CVRPTW${size}_DATASET"
+  checkpoint_var="MVMOE_N${size}_CHECKPOINT"
+  dataset="${!dataset_var}"
+  checkpoint="${!checkpoint_var}"
+  for offset in 0 250 500 750; do
+    stop=$((offset + 250))
+    python -B methods/mvmoe/cvrptw/prepare_instances.py \
+      --dataset "$dataset" --problem-size "$size" --offset "$offset" --count 250 \
+      --output "$MVMOE_PAPER_ROOT/cvrptw${size}_scaled/bs10/production/input_${offset}_${stop}.npz"
+    python -B methods/mvmoe/cvrptw/paper_eval.py \
+      --problem-size "$size" --batch-size 10 \
+      --input "$MVMOE_PAPER_ROOT/cvrptw${size}_scaled/bs10/production/input_${offset}_${stop}.npz" \
+      --upstream "$MVMOE_UPSTREAM" --checkpoint "$checkpoint" \
+      --output-dir "$MVMOE_PAPER_ROOT/cvrptw${size}_scaled/bs10/production/chunk_${offset}_${stop}" \
+      --warmup-batches 2 --device cuda:0
+  done
+  python -B scripts/validate_paper_results_with_kit.py --dataset "$dataset" \
+    --chunk-dirs "$MVMOE_PAPER_ROOT"/cvrptw${size}_scaled/bs10/production/chunk_*
+  python -B scripts/summarize_paper_results.py \
+    --chunk-dirs "$MVMOE_PAPER_ROOT"/cvrptw${size}_scaled/bs10/production/chunk_* \
+    --output "$MVMOE_PAPER_ROOT/cvrptw${size}_scaled/bs10/summary.json"
+done
+```
+
+The BS10 summary must report 1000 instances, 100 native batches,
+`time_mean_batch_seconds`, and `time_total_seconds`. Do not divide the batch
+latency by ten.
+
 ## 8. NeuOpt CVRP50 and CVRP100
 
 Run both sizes from the same integration. These commands keep the official checkout read-only and use the official 1000-step configuration.
@@ -1249,7 +1308,7 @@ launch_remaining_cvrptw moses_cada 100 "$MOSES_CADA_PYTHON" "$BASELINE_PROJECT_R
 
 Each production run is resumable only with an identical provenance fingerprint
 and produces `metadata.json`, `checkpoint_state.json`,
-`validated_records.jsonl`, `timings.jsonl`, and `summary.json`.
+`validated_records.jsonl`, `batch_timings.jsonl`, and `summary.json`.
 
 Step 7, after all six production summaries are `PAPER_READY`, aggregate without
 invoking any model:
@@ -1267,6 +1326,101 @@ invoking any model:
 
 CVRPTW200 and every CVRP cell are outside this phase. The production commands
 must remain unexecuted until all six `our_5` gates pass.
+
+### RF-TE and MoSES(CaDA) native BS1/BS10 formal runs
+
+The batch-aware flow below supersedes the legacy RF-TE/MoSES commands above.
+`--batch-size` is the original-instance batch size. BS10 preflight, small gate,
+and validation gate therefore contain 10, 20, and 50 instances. The production
+input remains the same instance-major 1000-row NPZ. CaDA is outside this BS10
+phase.
+
+```bash
+for size in 50 100; do
+  dataset="$REMAINING_DATASET_ROOT/cvrptw${size}_pyvrp-$([ "$size" = 50 ] && echo '10s_16.038' || echo '20s_25.431').pkl"
+  for bs in 1 10; do
+    for spec in "preflight:$bs" "small_gate:$((2*bs))" "validation_gate:$((5*bs))"; do
+      scope=${spec%%:*}; count=${spec##*:}
+      "$ML4CO_PYTHON" -B scripts/prepare_remaining_cvrptw.py \
+        --dataset "$dataset" --problem-size "$size" --offset 0 --count "$count" \
+        --output "$REMAINING_ARTIFACT_ROOT/prepared/cvrptw${size}/${scope}_bs${bs}.npz"
+    done
+  done
+done
+
+for bs in 1 10; do
+  "$ML4CO_PYTHON" -B scripts/run_remaining_cvrptw_preflights.py \
+    --project-root "$BASELINE_PROJECT_ROOT" --audit-evidence "$REMAINING_AUDIT" \
+    --prepared-root "$REMAINING_ARTIFACT_ROOT/prepared" \
+    --dataset-root "$REMAINING_DATASET_ROOT" \
+    --output-root "$REMAINING_ARTIFACT_ROOT/results" \
+    --rfte-python "$RFTE_PYTHON" --cada-python "$CADA_PYTHON" \
+    --moses-cada-python "$MOSES_CADA_PYTHON" \
+    --methods rfte moses_cada --batch-size "$bs"
+done
+```
+
+Run the two complete-batch gates for each method, size, and batch size. This
+function does not install packages or mutate an upstream checkout.
+
+```bash
+run_remaining_batch_gate () {
+  method="$1"; size="$2"; bs="$3"; scope="$4"; python_exe="$5"
+  upstream="$6"; checkpoint="$7"; checkpoint_sha="$8"
+  evidence_args=()
+  if [ "$scope" = validation_gate ]; then
+    evidence_args=(--small-gate-evidence "$REMAINING_ARTIFACT_ROOT/results/$method/cvrptw${size}/bs${bs}/small_gate")
+  fi
+  "$python_exe" -B "methods/$method/cvrptw/paper_eval.py" \
+    --scope "$scope" --problem-size "$size" --batch-size "$bs" \
+    --input "$REMAINING_ARTIFACT_ROOT/prepared/cvrptw${size}/${scope}_bs${bs}.npz" \
+    --dataset "$REMAINING_DATASET_ROOT/cvrptw${size}_pyvrp-$([ "$size" = 50 ] && echo '10s_16.038' || echo '20s_25.431').pkl" \
+    --upstream "$upstream" --checkpoint "$checkpoint" \
+    --expected-checkpoint-sha256 "$checkpoint_sha" \
+    --output-dir "$REMAINING_ARTIFACT_ROOT/results/$method/cvrptw${size}/bs${bs}/$scope" \
+    "${evidence_args[@]}" --warmup-batches 2 --device cuda:0
+}
+
+for bs in 1 10; do
+  for scope in small_gate validation_gate; do
+    run_remaining_batch_gate rfte 50 "$bs" "$scope" "$RFTE_PYTHON" "$BASELINE_PROJECT_ROOT/external/routefinder" "$BASELINE_PROJECT_ROOT/external/routefinder/checkpoints/50/rf-transformer.ckpt" "$RFTE50_SHA"
+    run_remaining_batch_gate rfte 100 "$bs" "$scope" "$RFTE_PYTHON" "$BASELINE_PROJECT_ROOT/external/routefinder" "$BASELINE_PROJECT_ROOT/external/routefinder/checkpoints/100/rf-transformer.ckpt" "$RFTE100_SHA"
+    run_remaining_batch_gate moses_cada 50 "$bs" "$scope" "$MOSES_CADA_PYTHON" "$BASELINE_PROJECT_ROOT/external/moses_vrp" "$BASELINE_PROJECT_ROOT/external/moses_vrp/pretrained_moses_model/cada/50/multilora_denseroute_sigmoid.ckpt" "$MOSES50_SHA"
+    run_remaining_batch_gate moses_cada 100 "$bs" "$scope" "$MOSES_CADA_PYTHON" "$BASELINE_PROJECT_ROOT/external/moses_vrp" "$BASELINE_PROJECT_ROOT/external/moses_vrp/pretrained_moses_model/cada/100/multilora_denseroute_sigmoid.ckpt" "$MOSES100_SHA"
+  done
+done
+```
+
+After every matching validation gate is `KIT_VALIDATED`, dry-run and then
+execute each production cell. `TIME` is mean native-batch latency and `TOTAL`
+is the sum of the 1000 BS1 or 100 BS10 timings.
+
+```bash
+launch_remaining_batch_production () {
+  method="$1"; size="$2"; bs="$3"; python_exe="$4"
+  upstream="$5"; checkpoint="$6"; checkpoint_sha="$7"; execute_flag="${8:-}"
+  "$ML4CO_PYTHON" -B scripts/launch_remaining_cvrptw_production.py \
+    --method "$method" --problem-size "$size" --batch-size "$bs" \
+    --python "$python_exe" \
+    --input "$REMAINING_ARTIFACT_ROOT/prepared/cvrptw${size}/production.npz" \
+    --dataset "$REMAINING_DATASET_ROOT/cvrptw${size}_pyvrp-$([ "$size" = 50 ] && echo '10s_16.038' || echo '20s_25.431').pkl" \
+    --upstream "$upstream" --checkpoint "$checkpoint" \
+    --expected-checkpoint-sha256 "$checkpoint_sha" \
+    --validation-gate-evidence "$REMAINING_ARTIFACT_ROOT/results/$method/cvrptw${size}/bs${bs}/validation_gate" \
+    --output-dir "$REMAINING_ARTIFACT_ROOT/results/$method/cvrptw${size}/bs${bs}/production" \
+    $execute_flag
+}
+
+for bs in 1 10; do
+  launch_remaining_batch_production rfte 50 "$bs" "$RFTE_PYTHON" "$BASELINE_PROJECT_ROOT/external/routefinder" "$BASELINE_PROJECT_ROOT/external/routefinder/checkpoints/50/rf-transformer.ckpt" "$RFTE50_SHA"
+  launch_remaining_batch_production rfte 100 "$bs" "$RFTE_PYTHON" "$BASELINE_PROJECT_ROOT/external/routefinder" "$BASELINE_PROJECT_ROOT/external/routefinder/checkpoints/100/rf-transformer.ckpt" "$RFTE100_SHA"
+  launch_remaining_batch_production moses_cada 50 "$bs" "$MOSES_CADA_PYTHON" "$BASELINE_PROJECT_ROOT/external/moses_vrp" "$BASELINE_PROJECT_ROOT/external/moses_vrp/pretrained_moses_model/cada/50/multilora_denseroute_sigmoid.ckpt" "$MOSES50_SHA"
+  launch_remaining_batch_production moses_cada 100 "$bs" "$MOSES_CADA_PYTHON" "$BASELINE_PROJECT_ROOT/external/moses_vrp" "$BASELINE_PROJECT_ROOT/external/moses_vrp/pretrained_moses_model/cada/100/multilora_denseroute_sigmoid.ckpt" "$MOSES100_SHA"
+done
+```
+
+Each new artifact contains `metadata.json`, `validated_records.jsonl`,
+`batch_timings.jsonl`, and `summary.json`. A partial native batch blocks resume.
 
 ## 12. Regression tests
 
