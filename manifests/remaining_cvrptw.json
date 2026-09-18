@@ -1,0 +1,61 @@
+{
+  "schema": "remaining-cvrptw-formal-v1",
+  "scope": {
+    "problem": "CVRPTW",
+    "sizes": [50, 100],
+    "methods": ["RF-TE", "CaDA", "MoSES(CaDA)"],
+    "cvrptw200": "OUT_OF_SCOPE",
+    "cvrp": "OUT_OF_SCOPE"
+  },
+  "shared_contract": {
+    "original_instance_batch_size": 1,
+    "reference_objective": "task.evaluate(task.ref_sol)",
+    "drop": "mean_i((independent_objective_i-reference_objective_i)/reference_objective_i*100)",
+    "validation": ["problems/cvrptw/validate.py", "ML4CO-Kit CVRPTWTask"],
+    "timing": "CUDA-synchronized single-original-instance wall-clock around official reset, Aug8, all-customer multistart rollout, selection and selected-result transfer"
+  },
+  "datasets": {
+    "50": {
+      "filename": "cvrptw50_pyvrp-10s_16.038.pkl",
+      "sha256": "a16975d9dd242739973191256e1cdbd8166c4405759ef195b985a8c3ec49df40",
+      "count": 1000,
+      "capacity": 40
+    },
+    "100": {
+      "filename": "cvrptw100_pyvrp-20s_25.431.pkl",
+      "sha256": "3b74fa520f42f7aa607a5bd00a7d4aaa118e0715ca1672ee854fc850bac67867",
+      "count": 1000,
+      "capacity": 50
+    }
+  },
+  "methods": {
+    "RF-TE": {
+      "repo": "https://github.com/ai4co/routefinder",
+      "commit": "fe0e45b6df118af03c5f42db8b93a351f7629131",
+      "release": "v0.4.0",
+      "checkpoint_revision": "4edf73d68a5915787dd2f81ba177d77e13317190",
+      "checkpoints": {"50": "checkpoints/50/rf-transformer.ckpt", "100": "checkpoints/100/rf-transformer.ckpt"},
+      "checkpoint_sha256": "PENDING_SERVER_ASSET_AUDIT",
+      "protocol": "Aug8 dihedral8; all-customer starts; checkpoint test greedy; max start then max augmentation",
+      "status": "READY_FOR_SERVER_ASSET_ENV_PREFLIGHT"
+    },
+    "CaDA": {
+      "repo": "https://github.com/CIAM-Group/CaDA",
+      "commit": "b9868e1e09b3a1a3754960d830e801e51c7cb38d",
+      "checkpoints": {"50": "50/result/2024-1111-1139/checkpoint-300.pt", "100": "100/result/2024-1121-1355/checkpoint-300.pt"},
+      "checkpoint_sha256": "PENDING_SERVER_ASSET_AUDIT",
+      "protocol": "seed 7; greedy; Aug8; all-customer POMO; prompt C=1,O=0,TW=1,L=0,B=0",
+      "status": "READY_FOR_SERVER_ASSET_ENV_PREFLIGHT"
+    },
+    "MoSES(CaDA)": {
+      "repo": "https://github.com/panyxy/moses_vrp",
+      "commit": "e301478b7a5df6d7b0b10a0543f4dee5e3c027a8",
+      "checkpoints": {
+        "50": {"path": "pretrained_moses_model/cada/50/multilora_denseroute_sigmoid.ckpt", "sha256": "1aa499f3fce5d3412c2544c9632bbb9709309a7299b4298b535fa7e9014ef803"},
+        "100": {"path": "pretrained_moses_model/cada/100/multilora_denseroute_sigmoid.ckpt", "sha256": "2eac9b038ae4655581aa73e4dbe8ad529aefd1963368c9a92d254b6269f8aabf"}
+      },
+      "protocol": "CaDA backbone; sigmoid multi-LoRA ranks 32x5; 4 experts/top-k 4/temperature 1; Aug8; all-customer multistart greedy",
+      "status": "READY_FOR_SERVER_ENV_PREFLIGHT"
+    }
+  }
+}

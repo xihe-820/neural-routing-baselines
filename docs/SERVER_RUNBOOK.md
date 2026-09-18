@@ -1088,13 +1088,187 @@ python -B methods/udc/paper_production.py --mode aggregate \
   --output-root "$UDC_PRODUCTION_ROOT"
 ```
 
-## 11. Regression tests
+## 11. Remaining CVRPTW Baselines
+
+This section covers only RF-TE, CaDA, and MoSES(CaDA), for CVRPTW50/100. It
+never installs into `cp311_base`. Set each Python executable to an already
+audited compatible environment; if the import/load audit fails, create and
+freeze a separate method environment before continuing. The paths below do not
+fall back to another dataset, checkpoint, or checkout.
+
+```bash
+export BASELINE_PROJECT_ROOT=/inspire/hdd/global_user/majiale-253108540229/zhang/neural-routing-baselines
+export REMAINING_DATASET_ROOT=/inspire/hdd/global_user/majiale-253108540229/zhang/datasets/ML4CO-Bench-101-SL
+export REMAINING_ARTIFACT_ROOT=/inspire/hdd/global_user/majiale-253108540229/zhang/artifacts/neural-routing-baselines/remaining_cvrptw
+export REMAINING_AUDIT="$REMAINING_ARTIFACT_ROOT/audit/audit.json"
+export ML4CO_PYTHON=/absolute/path/to/python-with-ml4co-kit
+export RFTE_PYTHON=/absolute/path/to/audited-rfte-python
+export CADA_PYTHON=/absolute/path/to/audited-cada-python
+export MOSES_CADA_PYTHON=/absolute/path/to/audited-moses-cada-python
+cd "$BASELINE_PROJECT_ROOT"
+test -z "$(git status --porcelain)"
+mkdir -p "$REMAINING_ARTIFACT_ROOT/audit"
+```
+
+Step 1, audit both datasets, all three clean pinned upstreams, both checkpoint
+paths per method, hashes, and the invoking environment. This command writes the
+JSON even when one method fails, so other methods remain auditable.
+
+```bash
+"$ML4CO_PYTHON" -B scripts/audit_remaining_cvrptw.py \
+  --upstream-root "$BASELINE_PROJECT_ROOT/external" \
+  --checkpoint-root "$BASELINE_PROJECT_ROOT/external" \
+  --dataset-root "$REMAINING_DATASET_ROOT" \
+  --output "$REMAINING_AUDIT"
+```
+
+Inspect the JSON before continuing. RF-TE must resolve to
+`rf-transformer.ckpt`; CaDA must resolve to its size-specific
+`checkpoint-300.pt`; MoSES must resolve only to the CaDA
+`multilora_denseroute_sigmoid.ckpt`. A missing asset remains a method-local
+blocker. Do not substitute an RF/MoE/POMO, softmax, softplus, or VR1route file.
+
+Run CPU import/construction/audited-load checks with each selected method
+Python before any GPU smoke. Repeat both sizes; a failure is local to that
+method and must not suppress the other commands.
+
+```bash
+export RFTE50_SHA=$("$ML4CO_PYTHON" -c 'import json,os;print(json.load(open(os.environ["REMAINING_AUDIT"]))["methods"]["rfte"]["checkpoints"]["50"]["sha256"])')
+export RFTE100_SHA=$("$ML4CO_PYTHON" -c 'import json,os;print(json.load(open(os.environ["REMAINING_AUDIT"]))["methods"]["rfte"]["checkpoints"]["100"]["sha256"])')
+export CADA50_SHA=$("$ML4CO_PYTHON" -c 'import json,os;print(json.load(open(os.environ["REMAINING_AUDIT"]))["methods"]["cada"]["checkpoints"]["50"]["sha256"])')
+export CADA100_SHA=$("$ML4CO_PYTHON" -c 'import json,os;print(json.load(open(os.environ["REMAINING_AUDIT"]))["methods"]["cada"]["checkpoints"]["100"]["sha256"])')
+export MOSES50_SHA=1aa499f3fce5d3412c2544c9632bbb9709309a7299b4298b535fa7e9014ef803
+export MOSES100_SHA=2eac9b038ae4655581aa73e4dbe8ad529aefd1963368c9a92d254b6269f8aabf
+
+"$RFTE_PYTHON" -B scripts/audit_remaining_cvrptw_environment.py --method rfte --problem-size 50 --upstream "$BASELINE_PROJECT_ROOT/external/routefinder" --checkpoint "$BASELINE_PROJECT_ROOT/external/routefinder/checkpoints/50/rf-transformer.ckpt" --expected-checkpoint-sha256 "$RFTE50_SHA" --output "$REMAINING_ARTIFACT_ROOT/audit/rfte50_environment.json"
+"$RFTE_PYTHON" -B scripts/audit_remaining_cvrptw_environment.py --method rfte --problem-size 100 --upstream "$BASELINE_PROJECT_ROOT/external/routefinder" --checkpoint "$BASELINE_PROJECT_ROOT/external/routefinder/checkpoints/100/rf-transformer.ckpt" --expected-checkpoint-sha256 "$RFTE100_SHA" --output "$REMAINING_ARTIFACT_ROOT/audit/rfte100_environment.json"
+"$CADA_PYTHON" -B scripts/audit_remaining_cvrptw_environment.py --method cada --problem-size 50 --upstream "$BASELINE_PROJECT_ROOT/external/CaDA" --checkpoint "$BASELINE_PROJECT_ROOT/external/CaDA/50/result/2024-1111-1139/checkpoint-300.pt" --expected-checkpoint-sha256 "$CADA50_SHA" --output "$REMAINING_ARTIFACT_ROOT/audit/cada50_environment.json"
+"$CADA_PYTHON" -B scripts/audit_remaining_cvrptw_environment.py --method cada --problem-size 100 --upstream "$BASELINE_PROJECT_ROOT/external/CaDA" --checkpoint "$BASELINE_PROJECT_ROOT/external/CaDA/100/result/2024-1121-1355/checkpoint-300.pt" --expected-checkpoint-sha256 "$CADA100_SHA" --output "$REMAINING_ARTIFACT_ROOT/audit/cada100_environment.json"
+"$MOSES_CADA_PYTHON" -B scripts/audit_remaining_cvrptw_environment.py --method moses_cada --problem-size 50 --upstream "$BASELINE_PROJECT_ROOT/external/moses_vrp" --checkpoint "$BASELINE_PROJECT_ROOT/external/moses_vrp/pretrained_moses_model/cada/50/multilora_denseroute_sigmoid.ckpt" --expected-checkpoint-sha256 "$MOSES50_SHA" --output "$REMAINING_ARTIFACT_ROOT/audit/moses_cada50_environment.json"
+"$MOSES_CADA_PYTHON" -B scripts/audit_remaining_cvrptw_environment.py --method moses_cada --problem-size 100 --upstream "$BASELINE_PROJECT_ROOT/external/moses_vrp" --checkpoint "$BASELINE_PROJECT_ROOT/external/moses_vrp/pretrained_moses_model/cada/100/multilora_denseroute_sigmoid.ckpt" --expected-checkpoint-sha256 "$MOSES100_SHA" --output "$REMAINING_ARTIFACT_ROOT/audit/moses_cada100_environment.json"
+```
+
+Step 2, prepare the exact shared first-1, first-2, first-5, and full-set inputs.
+Preparation verifies filename, SHA256, task class/schema, capacity, and exact
+dataset count before writing original units.
+
+```bash
+for size in 50 100; do
+  dataset="$REMAINING_DATASET_ROOT/cvrptw${size}_pyvrp-$([ "$size" = 50 ] && echo '10s_16.038' || echo '20s_25.431').pkl"
+  mkdir -p "$REMAINING_ARTIFACT_ROOT/prepared/cvrptw${size}"
+  "$ML4CO_PYTHON" -B scripts/prepare_remaining_cvrptw.py --dataset "$dataset" \
+    --problem-size "$size" --offset 0 --count 1 \
+    --output "$REMAINING_ARTIFACT_ROOT/prepared/cvrptw${size}/preflight.npz"
+  "$ML4CO_PYTHON" -B scripts/prepare_remaining_cvrptw.py --dataset "$dataset" \
+    --problem-size "$size" --offset 0 --count 2 \
+    --output "$REMAINING_ARTIFACT_ROOT/prepared/cvrptw${size}/our_2.npz"
+  "$ML4CO_PYTHON" -B scripts/prepare_remaining_cvrptw.py --dataset "$dataset" \
+    --problem-size "$size" --offset 0 --count 5 \
+    --output "$REMAINING_ARTIFACT_ROOT/prepared/cvrptw${size}/our_5.npz"
+  "$ML4CO_PYTHON" -B scripts/prepare_remaining_cvrptw.py --dataset "$dataset" \
+    --problem-size "$size" --offset 0 --count 1000 \
+    --output "$REMAINING_ARTIFACT_ROOT/prepared/cvrptw${size}/production.npz"
+done
+```
+
+Step 3, execute all six one-instance preflights. A failed RF-TE job does not
+hide CaDA/MoSES results, but each failed method remains blocked from production.
+
+```bash
+"$ML4CO_PYTHON" -B scripts/run_remaining_cvrptw_preflights.py \
+  --project-root "$BASELINE_PROJECT_ROOT" --audit-evidence "$REMAINING_AUDIT" \
+  --prepared-root "$REMAINING_ARTIFACT_ROOT/prepared" \
+  --dataset-root "$REMAINING_DATASET_ROOT" \
+  --output-root "$REMAINING_ARTIFACT_ROOT/results" \
+  --rfte-python "$RFTE_PYTHON" --cada-python "$CADA_PYTHON" \
+  --moses-cada-python "$MOSES_CADA_PYTHON"
+```
+
+Step 4, run `our_2`, then Step 5, run `our_5`. The helper below is only shell
+composition: every Python evaluator still enforces the exact method, size,
+scope, upstream, checkpoint, dataset, GPU, and clean-tree gates.
+
+```bash
+run_remaining_cvrptw_scope () {
+  method="$1"; size="$2"; scope="$3"; python_exe="$4"; upstream="$5"; checkpoint="$6"; checkpoint_sha="$7"
+  "$python_exe" -B "methods/$method/cvrptw/paper_eval.py" \
+    --scope "$scope" --problem-size "$size" \
+    --input "$REMAINING_ARTIFACT_ROOT/prepared/cvrptw${size}/${scope}.npz" \
+    --dataset "$REMAINING_DATASET_ROOT/cvrptw${size}_pyvrp-$([ "$size" = 50 ] && echo '10s_16.038' || echo '20s_25.431').pkl" \
+    --upstream "$upstream" --checkpoint "$checkpoint" \
+    --expected-checkpoint-sha256 "$checkpoint_sha" \
+    --output-dir "$REMAINING_ARTIFACT_ROOT/results/$method/cvrptw${size}/${scope}" \
+    $([ "$scope" = our_5 ] && printf '%s %s' --our2-evidence "$REMAINING_ARTIFACT_ROOT/results/$method/cvrptw${size}/our_2") \
+    --warmup-instances 2 --device cuda:0
+}
+
+for scope in our_2 our_5; do
+  run_remaining_cvrptw_scope rfte 50 "$scope" "$RFTE_PYTHON" "$BASELINE_PROJECT_ROOT/external/routefinder" "$BASELINE_PROJECT_ROOT/external/routefinder/checkpoints/50/rf-transformer.ckpt" "$RFTE50_SHA"
+  run_remaining_cvrptw_scope rfte 100 "$scope" "$RFTE_PYTHON" "$BASELINE_PROJECT_ROOT/external/routefinder" "$BASELINE_PROJECT_ROOT/external/routefinder/checkpoints/100/rf-transformer.ckpt" "$RFTE100_SHA"
+  run_remaining_cvrptw_scope cada 50 "$scope" "$CADA_PYTHON" "$BASELINE_PROJECT_ROOT/external/CaDA" "$BASELINE_PROJECT_ROOT/external/CaDA/50/result/2024-1111-1139/checkpoint-300.pt" "$CADA50_SHA"
+  run_remaining_cvrptw_scope cada 100 "$scope" "$CADA_PYTHON" "$BASELINE_PROJECT_ROOT/external/CaDA" "$BASELINE_PROJECT_ROOT/external/CaDA/100/result/2024-1121-1355/checkpoint-300.pt" "$CADA100_SHA"
+  run_remaining_cvrptw_scope moses_cada 50 "$scope" "$MOSES_CADA_PYTHON" "$BASELINE_PROJECT_ROOT/external/moses_vrp" "$BASELINE_PROJECT_ROOT/external/moses_vrp/pretrained_moses_model/cada/50/multilora_denseroute_sigmoid.ckpt" "$MOSES50_SHA"
+  run_remaining_cvrptw_scope moses_cada 100 "$scope" "$MOSES_CADA_PYTHON" "$BASELINE_PROJECT_ROOT/external/moses_vrp" "$BASELINE_PROJECT_ROOT/external/moses_vrp/pretrained_moses_model/cada/100/multilora_denseroute_sigmoid.ckpt" "$MOSES100_SHA"
+done
+```
+
+Verify all six `our_5/summary.json` files say `KIT_VALIDATED`. Do not run a
+fullset before that. Step 6 is the production launcher template. It is dry-run
+unless the final argument is `--execute`, and it revalidates the selected
+method's hashed `our_5` evidence before invoking the solver. Run all six
+invocations without `--execute` first. Review the printed commands, then repeat
+one invocation at a time with `--execute`.
+
+```bash
+launch_remaining_cvrptw () {
+  method="$1"; size="$2"; python_exe="$3"; upstream="$4"; checkpoint="$5"; checkpoint_sha="$6"; execute_flag="${7:-}"
+  "$ML4CO_PYTHON" -B scripts/launch_remaining_cvrptw_production.py \
+    --method "$method" --problem-size "$size" --python "$python_exe" \
+    --input "$REMAINING_ARTIFACT_ROOT/prepared/cvrptw${size}/production.npz" \
+    --dataset "$REMAINING_DATASET_ROOT/cvrptw${size}_pyvrp-$([ "$size" = 50 ] && echo '10s_16.038' || echo '20s_25.431').pkl" \
+    --upstream "$upstream" --checkpoint "$checkpoint" \
+    --expected-checkpoint-sha256 "$checkpoint_sha" \
+    --our5-evidence "$REMAINING_ARTIFACT_ROOT/results/$method/cvrptw${size}/our_5" \
+    --output-dir "$REMAINING_ARTIFACT_ROOT/results/$method/cvrptw${size}/production" \
+    $execute_flag
+}
+
+launch_remaining_cvrptw rfte 50 "$RFTE_PYTHON" "$BASELINE_PROJECT_ROOT/external/routefinder" "$BASELINE_PROJECT_ROOT/external/routefinder/checkpoints/50/rf-transformer.ckpt" "$RFTE50_SHA"
+launch_remaining_cvrptw rfte 100 "$RFTE_PYTHON" "$BASELINE_PROJECT_ROOT/external/routefinder" "$BASELINE_PROJECT_ROOT/external/routefinder/checkpoints/100/rf-transformer.ckpt" "$RFTE100_SHA"
+launch_remaining_cvrptw cada 50 "$CADA_PYTHON" "$BASELINE_PROJECT_ROOT/external/CaDA" "$BASELINE_PROJECT_ROOT/external/CaDA/50/result/2024-1111-1139/checkpoint-300.pt" "$CADA50_SHA"
+launch_remaining_cvrptw cada 100 "$CADA_PYTHON" "$BASELINE_PROJECT_ROOT/external/CaDA" "$BASELINE_PROJECT_ROOT/external/CaDA/100/result/2024-1121-1355/checkpoint-300.pt" "$CADA100_SHA"
+launch_remaining_cvrptw moses_cada 50 "$MOSES_CADA_PYTHON" "$BASELINE_PROJECT_ROOT/external/moses_vrp" "$BASELINE_PROJECT_ROOT/external/moses_vrp/pretrained_moses_model/cada/50/multilora_denseroute_sigmoid.ckpt" "$MOSES50_SHA"
+launch_remaining_cvrptw moses_cada 100 "$MOSES_CADA_PYTHON" "$BASELINE_PROJECT_ROOT/external/moses_vrp" "$BASELINE_PROJECT_ROOT/external/moses_vrp/pretrained_moses_model/cada/100/multilora_denseroute_sigmoid.ckpt" "$MOSES100_SHA"
+```
+
+Each production run is resumable only with an identical provenance fingerprint
+and produces `metadata.json`, `checkpoint_state.json`,
+`validated_records.jsonl`, `timings.jsonl`, and `summary.json`.
+
+Step 7, after all six production summaries are `PAPER_READY`, aggregate without
+invoking any model:
+
+```bash
+"$ML4CO_PYTHON" -B scripts/summarize_remaining_cvrptw.py \
+  --rfte-50 "$REMAINING_ARTIFACT_ROOT/results/rfte/cvrptw50/production" \
+  --rfte-100 "$REMAINING_ARTIFACT_ROOT/results/rfte/cvrptw100/production" \
+  --cada-50 "$REMAINING_ARTIFACT_ROOT/results/cada/cvrptw50/production" \
+  --cada-100 "$REMAINING_ARTIFACT_ROOT/results/cada/cvrptw100/production" \
+  --moses-cada-50 "$REMAINING_ARTIFACT_ROOT/results/moses_cada/cvrptw50/production" \
+  --moses-cada-100 "$REMAINING_ARTIFACT_ROOT/results/moses_cada/cvrptw100/production" \
+  --output "$REMAINING_ARTIFACT_ROOT/six_cell_summary.json"
+```
+
+CVRPTW200 and every CVRP cell are outside this phase. The production commands
+must remain unexecuted until all six `our_5` gates pass.
+
+## 12. Regression tests
 
 ```bash
 ML4CO_REFERENCE_TESTS=1 python -B -m unittest discover -s tests -v
 ```
 
-## 12. Return evidence
+## 13. Return evidence
 
 Return these files without editing their values:
 
