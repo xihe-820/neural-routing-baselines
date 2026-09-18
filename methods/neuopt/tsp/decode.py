@@ -40,8 +40,8 @@ def decode_successor(successor, *, problem_size=100):
 
 
 def extract_final_best(rollout_output, *, batch_size=1, val_m=1):
-    if batch_size != 1 or val_m != 1:
-        raise ValueError("NeuOpt TSP calibration extraction requires BS=1 and D2A=1")
+    if batch_size not in (1, 16, 128) or val_m != 1:
+        raise ValueError("NeuOpt TSP extraction requires BS=1/16/128 and D2A=1")
     best_objective, obj_history, _, record = rollout_output
     if record is None or len(record) != 3:
         raise ValueError("official rollout did not return record=True histories")

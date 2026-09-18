@@ -20,4 +20,4 @@ def supported_config(problem_size):
     try:
         return SUPPORTED[int(problem_size)]
     except (KeyError, TypeError, ValueError) as exc:
-        raise ValueError("NeuOpt/TSP calibration supports only problem_size 100") from exc
+        raise ValueError("NeuOpt/TSP integration supports only problem_size 100") from exc

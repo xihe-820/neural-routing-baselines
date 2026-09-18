@@ -1,4 +1,4 @@
-"""Exact ML4CO-Kit validation helper for NeuOpt TSP100 calibration."""
+"""Exact ML4CO-Kit validation helper for NeuOpt TSP100 evidence."""
 from __future__ import annotations
 
 import numpy as np

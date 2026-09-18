@@ -591,6 +591,173 @@ python -B methods/neuopt/tsp/runtime_calibration.py \
   --output "$NEUOPT_TSP_CALIBRATION_ROOT/calibration_report.json"
 ```
 
+### NeuOpt TSP100 frozen production
+
+The human-frozen TSP100 budgets are `fewer: D2A=1,T=1` and
+`more: D2A=1,T=5`. They are identical for BS1, BS16, and BS128. Production
+artifacts use a separate root from calibration. Each preflight below runs one
+true native batch; BS128 OOM fails without splitting the batch. Child output
+directories must be new, except that an exact authenticated `IN_PROGRESS` run
+may resume.
+
+```bash
+cd "$BASELINE_PROJECT_ROOT"
+test -z "$(git status --porcelain)"
+test "$(git -C "$NEUOPT_UPSTREAM" rev-parse HEAD)" = "ccf6b5f0f6a8fda2792b4be11d4ec35390a8139b"
+test -z "$(git -C "$NEUOPT_UPSTREAM" status --porcelain)"
+export NEUOPT_TSP100_DATASET="$ML4CO_DATA_ROOT/tsp100_concorde_7.756.pkl"
+export NEUOPT_TSP100_CHECKPOINT="$NEUOPT_UPSTREAM/pre-trained/tsp100.pt"
+export NEUOPT_TSP_PRODUCTION_ROOT="$BASELINE_ARTIFACT_ROOT/paper/neuopt/tsp100/production"
+mkdir -p "$NEUOPT_TSP_PRODUCTION_ROOT"
+```
+
+A. TSP100 fewer, BS1 preflight:
+
+```bash
+python -B methods/neuopt/tsp/production_eval.py \
+  --scope preflight --problem-size 100 --budget fewer --T-max 1 \
+  --batch-size 1 --d2a 1 --stall-limit 10 --k 4 --warmup-batches 1 \
+  --device cuda:0 --dataset "$NEUOPT_TSP100_DATASET" \
+  --upstream "$NEUOPT_UPSTREAM" --checkpoint "$NEUOPT_TSP100_CHECKPOINT" \
+  --output-dir "$NEUOPT_TSP_PRODUCTION_ROOT/preflight/fewer/bs1"
+```
+
+B. TSP100 more, BS1 preflight:
+
+```bash
+python -B methods/neuopt/tsp/production_eval.py \
+  --scope preflight --problem-size 100 --budget more --T-max 5 \
+  --batch-size 1 --d2a 1 --stall-limit 10 --k 4 --warmup-batches 1 \
+  --device cuda:0 --dataset "$NEUOPT_TSP100_DATASET" \
+  --upstream "$NEUOPT_UPSTREAM" --checkpoint "$NEUOPT_TSP100_CHECKPOINT" \
+  --output-dir "$NEUOPT_TSP_PRODUCTION_ROOT/preflight/more/bs1"
+```
+
+C. TSP100 fewer, BS16 preflight:
+
+```bash
+python -B methods/neuopt/tsp/production_eval.py \
+  --scope preflight --problem-size 100 --budget fewer --T-max 1 \
+  --batch-size 16 --d2a 1 --stall-limit 10 --k 4 --warmup-batches 1 \
+  --device cuda:0 --dataset "$NEUOPT_TSP100_DATASET" \
+  --upstream "$NEUOPT_UPSTREAM" --checkpoint "$NEUOPT_TSP100_CHECKPOINT" \
+  --output-dir "$NEUOPT_TSP_PRODUCTION_ROOT/preflight/fewer/bs16"
+```
+
+D. TSP100 more, BS16 preflight:
+
+```bash
+python -B methods/neuopt/tsp/production_eval.py \
+  --scope preflight --problem-size 100 --budget more --T-max 5 \
+  --batch-size 16 --d2a 1 --stall-limit 10 --k 4 --warmup-batches 1 \
+  --device cuda:0 --dataset "$NEUOPT_TSP100_DATASET" \
+  --upstream "$NEUOPT_UPSTREAM" --checkpoint "$NEUOPT_TSP100_CHECKPOINT" \
+  --output-dir "$NEUOPT_TSP_PRODUCTION_ROOT/preflight/more/bs16"
+```
+
+E. TSP100 fewer, BS128 memory preflight:
+
+```bash
+python -B methods/neuopt/tsp/production_eval.py \
+  --scope preflight --problem-size 100 --budget fewer --T-max 1 \
+  --batch-size 128 --d2a 1 --stall-limit 10 --k 4 --warmup-batches 1 \
+  --device cuda:0 --dataset "$NEUOPT_TSP100_DATASET" \
+  --upstream "$NEUOPT_UPSTREAM" --checkpoint "$NEUOPT_TSP100_CHECKPOINT" \
+  --output-dir "$NEUOPT_TSP_PRODUCTION_ROOT/preflight/fewer/bs128"
+```
+
+F. TSP100 more, BS128 memory preflight:
+
+```bash
+python -B methods/neuopt/tsp/production_eval.py \
+  --scope preflight --problem-size 100 --budget more --T-max 5 \
+  --batch-size 128 --d2a 1 --stall-limit 10 --k 4 --warmup-batches 1 \
+  --device cuda:0 --dataset "$NEUOPT_TSP100_DATASET" \
+  --upstream "$NEUOPT_UPSTREAM" --checkpoint "$NEUOPT_TSP100_CHECKPOINT" \
+  --output-dir "$NEUOPT_TSP_PRODUCTION_ROOT/preflight/more/bs128"
+```
+
+Only after all six preflights are `PREFLIGHT_VALIDATED`, run the six exact
+1280-instance full sets:
+
+```bash
+python -B methods/neuopt/tsp/production_eval.py \
+  --scope fullset --problem-size 100 --budget fewer --T-max 1 \
+  --batch-size 1 --d2a 1 --stall-limit 10 --k 4 --warmup-batches 1 \
+  --device cuda:0 --dataset "$NEUOPT_TSP100_DATASET" \
+  --upstream "$NEUOPT_UPSTREAM" --checkpoint "$NEUOPT_TSP100_CHECKPOINT" \
+  --output-dir "$NEUOPT_TSP_PRODUCTION_ROOT/fullset/fewer/bs1"
+
+python -B methods/neuopt/tsp/production_eval.py \
+  --scope fullset --problem-size 100 --budget more --T-max 5 \
+  --batch-size 1 --d2a 1 --stall-limit 10 --k 4 --warmup-batches 1 \
+  --device cuda:0 --dataset "$NEUOPT_TSP100_DATASET" \
+  --upstream "$NEUOPT_UPSTREAM" --checkpoint "$NEUOPT_TSP100_CHECKPOINT" \
+  --output-dir "$NEUOPT_TSP_PRODUCTION_ROOT/fullset/more/bs1"
+
+python -B methods/neuopt/tsp/production_eval.py \
+  --scope fullset --problem-size 100 --budget fewer --T-max 1 \
+  --batch-size 16 --d2a 1 --stall-limit 10 --k 4 --warmup-batches 1 \
+  --device cuda:0 --dataset "$NEUOPT_TSP100_DATASET" \
+  --upstream "$NEUOPT_UPSTREAM" --checkpoint "$NEUOPT_TSP100_CHECKPOINT" \
+  --output-dir "$NEUOPT_TSP_PRODUCTION_ROOT/fullset/fewer/bs16"
+
+python -B methods/neuopt/tsp/production_eval.py \
+  --scope fullset --problem-size 100 --budget more --T-max 5 \
+  --batch-size 16 --d2a 1 --stall-limit 10 --k 4 --warmup-batches 1 \
+  --device cuda:0 --dataset "$NEUOPT_TSP100_DATASET" \
+  --upstream "$NEUOPT_UPSTREAM" --checkpoint "$NEUOPT_TSP100_CHECKPOINT" \
+  --output-dir "$NEUOPT_TSP_PRODUCTION_ROOT/fullset/more/bs16"
+
+python -B methods/neuopt/tsp/production_eval.py \
+  --scope fullset --problem-size 100 --budget fewer --T-max 1 \
+  --batch-size 128 --d2a 1 --stall-limit 10 --k 4 --warmup-batches 1 \
+  --device cuda:0 --dataset "$NEUOPT_TSP100_DATASET" \
+  --upstream "$NEUOPT_UPSTREAM" --checkpoint "$NEUOPT_TSP100_CHECKPOINT" \
+  --output-dir "$NEUOPT_TSP_PRODUCTION_ROOT/fullset/fewer/bs128"
+
+python -B methods/neuopt/tsp/production_eval.py \
+  --scope fullset --problem-size 100 --budget more --T-max 5 \
+  --batch-size 128 --d2a 1 --stall-limit 10 --k 4 --warmup-batches 1 \
+  --device cuda:0 --dataset "$NEUOPT_TSP100_DATASET" \
+  --upstream "$NEUOPT_UPSTREAM" --checkpoint "$NEUOPT_TSP100_CHECKPOINT" \
+  --output-dir "$NEUOPT_TSP_PRODUCTION_ROOT/fullset/more/bs128"
+```
+
+Reproduce one paper result from each full-set artifact, then read all six into
+the strict Complete Results/parallel matrix:
+
+```bash
+python -B methods/neuopt/tsp/paper_aggregate.py \
+  --run-dir "$NEUOPT_TSP_PRODUCTION_ROOT/fullset/fewer/bs1" \
+  --output "$NEUOPT_TSP_PRODUCTION_ROOT/results/fewer_bs1.json"
+python -B methods/neuopt/tsp/paper_aggregate.py \
+  --run-dir "$NEUOPT_TSP_PRODUCTION_ROOT/fullset/more/bs1" \
+  --output "$NEUOPT_TSP_PRODUCTION_ROOT/results/more_bs1.json"
+python -B methods/neuopt/tsp/paper_aggregate.py \
+  --run-dir "$NEUOPT_TSP_PRODUCTION_ROOT/fullset/fewer/bs16" \
+  --output "$NEUOPT_TSP_PRODUCTION_ROOT/results/fewer_bs16.json"
+python -B methods/neuopt/tsp/paper_aggregate.py \
+  --run-dir "$NEUOPT_TSP_PRODUCTION_ROOT/fullset/more/bs16" \
+  --output "$NEUOPT_TSP_PRODUCTION_ROOT/results/more_bs16.json"
+python -B methods/neuopt/tsp/paper_aggregate.py \
+  --run-dir "$NEUOPT_TSP_PRODUCTION_ROOT/fullset/fewer/bs128" \
+  --output "$NEUOPT_TSP_PRODUCTION_ROOT/results/fewer_bs128.json"
+python -B methods/neuopt/tsp/paper_aggregate.py \
+  --run-dir "$NEUOPT_TSP_PRODUCTION_ROOT/fullset/more/bs128" \
+  --output "$NEUOPT_TSP_PRODUCTION_ROOT/results/more_bs128.json"
+
+python -B methods/neuopt/tsp/paper_results.py \
+  --result-files \
+    "$NEUOPT_TSP_PRODUCTION_ROOT/results/fewer_bs1.json" \
+    "$NEUOPT_TSP_PRODUCTION_ROOT/results/more_bs1.json" \
+    "$NEUOPT_TSP_PRODUCTION_ROOT/results/fewer_bs16.json" \
+    "$NEUOPT_TSP_PRODUCTION_ROOT/results/more_bs16.json" \
+    "$NEUOPT_TSP_PRODUCTION_ROOT/results/fewer_bs128.json" \
+    "$NEUOPT_TSP_PRODUCTION_ROOT/results/more_bs128.json" \
+  --output "$NEUOPT_TSP_PRODUCTION_ROOT/results/paper_matrix.json"
+```
+
 
 ## 9. GLOP TSP50 and TSP100
 
