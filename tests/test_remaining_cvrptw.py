@@ -1,7 +1,10 @@
 import inspect
+import importlib
 import json
 from pathlib import Path
+import sys
 from tempfile import TemporaryDirectory
+from types import ModuleType
 import unittest
 
 import numpy as np
@@ -20,7 +23,13 @@ from methods.cada.cvrptw.config import protocol as cada_protocol
 from methods.moses_cada.cvrptw.adapter import adapt_instance as moses_adapt
 from methods.moses_cada.cvrptw.config import CHECKPOINTS as MOSES_CHECKPOINTS
 from methods.moses_cada.cvrptw.config import protocol as moses_protocol
-from methods.moses_cada.cvrptw.official_runtime import checkpoint_metadata as moses_metadata
+from methods.moses_cada.cvrptw.official_runtime import (
+    POLICY_KWARGS as MOSES_POLICY_KWARGS,
+    _construct_policy as construct_moses_policy,
+    _official_module_context as moses_official_module_context,
+    checkpoint_metadata as moses_metadata,
+    effective_runtime_protocol as moses_effective_protocol,
+)
 from methods.rfte.cvrptw.adapter import adapt_instance as rfte_adapt
 from methods.rfte.cvrptw.config import protocol as rfte_protocol
 from methods.rfte.cvrptw.official_runtime import checkpoint_metadata as rfte_metadata
@@ -82,6 +91,12 @@ class AdapterDecoderProtocolTests(unittest.TestCase):
             self.assertEqual(moses["backbone"], "CaDA")
             self.assertEqual(moses["lora_activation"], "sigmoid")
             self.assertEqual(moses["num_augmentations"], 8)
+            self.assertEqual(moses["augmentation"], "dihedral8")
+            self.assertEqual(moses["policy_test_decode_type"], "greedy")
+            self.assertEqual(moses["decode_type"], "greedy")
+            self.assertIs(moses["multistart"], True)
+            self.assertEqual(moses["num_starts"], size)
+            self.assertEqual(moses["start_selector"], "all customers 1..N")
         for protocol in (rfte_protocol, cada_protocol, moses_protocol):
             with self.assertRaises(ValueError):
                 protocol(200)
@@ -109,17 +124,120 @@ class CheckpointAndTimingTests(unittest.TestCase):
         self.assertEqual(cada_metadata({"epoch": 300, "model_state_dict": {"x": 1}})["epoch"], 300)
         moses = {"epoch": 299, "global_step": 117300,
                  "pytorch-lightning_version": "2.5.0.post0",
-                 "hyper_parameters": {"test_decode_type": "multistart_greedy",
-                                      "lora_temperature": 1.0},
+                 "hyper_parameters": {"lora_temperature": 1.0},
                  "state_dict": {"policy.x": 1}}
-        self.assertEqual(moses_metadata(moses)["global_step"], 117300)
+        parsed = moses_metadata(moses)
+        self.assertEqual(parsed["global_step"], 117300)
+        self.assertEqual(parsed["checkpoint_test_decode_type_candidates"], [])
+        with_greedy = {**moses, "hyper_parameters": {
+            **moses["hyper_parameters"], "test_decode_type": "greedy"}}
+        candidates = moses_metadata(with_greedy)[
+            "checkpoint_test_decode_type_candidates"]
+        self.assertEqual(candidates, [{
+            "path": "$.hyper_parameters.test_decode_type", "value": "greedy"}])
+        embedded = type("EmbeddedPolicy", (), {})()
+        embedded.test_decode_type = "greedy"
+        with_object = {**moses, "hyper_parameters": {"policy": embedded}}
+        self.assertEqual(
+            moses_metadata(with_object)["checkpoint_test_decode_type_candidates"],
+            [{"path": "$.hyper_parameters.policy.test_decode_type",
+              "value": "greedy"}])
         for bad in ({}, {"epoch": 299, "model_state_dict": {}},
-                    {**moses, "state_dict": {"wrong.x": 1}}):
+                    {**moses, "state_dict": {"wrong.x": 1}},
+                    {**moses, "epoch": 298}, {**moses, "global_step": 117299}):
             with self.assertRaises(ValueError):
                 if "model_state_dict" in bad:
                     cada_metadata(bad)
                 else:
                     moses_metadata(bad)
+
+    def test_moses_constructor_matches_official_cada_multilora_arguments(self):
+        class CapturePolicy:
+            def __init__(self, **kwargs):
+                self.kwargs = kwargs
+
+        CapturePolicy.__signature__ = inspect.Signature([
+            inspect.Parameter(name, inspect.Parameter.KEYWORD_ONLY)
+            for name in MOSES_POLICY_KWARGS
+        ])
+
+        policy = construct_moses_policy(CapturePolicy)
+        self.assertEqual(policy.kwargs, MOSES_POLICY_KWARGS)
+        self.assertNotIn("lora_use_gate", policy.kwargs)
+        del CapturePolicy.__signature__
+        with self.assertRaisesRegex(RuntimeError, "unused kwargs"):
+            construct_moses_policy(CapturePolicy)
+
+    def test_moses_effective_runtime_protocol_checks_constructed_modules(self):
+        class Block:
+            normalization = "rms"
+            use_prenorm = False
+            parallel_gated_kwargs = {"mlp_activation": "silu"}
+            attn_sparse_ratio = 0.5
+            sparse_applied_to_score = True
+
+        class Encoder:
+            global_layers = [Block()]
+            sparse_layers = [Block()]
+            post_layers_norm = None
+
+        ParallelGatedMLP = type("ParallelGatedMLP", (), {})
+        mlp = ParallelGatedMLP()
+        mlp.act_type = "silu"
+        GatedMultiLoRALayer = type("GatedMultiLoRALayer", (), {})
+        gated = GatedMultiLoRALayer()
+        gated.act_func = "sigmoid"
+        gated.n_experts = 4
+        gated.top_k = 4
+        gated.temperature = 1.0
+        gated.use_trainable_layer = True
+        gated.use_dynamic_topK = False
+        gated.use_basis_variants = False
+        gated.use_basis_variants_as_input = False
+        gated.lora_layers = []
+        for _ in range(5):
+            layer = type("LoRALayer", (), {})()
+            layer.rank, layer.alpha, layer.use_linear = 32, 1.0, False
+            gated.lora_layers.append(layer)
+
+        class Policy:
+            test_decode_type = "greedy"
+            temperature = 1.0
+            encoder = type("Wrapper", (), {"encoder": Encoder()})()
+            def modules(self):
+                return [self, mlp, gated]
+
+        effective = moses_effective_protocol(Policy(), problem_size=50)
+        self.assertEqual(effective["policy_test_decode_type"], "greedy")
+        self.assertIs(effective["multistart"], True)
+        self.assertEqual(effective["lora_rank"], [32] * 5)
+        wrong = Policy()
+        wrong.test_decode_type = "sampling"
+        with self.assertRaisesRegex(RuntimeError, "test_decode_type"):
+            moses_effective_protocol(wrong, problem_size=50)
+
+    def test_moses_official_module_context_restores_colliding_modules_and_path(self):
+        with TemporaryDirectory() as tmp:
+            upstream = Path(tmp)
+            (upstream / "envs").mkdir()
+            (upstream / "envs" / "__init__.py").write_text("ORIGIN = 'pinned-moses'\n")
+            prior = sys.modules.get("envs")
+            collision = ModuleType("envs")
+            collision.ORIGIN = "other-upstream"
+            sys.modules["envs"] = collision
+            old_path = list(sys.path)
+            try:
+                with moses_official_module_context(upstream):
+                    loaded = importlib.import_module("envs")
+                    self.assertEqual(loaded.ORIGIN, "pinned-moses")
+                    self.assertNotEqual(loaded, collision)
+                self.assertIs(sys.modules["envs"], collision)
+                self.assertEqual(sys.path, old_path)
+            finally:
+                if prior is None:
+                    sys.modules.pop("envs", None)
+                else:
+                    sys.modules["envs"] = prior
 
     def test_moses_checkpoint_hashes_are_frozen(self):
         self.assertEqual(MOSES_CHECKPOINTS[50]["sha256"],

@@ -1148,6 +1148,12 @@ export MOSES100_SHA=2eac9b038ae4655581aa73e4dbe8ad529aefd1963368c9a92d254b6269f8
 "$MOSES_CADA_PYTHON" -B scripts/audit_remaining_cvrptw_environment.py --method moses_cada --problem-size 100 --upstream "$BASELINE_PROJECT_ROOT/external/moses_vrp" --checkpoint "$BASELINE_PROJECT_ROOT/external/moses_vrp/pretrained_moses_model/cada/100/multilora_denseroute_sigmoid.ckpt" --expected-checkpoint-sha256 "$MOSES100_SHA" --output "$REMAINING_ARTIFACT_ROOT/audit/moses_cada100_environment.json"
 ```
 
+For both MoSES reports, require `status=PASS`, empty checkpoint
+`missing_keys`/`unexpected_keys`, and an effective runtime protocol with policy
+decode `greedy`, all-customer multistart, and the pinned CaDA multi-LoRA
+settings. Checkpoint decode hyperparameters are diagnostic metadata; the formal
+multistart behavior comes from pinned `test.py` passing `num_starts=N`.
+
 Step 2, prepare the exact shared first-1, first-2, first-5, and full-set inputs.
 Preparation verifies filename, SHA256, task class/schema, capacity, and exact
 dataset count before writing original units.

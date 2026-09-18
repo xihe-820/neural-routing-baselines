@@ -100,9 +100,13 @@ def main():
             torch_cuda_build=torch.version.cuda,
             cuda_available=torch.cuda.is_available(),
             checkpoint_state=runtime.checkpoint_state,
+            effective_runtime_protocol=getattr(runtime, "effective_runtime_protocol", None),
             import_smoke=True, cpu_model_construction=True,
             audited_checkpoint_load=True, status="PASS")
     except Exception as exc:
+        checkpoint_state = getattr(exc, "checkpoint_state", None)
+        if checkpoint_state is not None:
+            report["checkpoint_state"] = checkpoint_state
         report["error"] = f"{type(exc).__name__}: {exc}"
     write_json(args.output, report)
     print(args.output)
