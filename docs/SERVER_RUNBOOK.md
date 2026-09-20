@@ -2,6 +2,15 @@
 
 These commands are run manually by the user. They do not require Codex SSH access, modify official source, or install packages. Use an approved project commit that contains the integration being tested.
 
+## SIL large-scale TSP/CVRP
+
+SIL is pinned at `CIAM-Group/SIL@9ec783e90a1631f7b95f84eb20f8f9751cb45c10`.
+The complete copy-pasteable handoff, four checkpoint IDs, official native smoke,
+six ML4CO count-2 smokes, PRC50/PRC500 preflight, and resumable 16-cell BS1
+matrix are in [methods/sil/README.md](../methods/sil/README.md). Run those phases
+in order. Do not start a fullset until the native smoke passes and all required
+ML4CO smoke/preflight summaries are `KIT_VALIDATED`.
+
 ## 1. Repository checkout and paths
 
 ```bash

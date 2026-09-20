@@ -2,6 +2,17 @@
   "format_note": "JSON syntax, valid YAML 1.2",
   "evidence": "LOCAL_VERIFIED checkout plus read-only remote refs",
   "upstreams": {
+    "SIL": {
+      "url": "https://github.com/CIAM-Group/SIL",
+      "relative_path": "external/SIL",
+      "actual_commit": "9ec783e90a1631f7b95f84eb20f8f9751cb45c10",
+      "recommended_pin": "9ec783e90a1631f7b95f84eb20f8f9751cb45c10",
+      "pin_reason": "Pin the official ICLR 2025 release audited for TSP/CVRP greedy and PRC inference.",
+      "branch": "DETACHED",
+      "clean": true,
+      "local_tags": [],
+      "server_verification": "NOT_RUN"
+    },
     "GLOP": {
       "url": "https://github.com/henry-yeh/GLOP",
       "relative_path": "external/GLOP",

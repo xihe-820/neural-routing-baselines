@@ -1,0 +1,27 @@
+{
+  "schema": "sil-official-checkpoint-registry.v1",
+  "official_release_folder": "https://drive.google.com/drive/folders/1SEk34Sws_cwE9PYAkdHZeYXZN_b6o-db",
+  "sha256_status": "PENDING_SERVER_VERIFICATION",
+  "checkpoints": {
+    "tsp1k": {
+      "expected_filename": "checkpoint-tsp1k.pt",
+      "google_drive_file_id": "1nT2_JkghMjasHpZY2i_dhrGnhvbOlxTV",
+      "actual_sha256": null
+    },
+    "tsp5k": {
+      "expected_filename": "checkpoint-tsp5k.pt",
+      "google_drive_file_id": "1v2WHGKi8T-lTqE7NJsHRBno8AyKUY0n3",
+      "actual_sha256": null
+    },
+    "tsp10k": {
+      "expected_filename": "checkpoint-tsp10k.pt",
+      "google_drive_file_id": "1UTKPLAOqw2Lco-Zx2HZ64qYn2O3GrrQ5",
+      "actual_sha256": null
+    },
+    "cvrp1k": {
+      "expected_filename": "checkpoint-cvrp1k.pt",
+      "google_drive_file_id": "1yNUPciWXF-gSnsnRxXpMjO5rqAt0OOHj",
+      "actual_sha256": null
+    }
+  }
+}

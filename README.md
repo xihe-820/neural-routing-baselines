@@ -4,7 +4,10 @@ This repository provides independent, reproducible integrations of official neur
 
 ## Formal scope
 
-Only problem sizes 50 and 100 are formal targets. Training, fine-tuning and modified checkpoints are outside scope.
+The original cross-method matrix targets sizes 50 and 100. Explicit
+reviewer-scale extensions are documented per method; SIL targets the large-scale
+rows shown below. Training, fine-tuning and modified checkpoints are outside
+scope.
 
 | Method | TSP | CVRP | CVRPTW |
 |---|---|---|---|
@@ -15,10 +18,18 @@ Only problem sizes 50 and 100 are formal targets. Training, fine-tuning and modi
 | RF-TE | — | 50 / 100 | 50 / 100 |
 | MoSES(CaDA) | — | 50 / 100 | 50 / 100 |
 | NeuOpt | — | 50 / 100 | — |
+| SIL | 500 / 1K / 2K / 5K / 10K | 500 / 1K / 2K | — |
 
-The matrix contains 13 method/problem integrations and 26 independent size rows. See [STATUS](docs/STATUS.md) for current evidence.
+The original 50/100 matrix contains 13 method/problem integrations and 26
+independent size rows. See [STATUS](docs/STATUS.md) for current evidence and
+[SIL server handoff](methods/sil/README.md) for the separate reviewer-scale
+extension.
 
 MVMoE CVRP/CVRPTW 50/100 and NeuOpt CVRP50/100 are server verified. GLOP TSP50/100 is locally verified and ready for user-executed server validation; GLOP CVRP50/100 remains blocked because the official small-size partitioner configuration is undefined.
+
+SIL TSP500/1K/2K/5K/10K and CVRP500/1K/2K have a local integration and remain
+pending official-native and ML4CO GPU smoke on RTX 4090. No SIL result is yet a
+formal paper result.
 
 ## Architecture
 
