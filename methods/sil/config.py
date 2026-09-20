@@ -162,14 +162,18 @@ def resolve_config(problem: str, problem_size: int, budget: str,
     }
     if problem == "tsp":
         protocol["model"] = {
-            "embedding_dim": 128, "encoder_layer_num": 6, "qkv_dim": 16,
+            "mode": "test", "embedding_dim": 128,
+            "sqrt_embedding_dim": 128 ** (1 / 2),
+            "encoder_layer_num": 6, "qkv_dim": 16,
             "head_num": 8, "logit_clipping": 10, "ff_hidden_dim": 512,
             "eval_type": "argmax", "use_k_nearest": not is_greedy,
             "k_nearest_num": 1000,
         }
     else:
         protocol["model"] = {
-            "embedding_dim": 128, "decoder_layer_num": 6, "qkv_dim": 16,
+            "mode": "test", "embedding_dim": 128,
+            "sqrt_embedding_dim": 128 ** (1 / 2),
+            "decoder_layer_num": 6, "qkv_dim": 16,
             "head_num": 8, "logit_clipping": 10, "ff_hidden_dim": 512,
             "eval_type": "argmax", "use_k_nearest": not is_greedy,
             "k_nearest_num": 1000,

@@ -36,6 +36,27 @@ class Task:
 
 
 class SILConfigTests(unittest.TestCase):
+    OFFICIAL_MODEL_PARAM_KEYS = {
+        "tsp": {
+            "mode", "embedding_dim", "sqrt_embedding_dim", "encoder_layer_num",
+            "qkv_dim", "head_num", "logit_clipping", "ff_hidden_dim",
+            "eval_type", "use_k_nearest", "k_nearest_num",
+        },
+        "cvrp": {
+            "mode", "embedding_dim", "sqrt_embedding_dim", "decoder_layer_num",
+            "qkv_dim", "head_num", "logit_clipping", "ff_hidden_dim",
+            "eval_type", "use_k_nearest", "k_nearest_num",
+        },
+    }
+
+    def test_model_config_has_complete_pinned_official_parameter_sets(self):
+        for problem in ("tsp", "cvrp"):
+            with self.subTest(problem=problem):
+                model = resolve_config(problem, 1000, "greedy")["model"]
+                self.assertEqual(set(model), self.OFFICIAL_MODEL_PARAM_KEYS[problem])
+                self.assertEqual(model["mode"], "test")
+                self.assertEqual(model["sqrt_embedding_dim"], 128 ** 0.5)
+
     def test_all_size_checkpoint_mappings(self):
         expected = {
             ("tsp", 1000): ("tsp1k", 1000, None, "official_native"),
