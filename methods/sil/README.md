@@ -3,7 +3,7 @@
 Local development stops before any official smoke, ML4CO GPU smoke, preflight,
 or fullset. No local output is paper-ready.
 
-## Setup, source, and checkpoints
+## Phase 0: checkout, source, checkpoints, and datasets
 
 ```bash
 conda activate cp311_base
@@ -13,8 +13,17 @@ cd "$BASELINE_PROJECT_ROOT"
 pwd
 git rev-parse --show-toplevel
 git status --short
-git rev-parse HEAD
-git pull origin feat/sil
+test -z "$(git status --porcelain)"
+git fetch origin feat/sil
+if git show-ref --verify --quiet refs/heads/feat/sil; then
+  git switch feat/sil
+else
+  git switch --track -c feat/sil origin/feat/sil
+fi
+git pull --ff-only origin feat/sil
+export SIL_PROJECT_COMMIT=<approved-review-fix-commit>
+test "$(git rev-parse HEAD)" = "$SIL_PROJECT_COMMIT"
+test -z "$(git status --porcelain)"
 
 export SIL_UPSTREAM="$BASELINE_PROJECT_ROOT/external/SIL"
 test -d "$SIL_UPSTREAM/.git" || git clone https://github.com/CIAM-Group/SIL.git "$SIL_UPSTREAM"
@@ -44,24 +53,26 @@ export SIL_TSP10K_SHA=<observed-tsp10k-checkpoint-sha256>
 export SIL_CVRP1K_SHA=<observed-cvrp1k-checkpoint-sha256>
 export SIL_ARTIFACT_ROOT="$SERVER_ROOT/artifacts/neural-routing-baselines/sil/$(git rev-parse --short HEAD)"
 
-export SIL_TSP500_DATASET=<exact-ML4CO-TSP500-pickle>
 export SIL_TSP1000_DATASET=<exact-ML4CO-TSP1000-pickle>
 export SIL_TSP2000_DATASET=<exact-ML4CO-TSP2000-pickle>
 export SIL_TSP5000_DATASET=<exact-ML4CO-TSP5000-pickle>
 export SIL_TSP10000_DATASET=<exact-ML4CO-TSP10000-pickle>
-export SIL_CVRP500_DATASET=<exact-ML4CO-CVRP500-pickle>
 export SIL_CVRP1000_DATASET=<exact-ML4CO-CVRP1000-pickle>
 export SIL_CVRP2000_DATASET=<exact-ML4CO-CVRP2000-pickle>
-export SIL_TSP500_DATASET_SHA=<audited-sha256>
 export SIL_TSP1000_DATASET_SHA=<audited-sha256>
 export SIL_TSP2000_DATASET_SHA=<audited-sha256>
 export SIL_TSP5000_DATASET_SHA=<audited-sha256>
 export SIL_TSP10000_DATASET_SHA=<audited-sha256>
-export SIL_CVRP500_DATASET_SHA=<audited-sha256>
 export SIL_CVRP1000_DATASET_SHA=<audited-sha256>
 export SIL_CVRP2000_DATASET_SHA=<audited-sha256>
 mkdir -p "$SIL_ARTIFACT_ROOT"
-sha256sum "$SIL_TSP500_DATASET" "$SIL_TSP1000_DATASET" "$SIL_TSP2000_DATASET" "$SIL_TSP5000_DATASET" "$SIL_TSP10000_DATASET" "$SIL_CVRP500_DATASET" "$SIL_CVRP1000_DATASET" "$SIL_CVRP2000_DATASET"
+sha256sum "$SIL_TSP1000_DATASET" "$SIL_TSP2000_DATASET" "$SIL_TSP5000_DATASET" "$SIL_TSP10000_DATASET" "$SIL_CVRP1000_DATASET" "$SIL_CVRP2000_DATASET"
+test "$(basename "$SIL_TSP1000_DATASET")" = tsp1000_concorde_23.118.pkl
+test "$(basename "$SIL_TSP2000_DATASET")" = tsp2000_lkh_500_32.436.pkl
+test "$(basename "$SIL_TSP5000_DATASET")" = tsp5000_lkh_500_50.968.pkl
+test "$(basename "$SIL_TSP10000_DATASET")" = tsp10000_lkh_500_71.782.pkl
+test "$(basename "$SIL_CVRP1000_DATASET")" = cvrp1000_hgs-360s_41.171.pkl
+test "$(basename "$SIL_CVRP2000_DATASET")" = cvrp2000_hgs-360s_57.181.pkl
 ```
 
 ## Phase 1: official native smoke
@@ -78,71 +89,100 @@ python -B methods/sil/official_smoke.py --problem cvrp --problem-size 1000 --ups
 Require `status=PASS`. These runs establish only cp311_base/Torch/CUDA/RTX4090,
 checkpoint strict-load, and official native-data compatibility.
 
-## Phase 2: ML4CO count-2 smoke
+## Phase 2: our-data formal-protocol smoke
+
+Run one official-inference smoke for `greedy` at every formal size, followed by
+one `fewer=PRC50` smoke at every size. All runs use actual solution capture,
+independent validation, and ML4CO-Kit validation.
 
 ```bash
-python -B methods/sil/tsp/paper_eval.py --problem-size 500 --budget fewer --dataset "$SIL_TSP500_DATASET" --expected-dataset-sha256 "$SIL_TSP500_DATASET_SHA" --upstream "$SIL_UPSTREAM" --checkpoint "$SIL_CHECKPOINT_ROOT/checkpoint-tsp1k.pt" --expected-checkpoint-sha256 "$SIL_TSP1K_SHA" --scope our-smoke --offset 0 --count 2 --output-dir "$SIL_ARTIFACT_ROOT/our_smoke/tsp500/fewer"
-python -B methods/sil/tsp/paper_eval.py --problem-size 1000 --budget fewer --dataset "$SIL_TSP1000_DATASET" --expected-dataset-sha256 "$SIL_TSP1000_DATASET_SHA" --upstream "$SIL_UPSTREAM" --checkpoint "$SIL_CHECKPOINT_ROOT/checkpoint-tsp1k.pt" --expected-checkpoint-sha256 "$SIL_TSP1K_SHA" --scope our-smoke --offset 0 --count 2 --output-dir "$SIL_ARTIFACT_ROOT/our_smoke/tsp1000/fewer"
-python -B methods/sil/tsp/paper_eval.py --problem-size 2000 --budget fewer --dataset "$SIL_TSP2000_DATASET" --expected-dataset-sha256 "$SIL_TSP2000_DATASET_SHA" --upstream "$SIL_UPSTREAM" --checkpoint "$SIL_CHECKPOINT_ROOT/checkpoint-tsp1k.pt" --expected-checkpoint-sha256 "$SIL_TSP1K_SHA" --scope our-smoke --offset 0 --count 2 --output-dir "$SIL_ARTIFACT_ROOT/our_smoke/tsp2000/fewer"
-python -B methods/sil/cvrp/paper_eval.py --problem-size 500 --budget fewer --dataset "$SIL_CVRP500_DATASET" --expected-dataset-sha256 "$SIL_CVRP500_DATASET_SHA" --upstream "$SIL_UPSTREAM" --checkpoint "$SIL_CHECKPOINT_ROOT/checkpoint-cvrp1k.pt" --expected-checkpoint-sha256 "$SIL_CVRP1K_SHA" --scope our-smoke --offset 0 --count 2 --output-dir "$SIL_ARTIFACT_ROOT/our_smoke/cvrp500/fewer"
-python -B methods/sil/cvrp/paper_eval.py --problem-size 1000 --budget fewer --dataset "$SIL_CVRP1000_DATASET" --expected-dataset-sha256 "$SIL_CVRP1000_DATASET_SHA" --upstream "$SIL_UPSTREAM" --checkpoint "$SIL_CHECKPOINT_ROOT/checkpoint-cvrp1k.pt" --expected-checkpoint-sha256 "$SIL_CVRP1K_SHA" --scope our-smoke --offset 0 --count 2 --output-dir "$SIL_ARTIFACT_ROOT/our_smoke/cvrp1000/fewer"
-python -B methods/sil/cvrp/paper_eval.py --problem-size 2000 --budget fewer --dataset "$SIL_CVRP2000_DATASET" --expected-dataset-sha256 "$SIL_CVRP2000_DATASET_SHA" --upstream "$SIL_UPSTREAM" --checkpoint "$SIL_CHECKPOINT_ROOT/checkpoint-cvrp1k.pt" --expected-checkpoint-sha256 "$SIL_CVRP1K_SHA" --scope our-smoke --offset 0 --count 2 --output-dir "$SIL_ARTIFACT_ROOT/our_smoke/cvrp2000/fewer"
+run_sil_smoke () {
+  problem="$1"; size="$2"; protocol="$3"; dataset="$4"; dataset_sha="$5"; checkpoint="$6"; checkpoint_sha="$7"; count="$8"
+  python -B "methods/sil/$problem/paper_eval.py" --problem-size "$size" --budget "$protocol" --dataset "$dataset" --expected-dataset-sha256 "$dataset_sha" --upstream "$SIL_UPSTREAM" --checkpoint "$checkpoint" --expected-checkpoint-sha256 "$checkpoint_sha" --scope our-smoke --offset 0 --count "$count" --output-dir "$SIL_ARTIFACT_ROOT/our_smoke/${problem}${size}/$protocol"
+}
+
+run_sil_smoke tsp 1000 greedy "$SIL_TSP1000_DATASET" "$SIL_TSP1000_DATASET_SHA" "$SIL_CHECKPOINT_ROOT/checkpoint-tsp1k.pt" "$SIL_TSP1K_SHA" 1
+run_sil_smoke tsp 2000 greedy "$SIL_TSP2000_DATASET" "$SIL_TSP2000_DATASET_SHA" "$SIL_CHECKPOINT_ROOT/checkpoint-tsp1k.pt" "$SIL_TSP1K_SHA" 1
+run_sil_smoke tsp 5000 greedy "$SIL_TSP5000_DATASET" "$SIL_TSP5000_DATASET_SHA" "$SIL_CHECKPOINT_ROOT/checkpoint-tsp5k.pt" "$SIL_TSP5K_SHA" 1
+run_sil_smoke tsp 10000 greedy "$SIL_TSP10000_DATASET" "$SIL_TSP10000_DATASET_SHA" "$SIL_CHECKPOINT_ROOT/checkpoint-tsp10k.pt" "$SIL_TSP10K_SHA" 1
+run_sil_smoke cvrp 1000 greedy "$SIL_CVRP1000_DATASET" "$SIL_CVRP1000_DATASET_SHA" "$SIL_CHECKPOINT_ROOT/checkpoint-cvrp1k.pt" "$SIL_CVRP1K_SHA" 1
+run_sil_smoke cvrp 2000 greedy "$SIL_CVRP2000_DATASET" "$SIL_CVRP2000_DATASET_SHA" "$SIL_CHECKPOINT_ROOT/checkpoint-cvrp1k.pt" "$SIL_CVRP1K_SHA" 1
+
+run_sil_smoke tsp 1000 fewer "$SIL_TSP1000_DATASET" "$SIL_TSP1000_DATASET_SHA" "$SIL_CHECKPOINT_ROOT/checkpoint-tsp1k.pt" "$SIL_TSP1K_SHA" 2
+run_sil_smoke tsp 2000 fewer "$SIL_TSP2000_DATASET" "$SIL_TSP2000_DATASET_SHA" "$SIL_CHECKPOINT_ROOT/checkpoint-tsp1k.pt" "$SIL_TSP1K_SHA" 2
+run_sil_smoke tsp 5000 fewer "$SIL_TSP5000_DATASET" "$SIL_TSP5000_DATASET_SHA" "$SIL_CHECKPOINT_ROOT/checkpoint-tsp5k.pt" "$SIL_TSP5K_SHA" 1
+run_sil_smoke tsp 10000 fewer "$SIL_TSP10000_DATASET" "$SIL_TSP10000_DATASET_SHA" "$SIL_CHECKPOINT_ROOT/checkpoint-tsp10k.pt" "$SIL_TSP10K_SHA" 1
+run_sil_smoke cvrp 1000 fewer "$SIL_CVRP1000_DATASET" "$SIL_CVRP1000_DATASET_SHA" "$SIL_CHECKPOINT_ROOT/checkpoint-cvrp1k.pt" "$SIL_CVRP1K_SHA" 2
+run_sil_smoke cvrp 2000 fewer "$SIL_CVRP2000_DATASET" "$SIL_CVRP2000_DATASET_SHA" "$SIL_CHECKPOINT_ROOT/checkpoint-cvrp1k.pt" "$SIL_CVRP1K_SHA" 2
 ```
 
-Require six `KIT_VALIDATED` summaries and inspect both records. TSP500 must use
-the initial full-attention path; TSP2000 must initially trigger k=1000. CVRP must
-record raw demands, each instance's true capacity, and exactly one normalization.
+Require all twelve summaries to be `KIT_VALIDATED`. Greedy uses official pure
+greedy (`budget=0`, no random insertion, no kNN). Fewer uses the frozen PRC50
+pipeline. CVRP must preserve raw demands, true per-instance capacity, and exactly
+one model-side normalization.
 
-## Phase 3: fewer/more preflight
+## Phase 3: same-size more preflight
+
+Run `more=PRC500` on every formal size. The evidence is intentionally
+size-specific because checkpoints, memory use, and runtime differ by size.
 
 ```bash
-for budget in fewer more; do
-  python -B methods/sil/tsp/paper_eval.py --problem-size 1000 --budget "$budget" --dataset "$SIL_TSP1000_DATASET" --expected-dataset-sha256 "$SIL_TSP1000_DATASET_SHA" --upstream "$SIL_UPSTREAM" --checkpoint "$SIL_CHECKPOINT_ROOT/checkpoint-tsp1k.pt" --expected-checkpoint-sha256 "$SIL_TSP1K_SHA" --scope preflight --offset 0 --count 2 --output-dir "$SIL_ARTIFACT_ROOT/preflight/tsp1000/$budget"
-  python -B methods/sil/cvrp/paper_eval.py --problem-size 1000 --budget "$budget" --dataset "$SIL_CVRP1000_DATASET" --expected-dataset-sha256 "$SIL_CVRP1000_DATASET_SHA" --upstream "$SIL_UPSTREAM" --checkpoint "$SIL_CHECKPOINT_ROOT/checkpoint-cvrp1k.pt" --expected-checkpoint-sha256 "$SIL_CVRP1K_SHA" --scope preflight --offset 0 --count 2 --output-dir "$SIL_ARTIFACT_ROOT/preflight/cvrp1000/$budget"
-done
+run_sil_more_preflight () {
+  problem="$1"; size="$2"; dataset="$3"; dataset_sha="$4"; checkpoint="$5"; checkpoint_sha="$6"; count="$7"
+  python -B "methods/sil/$problem/paper_eval.py" --problem-size "$size" --budget more --dataset "$dataset" --expected-dataset-sha256 "$dataset_sha" --upstream "$SIL_UPSTREAM" --checkpoint "$checkpoint" --expected-checkpoint-sha256 "$checkpoint_sha" --scope preflight --offset 0 --count "$count" --output-dir "$SIL_ARTIFACT_ROOT/preflight/${problem}${size}/more"
+}
+run_sil_more_preflight tsp 1000 "$SIL_TSP1000_DATASET" "$SIL_TSP1000_DATASET_SHA" "$SIL_CHECKPOINT_ROOT/checkpoint-tsp1k.pt" "$SIL_TSP1K_SHA" 2
+run_sil_more_preflight tsp 2000 "$SIL_TSP2000_DATASET" "$SIL_TSP2000_DATASET_SHA" "$SIL_CHECKPOINT_ROOT/checkpoint-tsp1k.pt" "$SIL_TSP1K_SHA" 2
+run_sil_more_preflight tsp 5000 "$SIL_TSP5000_DATASET" "$SIL_TSP5000_DATASET_SHA" "$SIL_CHECKPOINT_ROOT/checkpoint-tsp5k.pt" "$SIL_TSP5K_SHA" 1
+run_sil_more_preflight tsp 10000 "$SIL_TSP10000_DATASET" "$SIL_TSP10000_DATASET_SHA" "$SIL_CHECKPOINT_ROOT/checkpoint-tsp10k.pt" "$SIL_TSP10K_SHA" 1
+run_sil_more_preflight cvrp 1000 "$SIL_CVRP1000_DATASET" "$SIL_CVRP1000_DATASET_SHA" "$SIL_CHECKPOINT_ROOT/checkpoint-cvrp1k.pt" "$SIL_CVRP1K_SHA" 2
+run_sil_more_preflight cvrp 2000 "$SIL_CVRP2000_DATASET" "$SIL_CVRP2000_DATASET_SHA" "$SIL_CHECKPOINT_ROOT/checkpoint-cvrp1k.pt" "$SIL_CVRP1K_SHA" 2
 ```
 
-`fewer` is paper-reported PRC50 and `more` is paper-reported PRC500. Both use
-random insertion and the same PRC pipeline. Require feasible solutions,
-official/independent/Kit agreement, and a credible runtime increase. More need
-not improve every instance.
+Require all six summaries to be `KIT_VALIDATED` with official, independent, and
+Kit objective agreement.
 
-## Phase 4: formal fullset
+## Phase 4: 18-cell formal fullset
 
-Only after all earlier gates pass, export each audited wrapper's complete task
-count as `SIL_<PROBLEM><SIZE>_COUNT`, then execute the 16 cells. `--resume`
-accepts only identical provenance/configuration and restores the saved RNG state.
+Each cell requires evidence from the same project commit, source provenance,
+problem, size, protocol, dataset, checkpoint, and upstream. Greedy and fewer use
+Phase 2 evidence; more uses Phase 3 evidence.
 
 ```bash
 dataset_count () {
   problem="$1"; dataset="$2"
   python -B -c 'import ml4co_kit as k,sys; w=(k.TSPWrapper() if sys.argv[1]=="tsp" else k.CVRPWrapper()); w.from_pickle(sys.argv[2]); print(len(w.task_list))' "$problem" "$dataset"
 }
-export SIL_TSP500_COUNT="$(dataset_count tsp "$SIL_TSP500_DATASET")"
 export SIL_TSP1000_COUNT="$(dataset_count tsp "$SIL_TSP1000_DATASET")"
 export SIL_TSP2000_COUNT="$(dataset_count tsp "$SIL_TSP2000_DATASET")"
 export SIL_TSP5000_COUNT="$(dataset_count tsp "$SIL_TSP5000_DATASET")"
 export SIL_TSP10000_COUNT="$(dataset_count tsp "$SIL_TSP10000_DATASET")"
-export SIL_CVRP500_COUNT="$(dataset_count cvrp "$SIL_CVRP500_DATASET")"
 export SIL_CVRP1000_COUNT="$(dataset_count cvrp "$SIL_CVRP1000_DATASET")"
 export SIL_CVRP2000_COUNT="$(dataset_count cvrp "$SIL_CVRP2000_DATASET")"
 
 run_sil_fullset () {
-  problem="$1"; size="$2"; budget="$3"; dataset="$4"; dataset_sha="$5"; checkpoint="$6"; checkpoint_sha="$7"; count="$8"
-  python -B "methods/sil/$problem/paper_eval.py" --problem-size "$size" --budget "$budget" --dataset "$dataset" --expected-dataset-sha256 "$dataset_sha" --upstream "$SIL_UPSTREAM" --checkpoint "$checkpoint" --expected-checkpoint-sha256 "$checkpoint_sha" --scope fullset --offset 0 --count "$count" --output-dir "$SIL_ARTIFACT_ROOT/fullset/${problem}${size}/$budget" --resume
+  problem="$1"; size="$2"; protocol="$3"; dataset="$4"; dataset_sha="$5"; checkpoint="$6"; checkpoint_sha="$7"; count="$8"
+  if test "$protocol" = more; then
+    evidence="$SIL_ARTIFACT_ROOT/preflight/${problem}${size}/more/summary.json"
+  else
+    evidence="$SIL_ARTIFACT_ROOT/our_smoke/${problem}${size}/$protocol/summary.json"
+  fi
+  python -B "methods/sil/$problem/paper_eval.py" --problem-size "$size" --budget "$protocol" --dataset "$dataset" --expected-dataset-sha256 "$dataset_sha" --upstream "$SIL_UPSTREAM" --checkpoint "$checkpoint" --expected-checkpoint-sha256 "$checkpoint_sha" --preflight-evidence "$evidence" --scope fullset --offset 0 --count "$count" --output-dir "$SIL_ARTIFACT_ROOT/fullset/${problem}${size}/$protocol" --resume
 }
-for budget in fewer more; do
-  run_sil_fullset tsp 500 "$budget" "$SIL_TSP500_DATASET" "$SIL_TSP500_DATASET_SHA" "$SIL_CHECKPOINT_ROOT/checkpoint-tsp1k.pt" "$SIL_TSP1K_SHA" "$SIL_TSP500_COUNT"
-  run_sil_fullset tsp 1000 "$budget" "$SIL_TSP1000_DATASET" "$SIL_TSP1000_DATASET_SHA" "$SIL_CHECKPOINT_ROOT/checkpoint-tsp1k.pt" "$SIL_TSP1K_SHA" "$SIL_TSP1000_COUNT"
-  run_sil_fullset tsp 2000 "$budget" "$SIL_TSP2000_DATASET" "$SIL_TSP2000_DATASET_SHA" "$SIL_CHECKPOINT_ROOT/checkpoint-tsp1k.pt" "$SIL_TSP1K_SHA" "$SIL_TSP2000_COUNT"
-  run_sil_fullset tsp 5000 "$budget" "$SIL_TSP5000_DATASET" "$SIL_TSP5000_DATASET_SHA" "$SIL_CHECKPOINT_ROOT/checkpoint-tsp5k.pt" "$SIL_TSP5K_SHA" "$SIL_TSP5000_COUNT"
-  run_sil_fullset tsp 10000 "$budget" "$SIL_TSP10000_DATASET" "$SIL_TSP10000_DATASET_SHA" "$SIL_CHECKPOINT_ROOT/checkpoint-tsp10k.pt" "$SIL_TSP10K_SHA" "$SIL_TSP10000_COUNT"
-  run_sil_fullset cvrp 500 "$budget" "$SIL_CVRP500_DATASET" "$SIL_CVRP500_DATASET_SHA" "$SIL_CHECKPOINT_ROOT/checkpoint-cvrp1k.pt" "$SIL_CVRP1K_SHA" "$SIL_CVRP500_COUNT"
-  run_sil_fullset cvrp 1000 "$budget" "$SIL_CVRP1000_DATASET" "$SIL_CVRP1000_DATASET_SHA" "$SIL_CHECKPOINT_ROOT/checkpoint-cvrp1k.pt" "$SIL_CVRP1K_SHA" "$SIL_CVRP1000_COUNT"
-  run_sil_fullset cvrp 2000 "$budget" "$SIL_CVRP2000_DATASET" "$SIL_CVRP2000_DATASET_SHA" "$SIL_CHECKPOINT_ROOT/checkpoint-cvrp1k.pt" "$SIL_CVRP1K_SHA" "$SIL_CVRP2000_COUNT"
+for protocol in greedy fewer more; do
+  run_sil_fullset tsp 1000 "$protocol" "$SIL_TSP1000_DATASET" "$SIL_TSP1000_DATASET_SHA" "$SIL_CHECKPOINT_ROOT/checkpoint-tsp1k.pt" "$SIL_TSP1K_SHA" "$SIL_TSP1000_COUNT"
+  run_sil_fullset tsp 2000 "$protocol" "$SIL_TSP2000_DATASET" "$SIL_TSP2000_DATASET_SHA" "$SIL_CHECKPOINT_ROOT/checkpoint-tsp1k.pt" "$SIL_TSP1K_SHA" "$SIL_TSP2000_COUNT"
+  run_sil_fullset tsp 5000 "$protocol" "$SIL_TSP5000_DATASET" "$SIL_TSP5000_DATASET_SHA" "$SIL_CHECKPOINT_ROOT/checkpoint-tsp5k.pt" "$SIL_TSP5K_SHA" "$SIL_TSP5000_COUNT"
+  run_sil_fullset tsp 10000 "$protocol" "$SIL_TSP10000_DATASET" "$SIL_TSP10000_DATASET_SHA" "$SIL_CHECKPOINT_ROOT/checkpoint-tsp10k.pt" "$SIL_TSP10K_SHA" "$SIL_TSP10000_COUNT"
+  run_sil_fullset cvrp 1000 "$protocol" "$SIL_CVRP1000_DATASET" "$SIL_CVRP1000_DATASET_SHA" "$SIL_CHECKPOINT_ROOT/checkpoint-cvrp1k.pt" "$SIL_CVRP1K_SHA" "$SIL_CVRP1000_COUNT"
+  run_sil_fullset cvrp 2000 "$protocol" "$SIL_CVRP2000_DATASET" "$SIL_CVRP2000_DATASET_SHA" "$SIL_CHECKPOINT_ROOT/checkpoint-cvrp1k.pt" "$SIL_CVRP1K_SHA" "$SIL_CVRP2000_COUNT"
 done
 ```
 
-A usable cell has `summary.json status=PAPER_READY`, every ordered dataset index
-exactly once, and every record `KIT_VALIDATED`. `mean_instance_gap_percent` is
-the mean of per-instance gaps. Time is mean BS1 solver latency; Total is the sum.
+The current correctness workflow enforces RTX4090. The manuscript currently
+states H800, and no supplied senior instruction resolves that mismatch.
+`HARDWARE_PROTOCOL_PENDING` therefore remains true: a complete correctness
+fullset ends as `HARDWARE_PROTOCOL_PENDING`, not `PAPER_READY`. Formal timing
+hardware must be confirmed before any manuscript timing or paper-ready claim.
+Obj is the mean independent objective, Drop is the mean per-instance gap, Time
+is mean BS1 solver latency, and Total is their runtime sum.

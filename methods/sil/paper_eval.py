@@ -15,10 +15,14 @@ from common.hashing import sha256_file
 from common.objective_agreement import objective_agrees
 from common.provenance import (environment_provenance, git_provenance,
                                normalize_git_repository_identity, source_provenance)
-from methods.sil.config import (FORMAL_BATCH_SIZE, UPSTREAM_COMMIT, UPSTREAM_URL,
-                                resolve_config, validate_checkpoint_path)
+from methods.sil.config import (FORMAL_BATCH_SIZE, FORMAL_PROTOCOLS,
+                                UPSTREAM_COMMIT, UPSTREAM_URL,
+                                WARMUP_POLICY,
+                                resolve_config, validate_checkpoint_path,
+                                validate_dataset_path)
 from methods.sil.paper_results import (TIMING_SEMANTICS, append, capture_rng_state,
-                                       finalize, initialize, restore_rng_state)
+                                       finalize, fingerprint, initialize,
+                                       restore_rng_state)
 
 
 def comparison(left, right):
@@ -70,11 +74,101 @@ def _task_name(task, index):
     return str(value) if value is not None else f"instance-{index}"
 
 
+def _our_smoke_count(problem, problem_size, budget_label):
+    if budget_label == "greedy":
+        return 1
+    return 1 if problem == "tsp" and problem_size in {5000, 10000} else 2
+
+
+def _warmup_required(completed_records):
+    return completed_records == 0
+
+
+def _verify_preflight_evidence(path, *, problem, problem_size, budget_label,
+                               dataset_sha256, checkpoint_sha256,
+                               protocol_fingerprint, project_commit,
+                               source_files):
+    evidence_path = Path(path).resolve()
+    if evidence_path.is_dir():
+        evidence_path = evidence_path / "summary.json"
+    if not evidence_path.is_file():
+        raise ValueError("fullset preflight evidence must be a summary.json or run directory")
+    summary = json.loads(evidence_path.read_text())
+    expected = {
+        "status": "KIT_VALIDATED", "method": "SIL", "problem": problem.upper(),
+        "problem_size": int(problem_size), "budget_label": budget_label,
+        "dataset_sha256": dataset_sha256, "checkpoint_sha256": checkpoint_sha256,
+        "upstream_commit": UPSTREAM_COMMIT,
+        "protocol_fingerprint": protocol_fingerprint,
+        "project_commit": project_commit,
+        "source_provenance_fingerprint": fingerprint(source_files),
+    }
+    expected_evidence_scope = "preflight" if budget_label == "more" else "our-smoke"
+    mismatches = [
+        field for field, value in expected.items() if summary.get(field) != value
+    ]
+    identity = summary.get("identity")
+    if not isinstance(identity, dict):
+        mismatches.append("identity")
+    else:
+        embedded_protocol = identity.get("protocol")
+        if not isinstance(embedded_protocol, dict):
+            embedded_protocol = {}
+            mismatches.append("identity.protocol")
+        embedded_dataset = identity.get("dataset")
+        embedded_checkpoint = identity.get("checkpoint")
+        embedded_upstream = identity.get("upstream")
+        if not isinstance(embedded_dataset, dict):
+            embedded_dataset = {}
+        if not isinstance(embedded_checkpoint, dict):
+            embedded_checkpoint = {}
+        if not isinstance(embedded_upstream, dict):
+            embedded_upstream = {}
+        embedded_checks = {
+            "identity.method": identity.get("method") == "SIL",
+            "identity.scope": identity.get("scope") == expected_evidence_scope,
+            "identity.protocol.problem": embedded_protocol.get("problem") == problem.upper(),
+            "identity.protocol.problem_size": embedded_protocol.get(
+                "actual_problem_size") == int(problem_size),
+            "identity.protocol.budget_label": embedded_protocol.get(
+                "budget_label") == budget_label,
+            "identity.protocol_fingerprint": identity.get("protocol_fingerprint")
+            == protocol_fingerprint,
+            "identity.protocol_content": fingerprint(embedded_protocol)
+            == protocol_fingerprint,
+            "identity.dataset_sha256": embedded_dataset.get("sha256") == dataset_sha256,
+            "identity.checkpoint_sha256": embedded_checkpoint.get("sha256")
+            == checkpoint_sha256,
+            "identity.upstream_commit": embedded_upstream.get("commit") == UPSTREAM_COMMIT,
+            "identity.project_commit": identity.get("project", {}).get("commit")
+            == project_commit if isinstance(identity.get("project"), dict) else False,
+            "identity.source_files": identity.get("source_files") == source_files,
+        }
+        mismatches.extend(field for field, passed in embedded_checks.items() if not passed)
+    count = summary.get("count")
+    if not isinstance(count, int) or isinstance(count, bool) or count <= 0:
+        mismatches.append("count")
+    if summary.get("validated_count") != count:
+        mismatches.append("validated_count")
+    if summary.get("failed_count") != 0:
+        mismatches.append("failed_count")
+    if isinstance(identity, dict) and identity.get("count") != count:
+        mismatches.append("identity.count")
+    if mismatches:
+        raise ValueError(
+            "SIL fullset preflight evidence mismatch: " + ", ".join(sorted(set(mismatches))))
+    return {
+        "path": str(evidence_path), "sha256": sha256_file(evidence_path),
+        "identity": {**expected, "count": count,
+                     "validated_count": count, "failed_count": 0},
+    }
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--problem", choices=["tsp", "cvrp"], required=True)
     parser.add_argument("--problem-size", type=int, required=True)
-    parser.add_argument("--budget", choices=["fewer", "more", "greedy_diagnostic"], required=True)
+    parser.add_argument("--budget", choices=FORMAL_PROTOCOLS, required=True)
     parser.add_argument("--batch-size", type=int, default=FORMAL_BATCH_SIZE)
     parser.add_argument("--dump-config", action="store_true")
     parser.add_argument("--dataset", type=Path)
@@ -82,6 +176,7 @@ def main(argv=None):
     parser.add_argument("--upstream", type=Path)
     parser.add_argument("--checkpoint", type=Path)
     parser.add_argument("--expected-checkpoint-sha256")
+    parser.add_argument("--preflight-evidence", type=Path)
     parser.add_argument("--output-dir", type=Path)
     parser.add_argument("--scope", choices=["our-smoke", "preflight", "fullset"])
     parser.add_argument("--offset", type=int, default=0)
@@ -101,10 +196,12 @@ def main(argv=None):
         parser.error("execution requires --scope, --count, and --output-dir")
     if args.offset < 0 or args.count <= 0:
         parser.error("--offset must be nonnegative and --count positive")
-    if args.scope == "our-smoke" and (args.offset != 0 or args.count != 2):
-        parser.error("our-smoke is exactly dataset indices 0 and 1")
-    if args.scope == "fullset" and args.budget == "greedy_diagnostic":
-        parser.error("greedy_diagnostic cannot produce formal fullset artifacts")
+    if args.scope == "our-smoke" and (
+            args.offset != 0 or args.count != _our_smoke_count(
+                args.problem, args.problem_size, args.budget)):
+        parser.error("our-smoke count does not match the frozen size-specific policy")
+    if args.scope == "fullset" and args.preflight_evidence is None:
+        parser.error("fullset requires --preflight-evidence")
     if not args.expected_dataset_sha256 or not args.expected_checkpoint_sha256:
         parser.error("execution requires both expected SHA256 arguments")
 
@@ -112,6 +209,7 @@ def main(argv=None):
     checkpoint = _require_file(args.checkpoint, "checkpoint")
     upstream_path = _require_directory(args.upstream, "upstream")
     validate_checkpoint_path(protocol, checkpoint)
+    validate_dataset_path(protocol, dataset)
     dataset_sha = sha256_file(dataset)
     checkpoint_sha = sha256_file(checkpoint)
     if dataset_sha != args.expected_dataset_sha256:
@@ -128,6 +226,24 @@ def main(argv=None):
             != normalize_git_repository_identity(UPSTREAM_URL)):
         raise ValueError("official SIL checkout identity/cleanliness mismatch")
 
+    sources = [
+        Path(__file__), ROOT / "methods/sil/config.py", ROOT / "methods/sil/runtime.py",
+        ROOT / "methods/sil/paper_results.py",
+        ROOT / "methods/glop/paper_protocol.py",
+        ROOT / f"methods/sil/{args.problem}/adapter.py",
+        ROOT / f"problems/{args.problem}/validate.py",
+    ]
+    current_source_files = source_provenance(sources, root=ROOT)
+    protocol_fingerprint = fingerprint(protocol)
+    preflight_evidence = None
+    if args.scope == "fullset":
+        preflight_evidence = _verify_preflight_evidence(
+            args.preflight_evidence, problem=args.problem,
+            problem_size=args.problem_size, budget_label=args.budget,
+            dataset_sha256=dataset_sha, checkpoint_sha256=checkpoint_sha,
+            protocol_fingerprint=protocol_fingerprint,
+            project_commit=project["commit"], source_files=current_source_files)
+
     import ml4co_kit as kit
     tasks = _load_tasks(kit, args.problem, dataset)
     dataset_count = len(tasks)
@@ -140,23 +256,22 @@ def main(argv=None):
     import torch
     device = _cuda_device(torch, args.device)
     environment = environment_provenance(device)
-    sources = [
-        Path(__file__), ROOT / "methods/sil/config.py", ROOT / "methods/sil/runtime.py",
-        ROOT / "methods/sil/paper_results.py",
-        ROOT / f"methods/sil/{args.problem}/adapter.py",
-        ROOT / f"problems/{args.problem}/validate.py",
-    ]
     identity = {
         "method": "SIL", "scope": args.scope, "protocol": protocol,
+        "protocol_fingerprint": protocol_fingerprint,
         "offset": args.offset, "count": args.count, "indices": indices,
-        "dataset": {"path": str(dataset), "filename": dataset.name,
+        "dataset": {"path": str(dataset),
+                    "expected_filename": protocol["expected_dataset_filename"],
+                    "actual_filename": dataset.name, "filename": dataset.name,
                     "sha256": dataset_sha, "count": dataset_count},
         "checkpoint": {"path": str(checkpoint), "filename": checkpoint.name,
                        "sha256": checkpoint_sha,
                        "drive_file_id": protocol["checkpoint"]["drive_file_id"]},
         "project": project, "upstream": upstream, "environment": environment,
-        "source_files": source_provenance(sources, root=ROOT),
+        "source_files": current_source_files,
         "timing_semantics": TIMING_SEMANTICS,
+        "warmup": WARMUP_POLICY,
+        "preflight_evidence": preflight_evidence,
         "official_source_modified": False,
         "checkpoint_load_semantics": (
             "pinned official Tester torch.load followed by model.load_state_dict "
@@ -166,11 +281,12 @@ def main(argv=None):
     output_dir = args.output_dir.resolve()
     metadata, records, timings, rng_checkpoint = initialize(
         output_dir, identity, resume=(args.resume or args.skip_existing))
-    if metadata["state"] in {"KIT_VALIDATED", "PAPER_READY"}:
+    if metadata["state"] in {
+            "KIT_VALIDATED", "HARDWARE_PROTOCOL_PENDING", "PAPER_READY"}:
         print(output_dir / "summary.json")
         return 0
 
-    from methods.sil.runtime import build_tester, solve_one
+    from methods.sil.runtime import build_tester, run_rng_preserving_warmup, solve_one
     tester, runtime_config = build_tester(
         problem=args.problem, problem_size=args.problem_size, budget_label=args.budget,
         upstream=upstream_path, checkpoint=checkpoint, device=device, torch=torch)
@@ -188,6 +304,7 @@ def main(argv=None):
                                               inject_official_data)
         from problems.cvrp.validate import validate as independent_validate
 
+    warmup_pending = _warmup_required(len(records))
     for index in indices[len(records):]:
         task = tasks[index]
         reference = float(task.evaluate(task.ref_sol))
@@ -204,6 +321,14 @@ def main(argv=None):
             inject = lambda env: inject_official_data(
                 env, coordinates[None], native_demands[None], np.asarray([capacity]),
                 reference_native[None], device=device, torch=torch)
+
+        if warmup_pending:
+            run_rng_preserving_warmup(
+                lambda: solve_one(
+                    tester, problem=args.problem, problem_size=args.problem_size,
+                    inject=inject, device=device, torch=torch, timed=False),
+                torch=torch)
+            warmup_pending = False
 
         solved = solve_one(
             tester, problem=args.problem, problem_size=args.problem_size,
@@ -231,6 +356,7 @@ def main(argv=None):
             "problem": args.problem.upper(), "problem_size": args.problem_size,
             "dataset_instance_index": index, "instance_id": _task_name(task, index),
             "protocol": args.budget, "budget": protocol["budget"],
+            "setting_size": protocol["setting_size"],
             "config_origin": protocol["config_origin"],
             "adapted_from_size": protocol["adapted_from_size"],
             "checkpoint_sha256": checkpoint_sha, "dataset_sha256": dataset_sha,

@@ -28,8 +28,9 @@ SIL follows these established choices:
 - **Artifacts:** mirror UDC production's `metadata.json`,
   `validated_records.jsonl`, `batch_timings.jsonl`, `summary.json`, and an
   additional `checkpoint_state.json` for exact RNG resume. A preflight becomes
-  `KIT_VALIDATED`; only a complete ordered full dataset may become
-  `PAPER_READY`.
+  `KIT_VALIDATED`. While the manuscript H800 versus current RTX4090 hardware
+  protocol remains unresolved, a complete ordered full dataset becomes
+  `HARDWARE_PROTOCOL_PENDING` and cannot become `PAPER_READY`.
 - **Dataset boundary:** mirror GLOP's exact ML4CO task checks. The existing pickle
   is read in place. TSP keeps all real nodes. CVRP passes depot, customer
   coordinates, raw demands, and each task's true capacity.
@@ -52,8 +53,10 @@ SIL follows these established choices:
 
 ## SIL-specific implementation
 
-`config.py` owns the official checkpoint registry, size adaptations, and exact
-PRC protocols. `runtime.py` invokes pinned `TSPTester._test_one_batch` or
+`config.py` owns the six-size senior-approved scope (TSP1K/2K/5K/10K and
+CVRP1K/2K), official checkpoint registry, size adaptations, and exact formal
+Greedy/PRC50/PRC500 protocols. `runtime.py` invokes pinned
+`TSPTester._test_one_batch` or
 `VRPTester._test_one_batch`; it does not reproduce the solver. A temporary
 instance-method hook observes existing `_get_travel_distance_2` calls and retains
 the final full solution argument. It forwards every call and return unchanged,

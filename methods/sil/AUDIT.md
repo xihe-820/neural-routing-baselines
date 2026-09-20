@@ -10,8 +10,9 @@ Problems*.
 
 The greedy scripts construct a complete solution directly with model argmax and
 set `budget=0`, `random_insertion=False`. Their main functions disable k-nearest
-only for this purely greedy configuration. Greedy is retained here as a native
-compatibility diagnostic.
+only for this purely greedy configuration. The project exposes that exact path
+as both `greedy_diagnostic` for native compatibility smoke and the distinct
+formal `greedy` manuscript protocol; only the latter is paper-result eligible.
 
 The PRC scripts set `PRC=True`, `random_insertion=True`, maximum reconstructed
 sub-solution length 1,000, and iterate the `budget` loop exactly that many times.
@@ -65,10 +66,12 @@ pending server verification.
 
 ## Project adaptation
 
-TSP500 and TSP2000 use the TSP1K checkpoint/settings; CVRP500 and CVRP2000 use
-CVRP1K. These are `senior_approved_adaptation`, not official size-specific SIL
-models. TSP1K, TSP5K, TSP10K, and CVRP1K are `official_native`. Actual input size
-is never padded, duplicated, or truncated.
+The senior-approved formal scope is exactly TSP1K/2K/5K/10K and CVRP1K/2K.
+TSP2K uses the TSP1K checkpoint/settings and CVRP2K uses CVRP1K; these are
+`senior_approved_adaptation`, not official size-specific SIL models. TSP1K,
+TSP5K, TSP10K, and CVRP1K are `official_native`. TSP100, TSP500, and CVRP500 are
+excluded from SIL formal configuration. Actual input size is never padded,
+duplicated, or truncated.
 
 The project wrapper injects exact model tensors into the official environment,
 then calls the pinned tester method. A temporary hook around the environment's
@@ -83,13 +86,18 @@ and PRC1000 for both TSP and CVRP. It states that PRC uses random insertion for
 initial solutions. Both PRC50 and PRC500 are therefore author-reported settings
 within the same algorithmic pipeline. This project maps `fewer=PRC50` and
 `more=PRC500`. This mapping is a project evaluation policy; the authors did not
-name these settings “fewer” and “more”. `PROTOCOL_PENDING` is false. Greedy is a
-diagnostic only and cannot produce a formal fullset artifact.
+name these settings “fewer” and “more”. `PROTOCOL_PENDING` is false. Formal
+`greedy` uses budget 0, no random insertion, and no kNN; `greedy_diagnostic`
+remains a separate non-paper native-smoke identity.
 
 Formal timing is CUDA-synchronized wall time around one official BS1
 `_test_one_batch`, including initialization/search and its internal official
 objective/logging calls. It excludes data/checkpoint/model loading, adapter work,
 post-timing tensor clone, independent/Kit validation, and artifact I/O. The
-formal GPU requirement is RTX 4090. Server smoke must establish Python 3.11 /
-Torch 2.5 compatibility; the official README only documents Python 3.8.6 and
-Torch 1.12.1.
+current correctness GPU requirement is RTX 4090. The latest manuscript states
+H800, while the supplied senior instruction does not resolve this mismatch.
+`HARDWARE_PROTOCOL_PENDING` is therefore true: correctness smoke may proceed on
+the approved current workflow, but even a complete fullset cannot claim final
+timing `PAPER_READY` until the manuscript hardware is confirmed. Server smoke
+must establish Python 3.11 / Torch 2.5 compatibility; the official README only
+documents Python 3.8.6 and Torch 1.12.1.

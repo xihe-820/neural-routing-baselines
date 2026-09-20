@@ -5,11 +5,16 @@ These commands are run manually by the user. They do not require Codex SSH acces
 ## SIL large-scale TSP/CVRP
 
 SIL is pinned at `CIAM-Group/SIL@9ec783e90a1631f7b95f84eb20f8f9751cb45c10`.
-The complete copy-pasteable handoff, four checkpoint IDs, official native smoke,
-six ML4CO count-2 smokes, PRC50/PRC500 preflight, and resumable 16-cell BS1
-matrix are in [methods/sil/README.md](../methods/sil/README.md). Run those phases
-in order. Do not start a fullset until the native smoke passes and all required
+The complete copy-pasteable handoff, explicit `feat/sil` checkout and approved
+commit gate, four checkpoint IDs, official native smoke, twelve all-size ML4CO
+smokes (including actual TSP5K/TSP10K inference), formal Greedy/PRC50 smoke,
+same-size PRC500 preflight evidence, and the resumable 18-cell BS1 matrix are in
+[methods/sil/README.md](../methods/sil/README.md). Run those phases in order.
+Do not start a fullset until the native smoke passes and all required
 ML4CO smoke/preflight summaries are `KIT_VALIDATED`.
+The current workflow gates on RTX4090 while the manuscript states H800;
+`HARDWARE_PROTOCOL_PENDING` remains true, so correctness fullsets cannot claim
+`PAPER_READY` until the timing hardware is confirmed.
 
 ## 1. Repository checkout and paths
 

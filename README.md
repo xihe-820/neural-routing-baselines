@@ -18,7 +18,7 @@ scope.
 | RF-TE | — | 50 / 100 | 50 / 100 |
 | MoSES(CaDA) | — | 50 / 100 | 50 / 100 |
 | NeuOpt | — | 50 / 100 | — |
-| SIL | 500 / 1K / 2K / 5K / 10K | 500 / 1K / 2K | — |
+| SIL | 1K / 2K / 5K / 10K | 1K / 2K | — |
 
 The original 50/100 matrix contains 13 method/problem integrations and 26
 independent size rows. See [STATUS](docs/STATUS.md) for current evidence and
@@ -27,9 +27,10 @@ extension.
 
 MVMoE CVRP/CVRPTW 50/100 and NeuOpt CVRP50/100 are server verified. GLOP TSP50/100 is locally verified and ready for user-executed server validation; GLOP CVRP50/100 remains blocked because the official small-size partitioner configuration is undefined.
 
-SIL TSP500/1K/2K/5K/10K and CVRP500/1K/2K have a local integration and remain
-pending official-native and ML4CO GPU smoke on RTX 4090. No SIL result is yet a
-formal paper result.
+SIL TSP1K/2K/5K/10K and CVRP1K/2K have a local integration and remain pending
+official-native and ML4CO GPU smoke on RTX 4090. The manuscript hardware
+statement is H800, so no SIL result is a formal paper result until the hardware
+protocol is resolved.
 
 ## Architecture
 

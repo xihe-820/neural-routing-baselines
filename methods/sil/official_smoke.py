@@ -31,7 +31,8 @@ def main():
     args = parser.parse_args()
     if args.output.exists():
         raise ValueError("official smoke output already exists")
-    config = resolve_config(args.problem, args.problem_size, "greedy_diagnostic")
+    config = resolve_config(
+        args.problem, args.problem_size, "greedy_diagnostic", allow_diagnostic=True)
     validate_checkpoint_path(config, args.checkpoint)
     if not args.checkpoint.is_file() or not args.official_dataset.is_file():
         raise ValueError("checkpoint and official dataset must exist")
@@ -62,7 +63,8 @@ def main():
     from methods.sil.runtime import build_tester
     tester, _ = build_tester(
         problem=args.problem, problem_size=1000, budget_label="greedy_diagnostic",
-        upstream=args.upstream, checkpoint=args.checkpoint, device=device, torch=torch)
+        upstream=args.upstream, checkpoint=args.checkpoint, device=device, torch=torch,
+        allow_diagnostic=True)
     tester.tester_params["test_episodes"] = args.count
     tester.tester_params["test_batch_size"] = 1
     tester.env.data_path = str(args.official_dataset.resolve())

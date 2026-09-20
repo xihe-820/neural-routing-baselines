@@ -2,19 +2,29 @@ import contextlib
 import io
 import json
 from pathlib import Path
+import random
+import sys
 import tempfile
+import types
 import unittest
+from unittest import mock
 
 import numpy as np
 
-from methods.sil.config import (CHECKPOINTS, SIZE_REGISTRY, resolve_config,
-                                validate_checkpoint_path)
+from methods.sil.config import (CHECKPOINTS, FORMAL_PROTOCOLS, FORMAL_SIZES,
+                                SIZE_REGISTRY, WARMUP_POLICY,
+                                effective_repair_max, resolve_config,
+                                validate_checkpoint_path, validate_dataset_path)
 from methods.sil.cvrp.adapter import (adapt_task as adapt_cvrp,
                                       canonical_to_official,
                                       decode_official_solution as decode_cvrp)
-from methods.sil.paper_eval import main as paper_main
-from methods.sil.paper_results import append, finalize, initialize
-from methods.sil.runtime import capture_official_solution
+from methods.sil.paper_eval import (_our_smoke_count, _verify_preflight_evidence,
+                                    _warmup_required, main as paper_main)
+from methods.sil.paper_results import (append, capture_rng_state, finalize,
+                                       fingerprint, initialize)
+from methods.sil.runtime import (build_env_params, build_tester,
+                                 capture_official_solution,
+                                 run_rng_preserving_warmup)
 from methods.sil.tsp.adapter import (adapt_task as adapt_tsp,
                                      decode_official_solution as decode_tsp)
 from problems.cvrp.validate import validate as validate_cvrp
@@ -28,19 +38,18 @@ class Task:
 class SILConfigTests(unittest.TestCase):
     def test_all_size_checkpoint_mappings(self):
         expected = {
-            ("tsp", 500): ("tsp1k", 1000, "senior_approved_adaptation"),
-            ("tsp", 1000): ("tsp1k", 1000, "official_native"),
-            ("tsp", 2000): ("tsp1k", 1000, "senior_approved_adaptation"),
-            ("tsp", 5000): ("tsp5k", 5000, "official_native"),
-            ("tsp", 10000): ("tsp10k", 10000, "official_native"),
-            ("cvrp", 500): ("cvrp1k", 1000, "senior_approved_adaptation"),
-            ("cvrp", 1000): ("cvrp1k", 1000, "official_native"),
-            ("cvrp", 2000): ("cvrp1k", 1000, "senior_approved_adaptation"),
+            ("tsp", 1000): ("tsp1k", 1000, None, "official_native"),
+            ("tsp", 2000): ("tsp1k", 1000, 1000, "senior_approved_adaptation"),
+            ("tsp", 5000): ("tsp5k", 5000, None, "official_native"),
+            ("tsp", 10000): ("tsp10k", 10000, None, "official_native"),
+            ("cvrp", 1000): ("cvrp1k", 1000, None, "official_native"),
+            ("cvrp", 2000): ("cvrp1k", 1000, 1000, "senior_approved_adaptation"),
         }
-        self.assertEqual(SIZE_REGISTRY, expected)
-        for (problem, size), (checkpoint, adapted, origin) in expected.items():
+        self.assertEqual(set(SIZE_REGISTRY), set(expected))
+        for (problem, size), (checkpoint, setting, adapted, origin) in expected.items():
             config = resolve_config(problem, size, "fewer")
             self.assertEqual(config["checkpoint_key"], checkpoint)
+            self.assertEqual(config["setting_size"], setting)
             self.assertEqual(config["adapted_from_size"], adapted)
             self.assertEqual(config["config_origin"], origin)
 
@@ -49,13 +58,52 @@ class SILConfigTests(unittest.TestCase):
         more = resolve_config("tsp", 1000, "more")
         self.assertEqual(fewer["budget"], 50)
         self.assertEqual(more["budget"], 500)
-        for field in ("random_insertion", "PRC", "repair_max_sub_length",
+        for field in ("random_insertion", "PRC", "repair_max_sub_length_nominal",
+                      "repair_max_sub_length_effective", "repair_max_rule",
                       "pomo_size", "decode_method", "seed"):
             self.assertEqual(fewer[field], more[field])
         self.assertFalse(fewer["protocol_pending"])
 
+    def test_three_formal_protocols_are_exact(self):
+        self.assertEqual(FORMAL_PROTOCOLS, ("greedy", "fewer", "more"))
+        expected = {
+            "greedy": (0, False, False),
+            "fewer": (50, True, True),
+            "more": (500, True, True),
+        }
+        for label, (budget, insertion, knn) in expected.items():
+            config = resolve_config("tsp", 1000, label)
+            self.assertEqual(config["budget"], budget)
+            self.assertEqual(config["random_insertion"], insertion)
+            self.assertEqual(config["PRC"], True)
+            self.assertEqual(config["use_k_nearest"], knn)
+            self.assertTrue(config["paper_result_eligible"])
+            self.assertEqual(config["artifact_class"], "formal_paper_protocol")
+            self.assertTrue(config["hardware_protocol_pending"])
+
+    def test_diagnostic_requires_explicit_nonformal_api(self):
+        with self.assertRaises(ValueError):
+            resolve_config("tsp", 1000, "greedy_diagnostic")
+        config = resolve_config(
+            "tsp", 1000, "greedy_diagnostic", allow_diagnostic=True)
+        self.assertFalse(config["paper_result_eligible"])
+        self.assertEqual(config["artifact_class"], "diagnostic")
+        self.assertEqual(config["budget"], 0)
+        self.assertFalse(config["random_insertion"])
+        self.assertFalse(config["use_k_nearest"])
+        with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+            paper_main(["--problem", "tsp", "--problem-size", "1000",
+                        "--budget", "greedy_diagnostic", "--dump-config"])
+
+    def test_senior_approved_formal_scope_and_cell_count(self):
+        self.assertEqual(FORMAL_SIZES, {
+            "tsp": (1000, 2000, 5000, 10000), "cvrp": (1000, 2000)})
+        self.assertEqual(len(SIZE_REGISTRY) * len(FORMAL_PROTOCOLS), 18)
+        for problem, size in (("tsp", 100), ("tsp", 500), ("cvrp", 500)):
+            with self.assertRaises(ValueError):
+                resolve_config(problem, size, "greedy")
+
     def test_knn_strict_threshold(self):
-        self.assertFalse(resolve_config("tsp", 500, "fewer")["initial_knn_path_active"])
         self.assertFalse(resolve_config("tsp", 1000, "fewer")["initial_knn_path_active"])
         self.assertTrue(resolve_config("tsp", 2000, "fewer")["initial_knn_path_active"])
 
@@ -64,7 +112,7 @@ class SILConfigTests(unittest.TestCase):
             resolve_config("tsp", 1000, "fewer", batch_size=2)
 
     def test_checkpoint_filename_gate(self):
-        config = resolve_config("cvrp", 500, "more")
+        config = resolve_config("cvrp", 2000, "more")
         validate_checkpoint_path(config, Path("/tmp/checkpoint-cvrp1k.pt"))
         with self.assertRaises(ValueError):
             validate_checkpoint_path(config, Path("/tmp/wrong.pt"))
@@ -72,10 +120,89 @@ class SILConfigTests(unittest.TestCase):
     def test_registry_has_no_claimed_local_sha(self):
         self.assertTrue(all(row["actual_sha256"] is None for row in CHECKPOINTS.values()))
 
+    def test_repair_max_is_clamped_to_actual_problem_size(self):
+        for problem, size, effective in (
+                ("tsp", 1000, 1000), ("tsp", 2000, 1000),
+                ("cvrp", 1000, 1000),
+                ("cvrp", 2000, 1000)):
+            config = resolve_config(problem, size, "fewer")
+            self.assertEqual(config["repair_max_sub_length_nominal"], 1000)
+            self.assertEqual(config["repair_max_sub_length_effective"], effective)
+            self.assertEqual(build_env_params(config)["repair_max_sub_length"], effective)
+        self.assertEqual(effective_repair_max(500), 500)
+        self.assertEqual(effective_repair_max(500, 1000), 500)
+        with self.assertRaises(ValueError):
+            resolve_config("cvrp", 500, "fewer")
+
+    def test_build_tester_passes_effective_repair_max(self):
+        captured = {}
+
+        class Estimator:
+            def reset(self):
+                pass
+
+        class Tester:
+            def __init__(self, *, env_params, model_params, tester_params):
+                captured["env_params"] = env_params
+                self.time_estimator_2 = Estimator()
+
+        modules = {
+            "CVRP": types.ModuleType("CVRP"),
+            "CVRP.Test_All": types.ModuleType("CVRP.Test_All"),
+            "CVRP.Test_All.Tester": types.ModuleType("CVRP.Test_All.Tester"),
+        }
+        modules["CVRP.Test_All.Tester"].VRPTester = Tester
+        device = types.SimpleNamespace(index=0)
+        with mock.patch.dict(sys.modules, modules), mock.patch(
+                "methods.sil.runtime._clear_official_namespaces"):
+            _, config = build_tester(
+                problem="cvrp", problem_size=1000, budget_label="fewer",
+                upstream=Path("/tmp"), checkpoint=Path("/tmp/checkpoint-cvrp1k.pt"),
+                device=device, torch=types.SimpleNamespace())
+        self.assertEqual(config["repair_max_sub_length_effective"], 1000)
+        self.assertEqual(captured["env_params"]["repair_max_sub_length"], 1000)
+
+    def test_formal_dataset_registry_and_filename_gate(self):
+        expected = {
+            ("tsp", 1000): "tsp1000_concorde_23.118.pkl",
+            ("tsp", 2000): "tsp2000_lkh_500_32.436.pkl",
+            ("tsp", 5000): "tsp5000_lkh_500_50.968.pkl",
+            ("tsp", 10000): "tsp10000_lkh_500_71.782.pkl",
+            ("cvrp", 1000): "cvrp1000_hgs-360s_41.171.pkl",
+            ("cvrp", 2000): "cvrp2000_hgs-360s_57.181.pkl",
+        }
+        for (problem, size), filename in expected.items():
+            config = resolve_config(problem, size, "fewer")
+            self.assertEqual(config["expected_dataset_filename"], filename)
+            validate_dataset_path(config, Path("/data") / filename)
+            with self.assertRaises(ValueError):
+                validate_dataset_path(config, Path("/data/wrong.pkl"))
+        for problem, size, filename in (
+                ("tsp", 500, "tsp500_concorde_16.546.pkl"),
+                ("cvrp", 500, "cvrp500_hgs-300s_37.154.pkl")):
+            with self.assertRaises(ValueError):
+                config = resolve_config(problem, size, "fewer")
+                validate_dataset_path(config, Path("/data") / filename)
+
+    def test_warmup_policy_is_frozen_in_protocol_identity(self):
+        self.assertEqual(WARMUP_POLICY["batches"], 1)
+        self.assertTrue(WARMUP_POLICY["excluded_from_timing"])
+        self.assertTrue(WARMUP_POLICY["excluded_from_records"])
+        self.assertTrue(WARMUP_POLICY["rng_state_restored"])
+        self.assertEqual(resolve_config("tsp", 1000, "fewer")["warmup"], WARMUP_POLICY)
+
+    def test_large_tsp_smoke_is_one_instance_and_other_sizes_are_two(self):
+        for problem, size in SIZE_REGISTRY:
+            self.assertEqual(_our_smoke_count(problem, size, "greedy"), 1)
+        self.assertEqual(_our_smoke_count("tsp", 5000, "fewer"), 1)
+        self.assertEqual(_our_smoke_count("tsp", 10000, "fewer"), 1)
+        self.assertEqual(_our_smoke_count("tsp", 2000, "fewer"), 2)
+        self.assertEqual(_our_smoke_count("cvrp", 2000, "fewer"), 2)
+
     def test_dump_config_does_not_import_official_runtime(self):
         stream = io.StringIO()
         with contextlib.redirect_stdout(stream):
-            result = paper_main(["--problem", "tsp", "--problem-size", "500",
+            result = paper_main(["--problem", "tsp", "--problem-size", "1000",
                                  "--budget", "fewer", "--dump-config"])
         payload = json.loads(stream.getvalue())
         self.assertEqual(result, 0)
@@ -179,11 +306,16 @@ class SILCaptureAndArtifactTests(unittest.TestCase):
         self.assertEqual(env._get_travel_distance_2.__func__, original.__func__)
 
     def test_artifact_aggregates_mean_instance_gap_and_resume(self):
+        protocol = {"problem": "TSP", "actual_problem_size": 3,
+                    "budget_label": "fewer", "budget": 50,
+                    "hardware_protocol_pending": True}
         identity = {
             "scope": "fullset", "offset": 0, "indices": [0, 1],
-            "dataset": {"count": 2},
-            "protocol": {"problem": "TSP", "actual_problem_size": 3,
-                         "budget_label": "fewer", "budget": 50},
+            "dataset": {"count": 2, "sha256": "dataset"},
+            "protocol": protocol, "protocol_fingerprint": fingerprint(protocol),
+            "checkpoint": {"sha256": "checkpoint"},
+            "upstream": {"commit": "upstream"},
+            "project": {"commit": "project"}, "source_files": [],
         }
         records = []
         for index, objective, reference in ((0, 2.0, 1.0), (1, 3.0, 2.0)):
@@ -207,11 +339,13 @@ class SILCaptureAndArtifactTests(unittest.TestCase):
                 append(root, metadata, live_records, live_timings, record, timing,
                        {"test_rng_state": record["dataset_instance_index"]})
             summary = finalize(root, metadata, live_records, live_timings)
-            self.assertEqual(summary["status"], "PAPER_READY")
+            self.assertEqual(summary["status"], "HARDWARE_PROTOCOL_PENDING")
+            self.assertFalse(summary["paper_ready"])
+            self.assertTrue(summary["full_dataset_complete"])
             self.assertAlmostEqual(summary["mean_instance_gap_percent"], 75.0)
             self.assertAlmostEqual(summary["total_runtime_seconds"], 3.0)
             loaded = json.loads((root / "summary.json").read_text())
-            self.assertEqual(loaded["status"], "PAPER_READY")
+            self.assertEqual(loaded["status"], "HARDWARE_PROTOCOL_PENDING")
             with self.assertRaises(ValueError):
                 initialize(root, identity, resume=False)
             resumed = initialize(root, identity, resume=True)
@@ -238,6 +372,144 @@ class SILCaptureAndArtifactTests(unittest.TestCase):
                 stream.write("{}\n")
             with self.assertRaisesRegex(ValueError, "records hash mismatch"):
                 initialize(root, identity, resume=True)
+
+    def test_warmup_restores_rng_and_does_not_append_artifacts(self):
+        import torch
+        random.seed(13)
+        np.random.seed(14)
+        torch.manual_seed(15)
+        before = capture_rng_state(torch)
+        records, timings = [], []
+
+        def warmup_solve():
+            random.random()
+            np.random.random()
+            torch.rand(4)
+
+        run_rng_preserving_warmup(warmup_solve, torch=torch)
+        self.assertEqual(capture_rng_state(torch), before)
+        self.assertEqual(records, [])
+        self.assertEqual(timings, [])
+        self.assertTrue(_warmup_required(0))
+        self.assertFalse(_warmup_required(1))
+
+    def test_warmup_and_formal_capture_are_isolated(self):
+        class Env:
+            def _get_travel_distance_2(self, problems, solution, **kwargs):
+                return np.asarray([float(np.asarray(solution).sum())])
+
+        env = Env()
+        with capture_official_solution(env, problem="tsp", problem_size=3) as warmup:
+            env._get_travel_distance_2(None, np.array([[0, 1, 2]]))
+        with capture_official_solution(env, problem="tsp", problem_size=3) as formal:
+            env._get_travel_distance_2(None, np.array([[2, 1, 0]]))
+        self.assertEqual(warmup["eligible_calls"], 1)
+        self.assertEqual(formal["eligible_calls"], 1)
+        self.assertIsNot(warmup, formal)
+
+
+class SILPreflightGateTests(unittest.TestCase):
+    PROJECT_COMMIT = "project-commit"
+    SOURCE_FILES = [{"path": "methods/sil/config.py", "sha256": "source"}]
+
+    def _summary(self, protocol_label="fewer", **changes):
+        protocol = resolve_config("tsp", 1000, protocol_label)
+        protocol_hash = fingerprint(protocol)
+        scope = "preflight" if protocol_label == "more" else "our-smoke"
+        summary = {
+            "status": "KIT_VALIDATED", "method": "SIL", "problem": "TSP",
+            "problem_size": 1000, "budget_label": protocol_label,
+            "dataset_sha256": "dataset", "checkpoint_sha256": "checkpoint",
+            "upstream_commit": "9ec783e90a1631f7b95f84eb20f8f9751cb45c10",
+            "protocol_fingerprint": protocol_hash,
+            "project_commit": self.PROJECT_COMMIT,
+            "source_provenance_fingerprint": fingerprint(self.SOURCE_FILES),
+            "count": 2, "validated_count": 2, "failed_count": 0,
+            "identity": {
+                "method": "SIL", "scope": scope, "count": 2,
+                "protocol": protocol,
+                "protocol_fingerprint": protocol_hash,
+                "dataset": {"sha256": "dataset"},
+                "checkpoint": {"sha256": "checkpoint"},
+                "project": {"commit": self.PROJECT_COMMIT},
+                "source_files": self.SOURCE_FILES,
+                "upstream": {
+                    "commit": "9ec783e90a1631f7b95f84eb20f8f9751cb45c10"},
+            },
+        }
+        summary.update(changes)
+        return summary, protocol
+
+    def _verify(self, summary, protocol, budget_label=None):
+        budget_label = protocol["budget_label"] if budget_label is None else budget_label
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "summary.json"
+            path.write_text(json.dumps(summary))
+            return _verify_preflight_evidence(
+                path, problem="tsp", problem_size=1000, budget_label=budget_label,
+                dataset_sha256="dataset", checkpoint_sha256="checkpoint",
+                protocol_fingerprint=fingerprint(resolve_config(
+                    "tsp", 1000, budget_label)), project_commit=self.PROJECT_COMMIT,
+                source_files=self.SOURCE_FILES)
+
+    def test_matching_greedy_fewer_more_evidence_passes(self):
+        for label in FORMAL_PROTOCOLS:
+            summary, protocol = self._summary(label)
+            evidence = self._verify(summary, protocol)
+            self.assertEqual(evidence["identity"]["status"], "KIT_VALIDATED")
+            self.assertEqual(evidence["identity"]["count"], 2)
+
+    def test_mismatched_evidence_fails_closed(self):
+        for field, value in (
+                ("problem", "CVRP"), ("problem_size", 500),
+                ("budget_label", "more"), ("dataset_sha256", "wrong"),
+                ("checkpoint_sha256", "wrong"), ("status", "PAPER_READY"),
+                ("upstream_commit", "wrong"), ("protocol_fingerprint", "wrong"),
+                ("project_commit", "wrong"),
+                ("source_provenance_fingerprint", "wrong")):
+            summary, protocol = self._summary(**{field: value})
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                self._verify(summary, protocol)
+
+    def test_invalid_validation_counts_fail_closed(self):
+        for changes in ({"count": 0, "validated_count": 0},
+                        {"validated_count": 1}, {"failed_count": 1}):
+            summary, protocol = self._summary(**changes)
+            with self.subTest(changes=changes), self.assertRaises(ValueError):
+                self._verify(summary, protocol)
+
+    def test_embedded_protocol_tamper_fails_closed(self):
+        summary, protocol = self._summary()
+        summary["identity"]["protocol"] = json.loads(json.dumps(protocol))
+        summary["identity"]["protocol"]["budget"] = 500
+        with self.assertRaisesRegex(ValueError, "identity.protocol_content"):
+            self._verify(summary, protocol)
+
+    def test_embedded_project_source_and_scope_tamper_fail_closed(self):
+        for field in ("project", "source_files", "scope"):
+            summary, protocol = self._summary()
+            if field == "project":
+                summary["identity"][field] = {"commit": "wrong"}
+            elif field == "source_files":
+                summary["identity"][field] = []
+            else:
+                summary["identity"][field] = "preflight"
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                self._verify(summary, protocol)
+
+    def test_protocol_evidence_cannot_cross_greedy_fewer_more(self):
+        for evidence_label, requested_label in (
+                ("greedy", "fewer"), ("fewer", "more"), ("more", "greedy")):
+            summary, protocol = self._summary(evidence_label)
+            with self.subTest(evidence=evidence_label, requested=requested_label), \
+                    self.assertRaises(ValueError):
+                self._verify(summary, protocol, budget_label=requested_label)
+
+    def test_fullset_requires_preflight_cli_argument(self):
+        with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+            paper_main(["--problem", "tsp", "--problem-size", "1000",
+                        "--budget", "fewer", "--scope", "fullset",
+                        "--count", "1", "--output-dir", "/tmp/unused"])
 
 
 if __name__ == "__main__":
