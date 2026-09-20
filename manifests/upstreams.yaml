@@ -39,6 +39,20 @@
         "single_objective/UDC-Large-scale-CO-master/UDC/CVRP-AGNN-ICAM"
       ]
     },
+    "LEHD": {
+      "url": "https://github.com/CIAM-Group/NCO_code",
+      "relative_path": "external/NCO_code",
+      "actual_commit": "274df3c4975384592b60fe7f79fbb2441ce11c15",
+      "recommended_pin": "274df3c4975384592b60fe7f79fbb2441ce11c15",
+      "pin_reason": "Pin the official NeurIPS 2023 LEHD source and its two repository-owned size-100 checkpoints.",
+      "branch": "main",
+      "clean": true,
+      "local_tags": [],
+      "server_verification": "NOT_RUN",
+      "allowed_subtrees": [
+        "single_objective/LEHD"
+      ]
+    },
     "CaDA": {
       "url": "https://github.com/CIAM-Group/CaDA",
       "relative_path": "external/CaDA",

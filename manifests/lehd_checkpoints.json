@@ -1,0 +1,26 @@
+{
+  "schema": "lehd-checkpoints.v1",
+  "method": "LEHD",
+  "upstream_url": "https://github.com/CIAM-Group/NCO_code",
+  "upstream_commit": "274df3c4975384592b60fe7f79fbb2441ce11c15",
+  "assets": [
+    {
+      "problem": "TSP",
+      "path": "single_objective/LEHD/TSP/result/20230509_153705_train/checkpoint-150.pt",
+      "epoch": 150,
+      "trained_on_size": 100,
+      "training_data_path": "single_objective/LEHD/TSP/data/train_TSP100_n100w.txt",
+      "sha256": null,
+      "server_strict_load": "PENDING_SERVER_VERIFICATION"
+    },
+    {
+      "problem": "CVRP",
+      "path": "single_objective/LEHD/CVRP/result/20230817_235537_train/checkpoint-40.pt",
+      "epoch": 40,
+      "trained_on_size": 100,
+      "training_data_path": "single_objective/LEHD/CVRP/data/vrp100_hgs_train_100w.txt",
+      "sha256": null,
+      "server_strict_load": "PENDING_SERVER_VERIFICATION"
+    }
+  ]
+}

@@ -2,6 +2,17 @@
 
 These commands are run manually by the user. They do not require Codex SSH access, modify official source, or install packages. Use an approved project commit that contains the integration being tested.
 
+## LEHD TSP/CVRP
+
+LEHD is pinned to `CIAM-Group/NCO_code@274df3c4975384592b60fe7f79fbb2441ce11c15`,
+subtree `single_objective/LEHD`. The complete copy-pasteable handoff is in
+[methods/lehd/README.md](../methods/lehd/README.md): repository-owned checkpoint
+hash/strict-load audit, official native TSP1K/CVRP1K smoke, 18 Greedy/RRC50
+our-data smokes, nine same-size RRC500 preflights, and the resumable 27-cell
+BS1 matrix. Run the phases in order. The current correctness workflow requires
+RTX4090 while the manuscript states H800, so `HARDWARE_PROTOCOL_PENDING` blocks
+all `PAPER_READY` timing claims.
+
 ## SIL large-scale TSP/CVRP
 
 SIL is pinned at `CIAM-Group/SIL@9ec783e90a1631f7b95f84eb20f8f9751cb45c10`.

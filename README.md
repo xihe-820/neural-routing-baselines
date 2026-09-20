@@ -19,6 +19,7 @@ scope.
 | MoSES(CaDA) | — | 50 / 100 | 50 / 100 |
 | NeuOpt | — | 50 / 100 | — |
 | SIL | 1K / 2K / 5K / 10K | 1K / 2K | — |
+| LEHD | 100 / 500 / 1K | 50 / 100 / 200 / 500 / 1K / 2K | — |
 
 The original 50/100 matrix contains 13 method/problem integrations and 26
 independent size rows. See [STATUS](docs/STATUS.md) for current evidence and
@@ -31,6 +32,11 @@ SIL TSP1K/2K/5K/10K and CVRP1K/2K have a local integration and remain pending
 official-native and ML4CO GPU smoke on RTX 4090. The manuscript hardware
 statement is H800, so no SIL result is a formal paper result until the hardware
 protocol is resolved.
+
+LEHD uses the two official size-100-trained checkpoints for the frozen
+large-scale generalization matrix. Its local integration is ready for
+user-executed native and ML4CO correctness smoke; paper timing remains blocked
+by the same unresolved H800 versus RTX4090 hardware protocol.
 
 ## Architecture
 
