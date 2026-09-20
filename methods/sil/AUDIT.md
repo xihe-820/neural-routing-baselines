@@ -93,11 +93,9 @@ remains a separate non-paper native-smoke identity.
 Formal timing is CUDA-synchronized wall time around one official BS1
 `_test_one_batch`, including initialization/search and its internal official
 objective/logging calls. It excludes data/checkpoint/model loading, adapter work,
-post-timing tensor clone, independent/Kit validation, and artifact I/O. The
-current correctness GPU requirement is RTX 4090. The latest manuscript states
-H800, while the supplied senior instruction does not resolve this mismatch.
-`HARDWARE_PROTOCOL_PENDING` is therefore true: correctness smoke may proceed on
-the approved current workflow, but even a complete fullset cannot claim final
-timing `PAPER_READY` until the manuscript hardware is confirmed. Server smoke
-must establish Python 3.11 / Torch 2.5 compatibility; the official README only
-documents Python 3.8.6 and Torch 1.12.1.
+post-timing tensor clone, independent/Kit validation, and artifact I/O. Formal
+SIL evaluation is frozen to a single NVIDIA RTX 4090 with original-instance
+BS=1. Runtime artifacts retain the actual server GPU through normal environment
+provenance, and a complete validated fullset is eligible for `PAPER_READY`.
+Server smoke must establish Python 3.11 / Torch 2.5 compatibility; the official
+README only documents Python 3.8.6 and Torch 1.12.1.

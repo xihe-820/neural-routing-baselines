@@ -28,15 +28,12 @@ extension.
 
 MVMoE CVRP/CVRPTW 50/100 and NeuOpt CVRP50/100 are server verified. GLOP TSP50/100 is locally verified and ready for user-executed server validation; GLOP CVRP50/100 remains blocked because the official small-size partitioner configuration is undefined.
 
-SIL TSP1K/2K/5K/10K and CVRP1K/2K have a local integration and remain pending
-official-native and ML4CO GPU smoke on RTX 4090. The manuscript hardware
-statement is H800, so no SIL result is a formal paper result until the hardware
-protocol is resolved.
+SIL TSP1K/2K/5K/10K and CVRP1K/2K have a local integration. Formal SIL
+evaluation is run on a single NVIDIA RTX 4090 with original-instance BS=1.
 
 LEHD uses the two official size-100-trained checkpoints for the frozen
-large-scale generalization matrix. Its local integration is ready for
-user-executed native and ML4CO correctness smoke; paper timing remains blocked
-by the same unresolved H800 versus RTX4090 hardware protocol.
+large-scale generalization matrix. Formal LEHD evaluation is run on a single
+NVIDIA RTX 4090 with original-instance BS=1.
 
 ## Architecture
 

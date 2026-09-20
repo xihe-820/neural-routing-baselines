@@ -16,9 +16,7 @@ FORMAL_SIZES = {
 }
 FORMAL_PROTOCOLS = ("greedy", "fewer", "more")
 RRC_BUDGETS = {"greedy": 0, "fewer": 50, "more": 500}
-HARDWARE_PROTOCOL_PENDING = True
-MANUSCRIPT_HARDWARE = "H800"
-CURRENT_SERVER_HARDWARE = "NVIDIA RTX 4090"
+FORMAL_GPU = "NVIDIA RTX 4090"
 
 WARMUP_POLICY = {
     "batches": 1,
@@ -137,9 +135,7 @@ def resolve_config(problem: str, problem_size: int, protocol: str,
             "are checkpointed after each validated instance"
         ),
         "warmup": deepcopy(WARMUP_POLICY),
-        "hardware_protocol_pending": HARDWARE_PROTOCOL_PENDING,
-        "manuscript_hardware_statement": MANUSCRIPT_HARDWARE,
-        "current_correctness_server_hardware": CURRENT_SERVER_HARDWARE,
+        "formal_gpu": FORMAL_GPU,
         "upstream_url": UPSTREAM_URL,
         "upstream_commit": UPSTREAM_COMMIT,
         "official_subtree": str(LEHD_SUBTREE),

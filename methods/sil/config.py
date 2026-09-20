@@ -16,9 +16,7 @@ FORMAL_SIZES = {
 }
 FORMAL_PROTOCOLS = ("greedy", "fewer", "more")
 DIAGNOSTIC_PROTOCOLS = ("greedy_diagnostic",)
-HARDWARE_PROTOCOL_PENDING = True
-MANUSCRIPT_HARDWARE = "H800"
-CURRENT_SERVER_HARDWARE = "NVIDIA RTX 4090"
+FORMAL_GPU = "NVIDIA RTX 4090"
 WARMUP_POLICY = {
     "batches": 1,
     "excluded_from_timing": True,
@@ -150,9 +148,7 @@ def resolve_config(problem: str, problem_size: int, budget: str,
         "seed": SEED,
         "original_instance_batch_size": FORMAL_BATCH_SIZE,
         "warmup": deepcopy(WARMUP_POLICY),
-        "hardware_protocol_pending": HARDWARE_PROTOCOL_PENDING,
-        "manuscript_hardware_statement": MANUSCRIPT_HARDWARE,
-        "current_correctness_server_hardware": CURRENT_SERVER_HARDWARE,
+        "formal_gpu": FORMAL_GPU,
         "rng_semantics": (
             "official tester seed=123; one persistent tester processes ordered BS1 instances; "
             "resume restores Python/NumPy/Torch CPU/CUDA states"

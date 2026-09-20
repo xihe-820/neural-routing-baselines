@@ -155,8 +155,7 @@ for protocol in greedy fewer more; do
 done
 ```
 
-The current code gates correctness execution on RTX4090 while the manuscript
-states H800. Complete runs end as `HARDWARE_PROTOCOL_PENDING`, not
-`PAPER_READY`, until that hardware protocol is confirmed. Obj is the mean
-independent objective, Drop is the mean per-instance gap, Time is mean native
-BS1 batch latency, and Total is the sum of those latencies.
+Formal LEHD evaluation is run on a single NVIDIA RTX 4090 with original-instance
+BS=1. Complete validated runs report `PAPER_READY`. Obj is the mean independent
+objective, Drop is the mean per-instance gap, Time is mean native BS1 batch
+latency, and Total is the sum of those latencies.

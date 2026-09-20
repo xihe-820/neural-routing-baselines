@@ -11,7 +11,7 @@ from unittest import mock
 
 import numpy as np
 
-from methods.sil.config import (CHECKPOINTS, FORMAL_PROTOCOLS, FORMAL_SIZES,
+from methods.sil.config import (CHECKPOINTS, FORMAL_GPU, FORMAL_PROTOCOLS, FORMAL_SIZES,
                                 SIZE_REGISTRY, WARMUP_POLICY,
                                 effective_repair_max, resolve_config,
                                 validate_checkpoint_path, validate_dataset_path)
@@ -79,7 +79,9 @@ class SILConfigTests(unittest.TestCase):
             self.assertEqual(config["use_k_nearest"], knn)
             self.assertTrue(config["paper_result_eligible"])
             self.assertEqual(config["artifact_class"], "formal_paper_protocol")
-            self.assertTrue(config["hardware_protocol_pending"])
+            self.assertEqual(config["formal_gpu"], FORMAL_GPU)
+            self.assertNotIn("hardware_" + "protocol_pending", config)
+            self.assertNotIn("manuscript_" + "hardware_statement", config)
 
     def test_diagnostic_requires_explicit_nonformal_api(self):
         with self.assertRaises(ValueError):
@@ -308,7 +310,7 @@ class SILCaptureAndArtifactTests(unittest.TestCase):
     def test_artifact_aggregates_mean_instance_gap_and_resume(self):
         protocol = {"problem": "TSP", "actual_problem_size": 3,
                     "budget_label": "fewer", "budget": 50,
-                    "hardware_protocol_pending": True}
+                    "formal_gpu": FORMAL_GPU}
         identity = {
             "scope": "fullset", "offset": 0, "indices": [0, 1],
             "dataset": {"count": 2, "sha256": "dataset"},
@@ -339,13 +341,13 @@ class SILCaptureAndArtifactTests(unittest.TestCase):
                 append(root, metadata, live_records, live_timings, record, timing,
                        {"test_rng_state": record["dataset_instance_index"]})
             summary = finalize(root, metadata, live_records, live_timings)
-            self.assertEqual(summary["status"], "HARDWARE_PROTOCOL_PENDING")
-            self.assertFalse(summary["paper_ready"])
+            self.assertEqual(summary["status"], "PAPER_READY")
+            self.assertTrue(summary["paper_ready"])
             self.assertTrue(summary["full_dataset_complete"])
             self.assertAlmostEqual(summary["mean_instance_gap_percent"], 75.0)
             self.assertAlmostEqual(summary["total_runtime_seconds"], 3.0)
             loaded = json.loads((root / "summary.json").read_text())
-            self.assertEqual(loaded["status"], "HARDWARE_PROTOCOL_PENDING")
+            self.assertEqual(loaded["status"], "PAPER_READY")
             with self.assertRaises(ValueError):
                 initialize(root, identity, resume=False)
             resumed = initialize(root, identity, resume=True)

@@ -281,8 +281,7 @@ def main(argv=None):
     output_dir = args.output_dir.resolve()
     metadata, records, timings, rng_checkpoint = initialize(
         output_dir, identity, resume=(args.resume or args.skip_existing))
-    if metadata["state"] in {
-            "KIT_VALIDATED", "HARDWARE_PROTOCOL_PENDING", "PAPER_READY"}:
+    if metadata["state"] in {"KIT_VALIDATED", "PAPER_READY"}:
         print(output_dir / "summary.json")
         return 0
 

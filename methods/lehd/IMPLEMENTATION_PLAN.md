@@ -16,5 +16,5 @@
 6. Run official TSP1K/CVRP1K native smoke, the 18 our-data smoke cells, nine
    RRC500 preflights, then the 27 formal cells on the user-operated server.
 
-Completion remains `HARDWARE_PROTOCOL_PENDING`, rather than `PAPER_READY`,
-until the manuscript H800 statement and current RTX4090 workflow are reconciled.
+Formal LEHD evaluation runs on a single NVIDIA RTX 4090 with original-instance
+BS=1. A complete validated fullset is eligible for `PAPER_READY`.

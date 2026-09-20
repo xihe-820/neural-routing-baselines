@@ -120,8 +120,7 @@ def initialize(output_dir: Path, identity: dict, *, resume: bool):
                 raise ValueError("resume RNG checkpoint record count mismatch")
         else:
             checkpoint = None
-        if metadata.get("state") in {
-                "KIT_VALIDATED", "HARDWARE_PROTOCOL_PENDING", "PAPER_READY"}:
+        if metadata.get("state") in {"KIT_VALIDATED", "PAPER_READY"}:
             summary_path = output_dir / "summary.json"
             if metadata.get("summary_sha256") != sha256_file(summary_path):
                 raise ValueError("resume refused: SIL summary hash mismatch")
@@ -186,11 +185,7 @@ def finalize(output_dir: Path, metadata: dict, records: list, timings: list):
     runtimes = np.asarray([_finite(t["runtime_seconds"], "runtime") for t in timings])
     full = (identity["scope"] == "fullset" and identity["offset"] == 0
             and len(records) == identity["dataset"]["count"])
-    hardware_pending = identity["protocol"].get("hardware_protocol_pending") is True
-    status = (
-        "HARDWARE_PROTOCOL_PENDING" if full and hardware_pending else
-        "PAPER_READY" if full else "KIT_VALIDATED"
-    )
+    status = "PAPER_READY" if full else "KIT_VALIDATED"
     summary = {
         "schema": SCHEMA, "status": status, "method": "SIL",
         "problem": identity["protocol"]["problem"],
@@ -204,7 +199,6 @@ def finalize(output_dir: Path, metadata: dict, records: list, timings: list):
         "project_commit": identity["project"]["commit"],
         "source_provenance_fingerprint": fingerprint(identity["source_files"]),
         "full_dataset_complete": full,
-        "hardware_protocol_pending": hardware_pending,
         "paper_ready": status == "PAPER_READY",
         "mean_objective": float(objectives.mean()),
         "mean_reference_objective": float(refs.mean()),

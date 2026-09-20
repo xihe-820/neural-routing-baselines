@@ -179,10 +179,7 @@ for protocol in greedy fewer more; do
 done
 ```
 
-The current correctness workflow enforces RTX4090. The manuscript currently
-states H800, and no supplied senior instruction resolves that mismatch.
-`HARDWARE_PROTOCOL_PENDING` therefore remains true: a complete correctness
-fullset ends as `HARDWARE_PROTOCOL_PENDING`, not `PAPER_READY`. Formal timing
-hardware must be confirmed before any manuscript timing or paper-ready claim.
-Obj is the mean independent objective, Drop is the mean per-instance gap, Time
-is mean BS1 solver latency, and Total is their runtime sum.
+Formal SIL evaluation is run on a single NVIDIA RTX 4090 with original-instance
+BS=1. A complete validated fullset reports `PAPER_READY`. Obj is the mean
+independent objective, Drop is the mean per-instance gap, Time is mean BS1 solver
+latency, and Total is their runtime sum.

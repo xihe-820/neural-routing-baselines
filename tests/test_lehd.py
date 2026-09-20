@@ -9,8 +9,9 @@ import unittest
 
 import numpy as np
 
-from methods.lehd.config import (CHECKPOINTS, DATASET_FILENAMES, FORMAL_PROTOCOLS,
-                                 FORMAL_SIZES, MODEL_PARAMS, RRC_BUDGETS,
+from methods.lehd.config import (CHECKPOINTS, DATASET_FILENAMES, FORMAL_GPU,
+                                 FORMAL_PROTOCOLS, FORMAL_SIZES, MODEL_PARAMS,
+                                 RRC_BUDGETS,
                                  SIZE_ORIGINS, resolve_config,
                                  validate_checkpoint_location, validate_dataset_path)
 from methods.lehd.cvrp.adapter import (adapt_task as adapt_cvrp,
@@ -74,7 +75,9 @@ class LEHDConfigTests(unittest.TestCase):
                     config = resolve_config(problem, size, label)
                     self.assertEqual(config["RRC_budget"], budget)
                     self.assertEqual(config["original_instance_batch_size"], 1)
-                    self.assertTrue(config["hardware_protocol_pending"])
+                    self.assertEqual(config["formal_gpu"], FORMAL_GPU)
+                    self.assertNotIn("hardware_" + "protocol_pending", config)
+                    self.assertNotIn("manuscript_" + "hardware_statement", config)
                     self.assertEqual(config["budget_mapping_origin"],
                                      "project_protocol_mapping_of_author_reported_budgets")
                     for forbidden in ("PRC", "random_insertion", "repair_max_sub_length",
@@ -272,7 +275,7 @@ class LEHDArtifactTests(unittest.TestCase):
             "source_files": [],
         }
 
-    def test_mean_instance_gap_resume_and_hardware_pending(self):
+    def test_mean_instance_gap_resume_and_paper_ready(self):
         identity = self._identity()
         records = []
         for index, objective, reference in ((0, 2.0, 1.0), (1, 3.0, 2.0)):
@@ -294,10 +297,10 @@ class LEHDArtifactTests(unittest.TestCase):
                 append(root, metadata, live_records, live_timings, record, timing,
                        {"state": record["dataset_instance_index"]})
             summary = finalize(root, metadata, live_records, live_timings)
-            self.assertEqual(summary["status"], "HARDWARE_PROTOCOL_PENDING")
+            self.assertEqual(summary["status"], "PAPER_READY")
             self.assertAlmostEqual(summary["mean_instance_gap_percent"], 75.0)
             self.assertAlmostEqual(summary["total_runtime_seconds"], 3.0)
-            self.assertFalse(summary["paper_ready"])
+            self.assertTrue(summary["paper_ready"])
             resumed = initialize(root, identity, resume=True)
             self.assertEqual(len(resumed[1]), 2)
 

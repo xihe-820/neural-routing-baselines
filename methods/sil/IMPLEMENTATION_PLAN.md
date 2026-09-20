@@ -28,9 +28,9 @@ SIL follows these established choices:
 - **Artifacts:** mirror UDC production's `metadata.json`,
   `validated_records.jsonl`, `batch_timings.jsonl`, `summary.json`, and an
   additional `checkpoint_state.json` for exact RNG resume. A preflight becomes
-  `KIT_VALIDATED`. While the manuscript H800 versus current RTX4090 hardware
-  protocol remains unresolved, a complete ordered full dataset becomes
-  `HARDWARE_PROTOCOL_PENDING` and cannot become `PAPER_READY`.
+  `KIT_VALIDATED`. Formal SIL evaluation runs on a single NVIDIA RTX 4090 with
+  original-instance BS=1, and a complete ordered full dataset becomes
+  `PAPER_READY`.
 - **Dataset boundary:** mirror GLOP's exact ML4CO task checks. The existing pickle
   is read in place. TSP keeps all real nodes. CVRP passes depot, customer
   coordinates, raw demands, and each task's true capacity.

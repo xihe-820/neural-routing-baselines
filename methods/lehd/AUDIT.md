@@ -81,7 +81,7 @@ ML4CO representation.
 
 ## Hardware status
 
-The current correctness workflow requires RTX4090. The manuscript currently
-states H800. `HARDWARE_PROTOCOL_PENDING` remains true, so correctness smoke and
-preflight may proceed, but even a complete fullset cannot become `PAPER_READY`
-until the timing hardware protocol is resolved.
+Formal LEHD evaluation is frozen to a single NVIDIA RTX 4090 with
+original-instance BS=1. Runtime artifacts record the actual server GPU through
+normal environment provenance, and a complete validated fullset is eligible for
+`PAPER_READY`.

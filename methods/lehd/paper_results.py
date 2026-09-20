@@ -15,7 +15,7 @@ from common.hashing import sha256_file
 
 
 SCHEMA = "lehd-paper-production.v1"
-TERMINAL_STATES = {"KIT_VALIDATED", "HARDWARE_PROTOCOL_PENDING", "PAPER_READY"}
+TERMINAL_STATES = {"KIT_VALIDATED", "PAPER_READY"}
 TIMING_SEMANTICS = (
     "CUDA-synchronized wall time around one pinned official LEHD _test_one_batch at BS=1, "
     "including greedy construction, exactly RRC_budget official reconstruction loops, "
@@ -192,11 +192,7 @@ def finalize(output_dir: Path, metadata: dict, records: list, timings: list):
     runtimes = np.asarray([_finite(row["runtime_seconds"], "runtime") for row in timings])
     full = (identity["scope"] == "fullset" and identity["offset"] == 0
             and len(records) == identity["dataset"]["count"])
-    hardware_pending = identity["protocol"].get("hardware_protocol_pending") is True
-    status = (
-        "HARDWARE_PROTOCOL_PENDING" if full and hardware_pending else
-        "PAPER_READY" if full else "KIT_VALIDATED"
-    )
+    status = "PAPER_READY" if full else "KIT_VALIDATED"
     protocol = identity["protocol"]
     summary = {
         "schema": SCHEMA, "status": status, "method": "LEHD",
@@ -212,7 +208,6 @@ def finalize(output_dir: Path, metadata: dict, records: list, timings: list):
         "project_commit": identity["project"]["commit"],
         "source_provenance_fingerprint": fingerprint(identity["source_files"]),
         "full_dataset_complete": full,
-        "hardware_protocol_pending": hardware_pending,
         "paper_ready": status == "PAPER_READY",
         "mean_objective": float(objectives.mean()),
         "mean_reference_objective": float(refs.mean()),

@@ -9,9 +9,8 @@ subtree `single_objective/LEHD`. The complete copy-pasteable handoff is in
 [methods/lehd/README.md](../methods/lehd/README.md): repository-owned checkpoint
 hash/strict-load audit, official native TSP1K/CVRP1K smoke, 18 Greedy/RRC50
 our-data smokes, nine same-size RRC500 preflights, and the resumable 27-cell
-BS1 matrix. Run the phases in order. The current correctness workflow requires
-RTX4090 while the manuscript states H800, so `HARDWARE_PROTOCOL_PENDING` blocks
-all `PAPER_READY` timing claims.
+BS1 matrix. Formal LEHD evaluation runs on a single NVIDIA RTX 4090 with
+original-instance BS=1; complete validated fullsets report `PAPER_READY`.
 
 ## SIL large-scale TSP/CVRP
 
@@ -23,9 +22,8 @@ same-size PRC500 preflight evidence, and the resumable 18-cell BS1 matrix are in
 [methods/sil/README.md](../methods/sil/README.md). Run those phases in order.
 Do not start a fullset until the native smoke passes and all required
 ML4CO smoke/preflight summaries are `KIT_VALIDATED`.
-The current workflow gates on RTX4090 while the manuscript states H800;
-`HARDWARE_PROTOCOL_PENDING` remains true, so correctness fullsets cannot claim
-`PAPER_READY` until the timing hardware is confirmed.
+Formal SIL evaluation runs on a single NVIDIA RTX 4090 with original-instance
+BS=1; complete validated fullsets report `PAPER_READY`.
 
 ## 1. Repository checkout and paths
 
