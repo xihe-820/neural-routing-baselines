@@ -21,6 +21,10 @@ from methods.lehd.config import (FORMAL_GPU, FORMAL_PROTOCOLS, UPSTREAM_COMMIT,
                                  validate_checkpoint_location, validate_dataset_path)
 
 
+# Keep the frozen provenance label separate from NVIDIA's runtime product naming.
+FORMAL_GPU_MATCH_TOKEN = "RTX 4090"
+
+
 _AUTHOR_BATCH_REBOUND_FIELDS = {
     "artifact_class", "evaluation_path", "config_origin", "expected_dataset_count",
     "original_instance_batch_size", "batch_size_requested", "author_batch_size",
@@ -87,8 +91,10 @@ def _cuda_device(torch, value):
         device = torch.device("cuda:0")
     torch.cuda.set_device(device)
     gpu = torch.cuda.get_device_name(device)
-    if FORMAL_GPU not in gpu:
-        raise RuntimeError(f"LEHD formal GPU must be {FORMAL_GPU!r}; observed {gpu!r}")
+    if FORMAL_GPU_MATCH_TOKEN not in gpu:
+        raise RuntimeError(
+            f"LEHD formal GPU must match {FORMAL_GPU_MATCH_TOKEN!r} "
+            f"(canonical label {FORMAL_GPU!r}); observed {gpu!r}")
     return device
 
 

@@ -16,6 +16,7 @@ from methods.lehd.config import (AUTHOR_BATCH_REGISTRY, CHECKPOINTS,
                                  resolve_author_batch_config, resolve_config,
                                  validate_checkpoint_location, validate_dataset_path)
 from methods.lehd.author_batch_eval import (batch_slices as author_batch_slices,
+                                            _cuda_device as author_cuda_device,
                                             prepare_batch as prepare_author_batch,
                                             validate_batch as validate_author_batch,
                                             _verify_runtime_algorithm_config)
@@ -280,6 +281,41 @@ class LEHDAuthorBatchProtocolTests(unittest.TestCase):
         @staticmethod
         def zeros(*shape, dtype, device):
             return np.zeros(shape, dtype=dtype)
+
+    def test_cuda_gate_accepts_rtx_4090_runtime_aliases_only(self):
+        class Device:
+            type, index = "cuda", 0
+
+        class Cuda:
+            def __init__(self, name):
+                self.name, self.selected = name, None
+
+            @staticmethod
+            def is_available():
+                return True
+
+            def set_device(self, device):
+                self.selected = device
+
+            def get_device_name(self, device):
+                return self.name
+
+        class Torch:
+            def __init__(self, name):
+                self.cuda = Cuda(name)
+
+            @staticmethod
+            def device(value):
+                return Device()
+
+        self.assertEqual(FORMAL_GPU, "NVIDIA RTX 4090")
+        for name in ("NVIDIA GeForce RTX 4090", "NVIDIA RTX 4090"):
+            with self.subTest(name=name):
+                torch = Torch(name)
+                self.assertIsInstance(author_cuda_device(torch, "cuda:0"), Device)
+                self.assertIsNotNone(torch.cuda.selected)
+        with self.assertRaisesRegex(RuntimeError, "RTX 4090"):
+            author_cuda_device(Torch("NVIDIA A100-SXM4-80GB"), "cuda:0")
 
     @staticmethod
     def _tsp_task(offset=0.0):

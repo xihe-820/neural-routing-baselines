@@ -14,14 +14,15 @@ pwd
 git rev-parse --show-toplevel
 git status --short
 test -z "$(git status --porcelain)"
-git fetch origin feat/sil
-if git show-ref --verify --quiet refs/heads/feat/sil; then
-  git switch feat/sil
+git fetch origin feat/lehd
+if git show-ref --verify --quiet refs/heads/feat/lehd; then
+  git switch feat/lehd
 else
-  git switch --track -c feat/sil origin/feat/sil
+  git switch --track -c feat/lehd origin/feat/lehd
 fi
-git pull --ff-only origin feat/sil
-export SIL_PROJECT_COMMIT=<approved-review-fix-commit>
+git pull --ff-only origin feat/lehd
+# Current reviewed unified-protocol commit: 5dd0eb4670ccafe12100bf6dffbd6580c4b3ffa1
+export SIL_PROJECT_COMMIT=<approved-unified-protocol-commit>
 test "$(git rev-parse HEAD)" = "$SIL_PROJECT_COMMIT"
 test -z "$(git status --porcelain)"
 
