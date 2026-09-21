@@ -35,9 +35,9 @@ SIL_TIMING_PROTOCOL = BS1_SMALL_SAMPLE
 Use `author_batch_eval.py` for official-style real-batch quality (`Obj`/`Gap`)
 and `timing_probe.py` for the separate BS1 time sample. Both require one
 NVIDIA RTX 4090 and preserve decoded-solution, independent, and Kit gates.
-The current mapping is Greedy=PRC0, fewer=PRC20, more=PRC50; PRC500 is legacy
-extra-budget evidence. Use `rebind_prc50.py` to reuse verified legacy PRC50
-evidence without solver execution.
+The current mapping is Greedy=PRC0, fewer=PRC10, more=PRC20. PRC50 is legacy
+higher-budget evidence. Use `rebind_prc20.py` to reuse verified `ca6f6e8`
+PRC20 evidence without solver execution.
 The old resumable 18-cell BS1 runner remains a strict diagnostic/legacy-audit
 path; it is no longer the baseline-reproduction quality requirement. The
 copy-pasteable commands are in [methods/sil/README.md](../methods/sil/README.md).

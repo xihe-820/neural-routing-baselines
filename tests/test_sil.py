@@ -86,8 +86,16 @@ class SILConfigTests(unittest.TestCase):
     def test_fewer_more_are_same_pipeline_different_budget(self):
         fewer = resolve_config("tsp", 1000, "fewer")
         more = resolve_config("tsp", 1000, "more")
-        self.assertEqual(fewer["budget"], 20)
-        self.assertEqual(more["budget"], 50)
+        self.assertEqual(fewer["budget"], 10)
+        self.assertEqual(more["budget"], 20)
+        self.assertEqual(fewer["budget_mapping_origin"],
+                         "official_author_reported_budget")
+        self.assertEqual(more["budget_mapping_origin"],
+                         "senior_approved_project_adaptation")
+        self.assertEqual(fewer["evaluation_mapping"],
+                         "author-reported SIL PRC10 mapped to project label fewer")
+        self.assertEqual(more["evaluation_mapping"],
+                         "senior-approved project PRC20 adaptation mapped to project label more")
         for field in ("random_insertion", "PRC", "repair_max_sub_length_nominal",
                       "repair_max_sub_length_effective", "repair_max_rule",
                       "pomo_size", "decode_method", "seed"):
@@ -98,8 +106,8 @@ class SILConfigTests(unittest.TestCase):
         self.assertEqual(FORMAL_PROTOCOLS, ("greedy", "fewer", "more"))
         expected = {
             "greedy": (0, False, False),
-            "fewer": (20, True, True),
-            "more": (50, True, True),
+            "fewer": (10, True, True),
+            "more": (20, True, True),
         }
         for label, (budget, insertion, knn) in expected.items():
             config = resolve_config("tsp", 1000, label)

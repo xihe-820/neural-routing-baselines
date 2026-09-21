@@ -83,10 +83,10 @@ SIL_RESULT_PROTOCOL = OFFICIAL_STYLE_BATCHED
 SIL_TIMING_PROTOCOL = BS1_SMALL_SAMPLE
 ```
 
-Current project mapping: Greedy=PRC0, fewer=PRC20, more=PRC50. PRC20 is a
-senior-approved project adaptation within the unchanged official mechanism.
-PRC50 is an official setting reclassified from the former project label
-`fewer` to `more`. Existing PRC500 artifacts are legacy extra-budget evidence.
+Current project mapping: Greedy=PRC0, fewer=PRC10, more=PRC20. PRC10 is an
+author-reported SIL budget. PRC20 is a senior-approved project adaptation
+within the unchanged official mechanism. Existing PRC50 artifacts are legacy
+higher-budget evidence and are outside the formal table.
 
 Quality uses one real pinned-Tester batch at the frozen author-style size; its
 wall time is diagnostic only and cannot be used as BS1 `Time`. The separate
@@ -129,20 +129,21 @@ run_sil_author_result tsp 1000 greedy "$SIL_TSP1000_DATASET" "$SIL_TSP1000_DATAS
 run_sil_bs1_timing tsp 1000 greedy "$SIL_TSP1000_DATASET" "$SIL_TSP1000_DATASET_SHA" "$SIL_CHECKPOINT_ROOT/checkpoint-tsp1k.pt" "$SIL_TSP1K_SHA"
 ```
 
-Default timing samples are Greedy=5, PRC20=3, and PRC50=3. The old BS1
+Default timing samples are Greedy=5, PRC10=3, and PRC20=3. The old BS1
 fullset path below remains a strict diagnostic/legacy audit; the
 senior-approved baseline reproduction protocol supersedes its former
 full-dataset-BS1 quality requirement.
 
-## Verified legacy PRC50 rebind
+## Verified legacy PRC20 rebind
 
-The old root is read-only. This validates the complete quality and timing
-evidence before writing current `more=PRC50` artifacts, preserving the actual
-solver-execution commit separately from the rebind commit.
+The `ca6f6e8` root is read-only. This validates the complete quality and timing
+evidence before writing current `more=PRC20` artifacts, preserving the actual
+solver-execution commit separately from the rebind commit. PRC50 remains legacy
+higher-budget evidence and is not rebound into the current formal mapping.
 
 ```bash
-export SIL_LEGACY_ROOT="$SERVER_ROOT/artifacts/neural-routing-baselines/sil/6630301"
-python -B methods/sil/rebind_prc50.py \
+export SIL_LEGACY_ROOT="$SERVER_ROOT/artifacts/neural-routing-baselines/sil/ca6f6e8"
+python -B methods/sil/rebind_prc20.py \
   --legacy-root "$SIL_LEGACY_ROOT" \
   --output-root "$SIL_ARTIFACT_ROOT"
 ```
@@ -164,7 +165,7 @@ checkpoint strict-load, and official native-data compatibility.
 ## Phase 2: our-data formal-protocol smoke
 
 Run one official-inference smoke for `greedy` at every formal size, followed by
-one `fewer=PRC20` smoke at every size. All runs use actual solution capture,
+one `fewer=PRC10` smoke at every size. All runs use actual solution capture,
 independent validation, and ML4CO-Kit validation.
 
 ```bash
@@ -189,36 +190,23 @@ run_sil_smoke cvrp 2000 fewer "$SIL_CVRP2000_DATASET" "$SIL_CVRP2000_DATASET_SHA
 ```
 
 Require all twelve summaries to be `KIT_VALIDATED`. Greedy uses official pure
-greedy (`budget=0`, no random insertion, no kNN). Fewer uses the frozen PRC20
+greedy (`budget=0`, no random insertion, no kNN). Fewer uses the frozen PRC10
 pipeline. CVRP must preserve raw demands, true per-instance capacity, and exactly
 one model-side normalization.
 
-## Phase 3: same-size more preflight
+## Phase 3: verified PRC20 rebind
 
-Run `more=PRC50` on every formal size. The evidence is intentionally
-size-specific because checkpoints, memory use, and runtime differ by size.
-
-```bash
-run_sil_more_preflight () {
-  problem="$1"; size="$2"; dataset="$3"; dataset_sha="$4"; checkpoint="$5"; checkpoint_sha="$6"; count="$7"
-  python -B "methods/sil/$problem/paper_eval.py" --problem-size "$size" --budget more --dataset "$dataset" --expected-dataset-sha256 "$dataset_sha" --upstream "$SIL_UPSTREAM" --checkpoint "$checkpoint" --expected-checkpoint-sha256 "$checkpoint_sha" --scope preflight --offset 0 --count "$count" --output-dir "$SIL_ARTIFACT_ROOT/preflight/${problem}${size}/more"
-}
-run_sil_more_preflight tsp 1000 "$SIL_TSP1000_DATASET" "$SIL_TSP1000_DATASET_SHA" "$SIL_CHECKPOINT_ROOT/checkpoint-tsp1k.pt" "$SIL_TSP1K_SHA" 2
-run_sil_more_preflight tsp 2000 "$SIL_TSP2000_DATASET" "$SIL_TSP2000_DATASET_SHA" "$SIL_CHECKPOINT_ROOT/checkpoint-tsp1k.pt" "$SIL_TSP1K_SHA" 2
-run_sil_more_preflight tsp 5000 "$SIL_TSP5000_DATASET" "$SIL_TSP5000_DATASET_SHA" "$SIL_CHECKPOINT_ROOT/checkpoint-tsp5k.pt" "$SIL_TSP5K_SHA" 1
-run_sil_more_preflight tsp 10000 "$SIL_TSP10000_DATASET" "$SIL_TSP10000_DATASET_SHA" "$SIL_CHECKPOINT_ROOT/checkpoint-tsp10k.pt" "$SIL_TSP10K_SHA" 1
-run_sil_more_preflight cvrp 1000 "$SIL_CVRP1000_DATASET" "$SIL_CVRP1000_DATASET_SHA" "$SIL_CHECKPOINT_ROOT/checkpoint-cvrp1k.pt" "$SIL_CVRP1K_SHA" 2
-run_sil_more_preflight cvrp 2000 "$SIL_CVRP2000_DATASET" "$SIL_CVRP2000_DATASET_SHA" "$SIL_CHECKPOINT_ROOT/checkpoint-cvrp1k.pt" "$SIL_CVRP1K_SHA" 2
-```
-
-Require all six summaries to be `KIT_VALIDATED` with official, independent, and
-Kit objective agreement.
+Do not rerun PRC20. The six `ca6f6e8` `fewer=PRC20` quality and BS1 timing
+artifacts are the solver evidence for current `more=PRC20`; execute the strict
+rebind command above once the new commit is clean on the server. It verifies the
+source records, aggregates, assets, source commit, upstream, author-batch
+identity, and all three timing samples before creating each new `more` artifact.
 
 ## Legacy Phase 4: 18-cell BS1 fullset audit
 
 Each cell requires evidence from the same project commit, source provenance,
-problem, size, protocol, dataset, checkpoint, and upstream. Greedy and fewer use
-Phase 2 evidence; more uses Phase 3 evidence.
+problem, size, protocol, dataset, checkpoint, and upstream. Greedy evidence is
+unchanged; fewer is new PRC10 evidence; more is the rebounded PRC20 evidence.
 
 ```bash
 dataset_count () {

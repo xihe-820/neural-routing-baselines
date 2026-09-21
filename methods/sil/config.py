@@ -84,14 +84,14 @@ SIZE_REGISTRY = {
 
 PAPER_BUDGETS = {
     "greedy": 0,
-    "fewer": 20,
-    "more": 50,
+    "fewer": 10,
+    "more": 20,
 }
 
 BUDGET_ORIGINS = {
     "greedy": "official_greedy_construction",
-    "fewer": "senior_approved_project_adaptation",
-    "more": "official_prc50_reclassified_from_legacy_fewer",
+    "fewer": "official_author_reported_budget",
+    "more": "senior_approved_project_adaptation",
 }
 
 AUTHOR_BATCH_REGISTRY = {
@@ -165,8 +165,8 @@ def resolve_config(problem: str, problem_size: int, budget: str,
         "evaluation_mapping": (
             "diagnostic official native greedy path" if is_diagnostic else
             "manuscript SIL (Greedy) using official pure greedy path" if is_greedy else
-            "senior-approved project PRC20 adaptation" if budget == "fewer" else
-            "official SIL PRC50 reclassified from legacy project label fewer"
+            "author-reported SIL PRC10 mapped to project label fewer" if budget == "fewer" else
+            "senior-approved project PRC20 adaptation mapped to project label more"
         ),
         "budget_mapping_origin": (
             "diagnostic" if is_diagnostic else BUDGET_ORIGINS[budget]

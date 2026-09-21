@@ -246,10 +246,12 @@ def verify_timing_artifact(
             "sha256": sha256_file(source_path)}
 
 
-def _derived_from(quality: dict, timing: dict) -> dict:
+def _derived_from(quality: dict, timing: dict, *, legacy_solver_commit: str,
+                  legacy_protocol_label: str, legacy_budget: int) -> dict:
     return {
-        "legacy_project_commit": LEGACY_SOLVER_COMMIT,
-        "legacy_protocol_label": "fewer", "legacy_budget": 50,
+        "legacy_project_commit": legacy_solver_commit,
+        "legacy_protocol_label": legacy_protocol_label,
+        "legacy_budget": int(legacy_budget),
         "source_artifact_path": str(quality["directory"]),
         "source_metadata_sha256": quality["hashes"]["metadata"],
         "source_summary_sha256": quality["hashes"]["summary"],
@@ -278,15 +280,20 @@ def write_rebound_artifacts(
         timing_destination: Path, current_quality_protocol: dict,
         current_timing_protocol: dict, current_project: dict,
         label_key: str, budget_key: str, rebind_source_files: list[dict],
-        preserve_solver_execution_batch_identity: bool = False) -> None:
+        preserve_solver_execution_batch_identity: bool = False,
+        legacy_solver_commit: str = LEGACY_SOLVER_COMMIT,
+        legacy_protocol_label: str = "fewer", legacy_budget: int = 50,
+        target_label: str = "more", target_budget: int = 50) -> None:
     quality_destination = Path(quality_destination)
     timing_destination = Path(timing_destination)
     if quality_destination.exists() or timing_destination.exists():
         raise ValueError("rebind destination already exists")
     _require_project(current_project, commit=None, name="protocol rebinding project")
-    if current_project["commit"] == LEGACY_SOLVER_COMMIT:
+    if current_project["commit"] == legacy_solver_commit:
         raise ValueError("protocol rebind must run from the new reviewed project commit")
-    derived = _derived_from(quality, timing)
+    derived = _derived_from(
+        quality, timing, legacy_solver_commit=legacy_solver_commit,
+        legacy_protocol_label=legacy_protocol_label, legacy_budget=legacy_budget)
     execution_batch = None
     if preserve_solver_execution_batch_identity:
         execution_batch = _solver_execution_batch_identity(quality)
@@ -296,7 +303,7 @@ def write_rebound_artifacts(
         "schema": f"{quality['summary']['method'].lower()}-verified-protocol-rebind.v1",
         "state": "KIT_VALIDATED", "protocol": deepcopy(current_quality_protocol),
         "artifact_generation_mode": GENERATION_MODE,
-        "new_protocol_label": "more", "new_budget": 50,
+        "new_protocol_label": target_label, "new_budget": int(target_budget),
         "solver_execution_project_commit": quality["metadata"]["project"]["commit"],
         "protocol_rebinding_project_commit": current_project["commit"],
         "solver_execution_project": deepcopy(quality["metadata"]["project"]),
@@ -309,9 +316,9 @@ def write_rebound_artifacts(
     summary = deepcopy(quality["summary"])
     summary.update({
         "schema": f"{quality['summary']['method'].lower()}-verified-protocol-rebind.v1",
-        "protocol": "more", budget_key: 50,
+        "protocol": target_label, budget_key: int(target_budget),
         "artifact_generation_mode": GENERATION_MODE,
-        "new_protocol_label": "more", "new_budget": 50,
+        "new_protocol_label": target_label, "new_budget": int(target_budget),
         "protocol_config": deepcopy(current_quality_protocol),
         "solver_execution_project_commit": quality["summary"]["project"]["commit"],
         "protocol_rebinding_project_commit": current_project["commit"],
@@ -328,9 +335,9 @@ def write_rebound_artifacts(
     timing_summary = deepcopy(timing["summary"])
     timing_summary.update({
         "schema": f"{quality['summary']['method'].lower()}-verified-timing-rebind.v1",
-        "protocol": "more", budget_key: 50,
+        "protocol": target_label, budget_key: int(target_budget),
         "artifact_generation_mode": GENERATION_MODE,
-        "new_protocol_label": "more", "new_budget": 50,
+        "new_protocol_label": target_label, "new_budget": int(target_budget),
         "protocol_config": deepcopy(current_timing_protocol),
         "solver_execution_project_commit": timing["summary"]["project"]["commit"],
         "protocol_rebinding_project_commit": current_project["commit"],
@@ -341,9 +348,9 @@ def write_rebound_artifacts(
         "source_files": deepcopy(rebind_source_files),
         "official_source_modified": False,
     })
-    if metadata["protocol"].get(label_key) != "more" or metadata["protocol"].get(
-            budget_key) != 50:
-        raise ValueError("current rebound protocol is not exactly more/budget 50")
+    if (metadata["protocol"].get(label_key) != target_label or
+            metadata["protocol"].get(budget_key) != int(target_budget)):
+        raise ValueError("current rebound protocol does not match target label/budget")
     quality_destination.mkdir(parents=True)
     (quality_destination / "validated_records.jsonl").write_bytes(
         quality["records_bytes"])

@@ -17,10 +17,17 @@ from methods.lehd.rebind_rrc50 import (
     LEGACY_RRC50_BATCH_OVERRIDES, _legacy_batch_size,
     _legacy_quality_protocol as lehd_legacy_protocol,
     build_plan as build_lehd_rebind_plan)
-from methods.sil.rebind_prc50 import _legacy_quality_protocol as sil_legacy_protocol
+from methods.sil.rebind_prc20 import (
+    PRC20_SOLVER_EXECUTION_COMMIT,
+    _legacy_quality_protocol as sil_prc20_legacy_protocol,
+    build_plan as build_sil_prc20_rebind_plan)
+from methods.sil.rebind_prc50 import _legacy_quality_protocol as sil_prc50_legacy_protocol
 from methods.lehd.config import (AUTHOR_BATCH_REGISTRY as LEHD_AUTHOR_BATCH_REGISTRY,
                                  resolve_author_batch_config as lehd_author_config)
-from methods.sil.config import resolve_author_batch_config as sil_author_config
+from methods.sil.config import (AUTHOR_BATCH_REGISTRY as SIL_AUTHOR_BATCH_REGISTRY,
+                                CHECKPOINTS as SIL_CHECKPOINTS,
+                                FORMAL_SIZES as SIL_FORMAL_SIZES,
+                                resolve_author_batch_config as sil_author_config)
 
 
 UPSTREAMS = {
@@ -34,7 +41,9 @@ class ArtifactFixture:
                  size: int = 3, count: int = 3, batch_size: int = 2,
                  dataset_name: str = "fixture.pkl",
                  checkpoint_name: str = "fixture.pt",
-                 protocol: dict | None = None):
+                 protocol: dict | None = None,
+                 source_project_commit: str = LEGACY_SOLVER_COMMIT,
+                 source_budget: int = 50):
         root.mkdir(parents=True, exist_ok=True)
         self.root, self.method = root, method
         self.problem, self.size = problem, int(size)
@@ -49,7 +58,8 @@ class ArtifactFixture:
         self.checkpoint.write_bytes(b"checkpoint")
         self.dataset_sha = sha256_file(self.dataset)
         self.checkpoint_sha = sha256_file(self.checkpoint)
-        self.project = {"commit": LEGACY_SOLVER_COMMIT, "dirty": False,
+        self.source_budget = int(source_budget)
+        self.project = {"commit": source_project_commit, "dirty": False,
                         "url": "https://github.com/xihe-820/neural-routing-baselines"}
         self.upstream = {"commit": UPSTREAMS[method], "dirty": False,
                          "url": "https://github.com/example/upstream"}
@@ -57,7 +67,7 @@ class ArtifactFixture:
         self.protocol = deepcopy(protocol) if protocol is not None else {
             "method": method, "problem": self.problem.upper(),
             "actual_problem_size": self.size, self.label_key: "fewer",
-            self.budget_key: 50, "solver_semantics": "frozen",
+            self.budget_key: self.source_budget, "solver_semantics": "frozen",
         }
         self.quality_dir = root / "quality"
         self.timing_path = root / "timing.json"
@@ -101,7 +111,7 @@ class ArtifactFixture:
             "status": "KIT_VALIDATED", "artifact_class": "baseline_result_reproduction",
             "method": self.method, "problem": self.problem.upper(),
             "problem_size": self.size,
-            "protocol": "fewer", self.budget_key: 50,
+            "protocol": "fewer", self.budget_key: self.source_budget,
             "failed_count": 0, "validated_count": self.count,
             "paper_result_eligible_for_quality": True, "timing_column_eligible": False,
             "dataset_sha256": self.dataset_sha, "checkpoint_sha256": self.checkpoint_sha,
@@ -127,7 +137,7 @@ class ArtifactFixture:
             "status": "KIT_VALIDATED", "artifact_class": "baseline_bs1_timing_probe",
             "method": self.method, "problem": self.problem.upper(),
             "problem_size": self.size,
-            "protocol": "fewer", self.budget_key: 50,
+            "protocol": "fewer", self.budget_key: self.source_budget,
             "original_instance_batch_size": 1, "count": 3, "validated_count": 3,
             "failed_count": 0, "timing_column_eligible": True,
             "paper_result_eligible_for_quality": False,
@@ -147,9 +157,10 @@ class ArtifactFixture:
         return verify_quality_artifact(
             self.quality_dir, method=self.method, problem=self.problem,
             problem_size=self.size, protocol_label="fewer",
-            budget_key=self.budget_key, budget=50, expected_protocol=self.protocol,
+            budget_key=self.budget_key, budget=self.source_budget,
             expected_count=self.count, expected_batch_size=self.batch_size,
-            expected_project_commit=LEGACY_SOLVER_COMMIT,
+            expected_protocol=self.protocol,
+            expected_project_commit=self.project["commit"],
             upstream_commit=UPSTREAMS[self.method], dataset_filename=self.dataset_name,
             checkpoint_filename=self.checkpoint_name)
 
@@ -157,8 +168,8 @@ class ArtifactFixture:
         return verify_timing_artifact(
             self.timing_path, method=self.method, problem=self.problem,
             problem_size=self.size, protocol_label="fewer",
-            budget_key=self.budget_key, budget=50, expected_count=3,
-            expected_project_commit=LEGACY_SOLVER_COMMIT,
+            budget_key=self.budget_key, budget=self.source_budget, expected_count=3,
+            expected_project_commit=self.project["commit"],
             upstream_commit=UPSTREAMS[self.method],
             dataset_sha256=quality["dataset"]["sha256"],
             checkpoint_sha256=quality["checkpoint"]["sha256"])
@@ -187,20 +198,166 @@ def make_legacy_cvrp2000_fixture(root: Path):
     return legacy_root, quality
 
 
+def make_legacy_prc20_root(root: Path):
+    legacy_root = root / "legacy-prc20"
+    for problem, sizes in SIL_FORMAL_SIZES.items():
+        for size in sizes:
+            protocol = sil_prc20_legacy_protocol(problem, size)
+            entry = SIL_AUTHOR_BATCH_REGISTRY[(problem, size)]
+            fixture = ArtifactFixture(
+                root / "staging" / f"{problem}{size}", "SIL",
+                problem=problem, size=size, count=entry["dataset_count"],
+                batch_size=entry["batch_size"],
+                dataset_name=protocol["expected_dataset_filename"],
+                checkpoint_name=SIL_CHECKPOINTS[protocol["checkpoint_key"]]["filename"],
+                protocol=protocol,
+                source_project_commit=PRC20_SOLVER_EXECUTION_COMMIT,
+                source_budget=20)
+            quality = legacy_root / "author_batch" / f"{problem}{size}" / "fewer"
+            timing = legacy_root / "bs1_timing" / f"{problem}{size}" / "fewer.json"
+            quality.parent.mkdir(parents=True)
+            timing.parent.mkdir(parents=True)
+            fixture.quality_dir.rename(quality)
+            fixture.timing_path.rename(timing)
+    return legacy_root
+
+
 class VerifiedRebindTests(unittest.TestCase):
-    def test_current_more_is_algorithm_equivalent_to_legacy_fewer50(self):
+    def test_legacy_prc50_and_current_prc20_protocols_preserve_their_budgets(self):
         current = lehd_author_config("tsp", 100, "more")
         legacy = lehd_legacy_protocol("tsp", 100)
         for field in ("protocol_label", "budget_mapping_origin"):
             current.pop(field)
             legacy.pop(field)
         self.assertEqual(current, legacy)
+        legacy_prc50 = sil_prc50_legacy_protocol("tsp", 1000)
+        self.assertEqual(legacy_prc50["budget_label"], "fewer")
+        self.assertEqual(legacy_prc50["budget"], 50)
         current = sil_author_config("tsp", 1000, "more")
-        legacy = sil_legacy_protocol("tsp", 1000)
+        legacy = sil_prc20_legacy_protocol("tsp", 1000)
         for field in ("budget_label", "evaluation_mapping", "budget_mapping_origin"):
             current.pop(field, None)
             legacy.pop(field, None)
         self.assertEqual(current, legacy)
+
+    def test_all_six_sil_prc20_cells_rebind_to_more_without_new_solver_execution(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            legacy_root = make_legacy_prc20_root(root)
+            plan = build_sil_prc20_rebind_plan(
+                legacy_root=legacy_root, output_root=root / "output",
+                current_project={"commit": "rebind-current", "dirty": False,
+                                 "url": "project"},
+                rebind_source_files=[{"path": "rebind_prc20.py", "sha256": "b" * 64}])
+            self.assertEqual(len(plan), 6)
+            for cell in plan:
+                self.assertEqual(cell["quality"]["summary"]["budget"], 20)
+                self.assertEqual(cell["quality"]["summary"]["protocol"], "fewer")
+                self.assertEqual(cell["timing"]["summary"]["count"], 3)
+                self.assertEqual(cell["current_quality_protocol"]["budget"], 20)
+                self.assertEqual(cell["current_quality_protocol"]["budget_label"], "more")
+                write_rebound_artifacts(
+                    quality=cell["quality"], timing=cell["timing"],
+                    quality_destination=cell["quality_destination"],
+                    timing_destination=cell["timing_destination"],
+                    current_quality_protocol=cell["current_quality_protocol"],
+                    current_timing_protocol=cell["current_timing_protocol"],
+                    current_project=cell["current_project"], label_key="budget_label",
+                    budget_key="budget", rebind_source_files=cell["rebind_source_files"],
+                    legacy_solver_commit=PRC20_SOLVER_EXECUTION_COMMIT,
+                    legacy_protocol_label="fewer", legacy_budget=20,
+                    target_label="more", target_budget=20)
+                metadata = json.loads(
+                    (cell["quality_destination"] / "metadata.json").read_text())
+                summary = json.loads(
+                    (cell["quality_destination"] / "summary.json").read_text())
+                self.assertEqual(metadata["solver_execution_project_commit"],
+                                 PRC20_SOLVER_EXECUTION_COMMIT)
+                self.assertEqual(metadata["protocol_rebinding_project_commit"],
+                                 "rebind-current")
+                self.assertEqual(metadata["artifact_generation_mode"], GENERATION_MODE)
+                self.assertEqual(metadata["derived_from"]["legacy_project_commit"],
+                                 PRC20_SOLVER_EXECUTION_COMMIT)
+                self.assertEqual(summary["protocol"], "more")
+                self.assertEqual(summary["budget"], 20)
+                self.assertEqual(sha256_file(
+                    cell["quality_destination"] / "validated_records.jsonl"),
+                    cell["quality"]["hashes"]["records"])
+
+    def test_sil_prc20_rebind_rejects_wrong_source_commit_and_target(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            legacy_root = make_legacy_prc20_root(root)
+            metadata_path = legacy_root / "author_batch/tsp1000/fewer/metadata.json"
+            metadata = json.loads(metadata_path.read_text())
+            metadata["project"]["commit"] = LEGACY_SOLVER_COMMIT
+            metadata_path.write_text(json.dumps(metadata))
+            with self.assertRaises(ValueError):
+                build_sil_prc20_rebind_plan(
+                    legacy_root=legacy_root, output_root=root / "output",
+                    problem="tsp", problem_size=1000,
+                    current_project={"commit": "current", "dirty": False},
+                    rebind_source_files=[])
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            legacy_root = make_legacy_prc20_root(root)
+            cell = build_sil_prc20_rebind_plan(
+                legacy_root=legacy_root, output_root=root / "output",
+                problem="tsp", problem_size=1000,
+                current_project={"commit": "current", "dirty": False},
+                rebind_source_files=[])[0]
+            bad_target = deepcopy(cell["current_quality_protocol"])
+            bad_target["budget"] = 10
+            with self.assertRaisesRegex(ValueError, "target label/budget"):
+                write_rebound_artifacts(
+                    quality=cell["quality"], timing=cell["timing"],
+                    quality_destination=cell["quality_destination"],
+                    timing_destination=cell["timing_destination"],
+                    current_quality_protocol=bad_target,
+                    current_timing_protocol=cell["current_timing_protocol"],
+                    current_project=cell["current_project"], label_key="budget_label",
+                    budget_key="budget", rebind_source_files=[],
+                    legacy_solver_commit=PRC20_SOLVER_EXECUTION_COMMIT,
+                    legacy_protocol_label="fewer", legacy_budget=20,
+                    target_label="more", target_budget=20)
+            bad_target = deepcopy(cell["current_quality_protocol"])
+            bad_target["budget_label"] = "fewer"
+            with self.assertRaisesRegex(ValueError, "target label/budget"):
+                write_rebound_artifacts(
+                    quality=cell["quality"], timing=cell["timing"],
+                    quality_destination=cell["quality_destination"],
+                    timing_destination=cell["timing_destination"],
+                    current_quality_protocol=bad_target,
+                    current_timing_protocol=cell["current_timing_protocol"],
+                    current_project=cell["current_project"], label_key="budget_label",
+                    budget_key="budget", rebind_source_files=[],
+                    legacy_solver_commit=PRC20_SOLVER_EXECUTION_COMMIT,
+                    legacy_protocol_label="fewer", legacy_budget=20,
+                    target_label="more", target_budget=20)
+
+    def test_sil_prc20_rebind_rejects_source_identity_and_semantic_tampering(self):
+        cases = {
+            "source budget": ("summary.json", lambda value: value.__setitem__("budget", 50)),
+            "source label": ("summary.json", lambda value: value.__setitem__("protocol", "more")),
+            "upstream": ("summary.json", lambda value: value["upstream"].__setitem__("commit", "wrong")),
+            "dirty official": ("metadata.json", lambda value: value["upstream"].__setitem__("dirty", True)),
+            "semantic": ("metadata.json", lambda value: value["protocol"].__setitem__("random_insertion", False)),
+            "batch identity": ("summary.json", lambda value: value.__setitem__("effective_batch_sizes", [1])),
+        }
+        for name, (filename, mutate) in cases.items():
+            with self.subTest(case=name), tempfile.TemporaryDirectory() as temp:
+                root = Path(temp)
+                legacy_root = make_legacy_prc20_root(root)
+                path = legacy_root / "author_batch/tsp1000/fewer" / filename
+                value = json.loads(path.read_text())
+                mutate(value)
+                path.write_text(json.dumps(value))
+                with self.assertRaises(ValueError):
+                    build_sil_prc20_rebind_plan(
+                        legacy_root=legacy_root, output_root=root / "output",
+                        problem="tsp", problem_size=1000,
+                        current_project={"commit": "current", "dirty": False},
+                        rebind_source_files=[])
 
     def test_lehd_and_sil_quality_and_timing_positive_rebind(self):
         for method in ("LEHD", "SIL"):

@@ -42,10 +42,10 @@ SIL_TIMING_PROTOCOL = BS1_SMALL_SAMPLE
 ```
 
 The current paper mappings are LEHD Greedy/RRC20/RRC50 and SIL
-Greedy/PRC20/PRC50 for `greedy`/`fewer`/`more`. RRC20 and PRC20 are
-senior-approved project budget adaptations. The previously generated RRC50 and
-PRC50 `fewer` evidence is eligible for strict, no-solver rebind to `more`;
-RRC500 and PRC500 remain legacy extra-budget evidence only.
+Greedy/PRC10/PRC20 for `greedy`/`fewer`/`more`. RRC20 is a senior-approved
+project budget adaptation; PRC10 is author-reported and PRC20 is a
+senior-approved project adaptation. PRC50 remains legacy higher-budget
+evidence only.
 
 For these two baseline reproductions, a real official-style batch produces
 quality artifacts (`Obj` and per-instance `Gap`), while an independent small
