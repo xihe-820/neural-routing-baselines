@@ -66,6 +66,61 @@ export LEHD_CVRP2000_DATASET_SHA=<audited-sha256>
 sha256sum "$LEHD_TSP100_DATASET" "$LEHD_TSP500_DATASET" "$LEHD_TSP1000_DATASET" "$LEHD_CVRP50_DATASET" "$LEHD_CVRP100_DATASET" "$LEHD_CVRP200_DATASET" "$LEHD_CVRP500_DATASET" "$LEHD_CVRP1000_DATASET" "$LEHD_CVRP2000_DATASET"
 ```
 
+## Senior-approved baseline reproduction: result batch and BS1 timing probe
+
+```
+LEHD_RESULT_PROTOCOL = OFFICIAL_STYLE_BATCHED
+LEHD_TIMING_PROTOCOL = BS1_SMALL_SAMPLE
+```
+
+Quality uses one real pinned-Tester batch at the frozen author-style size; its
+wall time is diagnostic only and cannot be used as BS1 `Time`. The separate
+timing probe invokes only original-instance BS=1 calls and validates every
+timed solution after the timed region. Both require an RTX 4090.
+
+| Problem | Dataset count | Author result batch |
+|---|---:|---:|
+| TSP100 / TSP500 / TSP1000 | 1280 / 128 / 128 | 1280 / 128 / 128 |
+| CVRP50 / CVRP100 | 10000 / 10000 | 10000 / 10000 |
+| CVRP200 / CVRP500 / CVRP1000 / CVRP2000 | 100 / 100 / 100 / 100 | 100 / 100 / 100 / 100 |
+
+`CVRP50` and `CVRP2000` are recorded as senior-approved project adaptations;
+their batch origins are respectively the nearest author small-size whole-set
+and large-scale-cap conventions. Do not lower a batch automatically after OOM.
+An explicit `--batch-size` override requires `--batch-override-reason` and is
+recorded as an override.
+
+```bash
+run_lehd_author_result () {
+  problem="$1"; size="$2"; protocol="$3"; dataset="$4"; dataset_sha="$5"; checkpoint="$6"; checkpoint_sha="$7"
+  python -B methods/lehd/author_batch_eval.py \
+    --problem "$problem" --problem-size "$size" --protocol "$protocol" \
+    --dataset "$dataset" --expected-dataset-sha256 "$dataset_sha" \
+    --upstream "$LEHD_UPSTREAM" --checkpoint "$checkpoint" \
+    --expected-checkpoint-sha256 "$checkpoint_sha" --device cuda:0 \
+    --output-dir "$LEHD_ARTIFACT_ROOT/author_batch/${problem}${size}/${protocol}"
+}
+
+run_lehd_bs1_timing () {
+  problem="$1"; size="$2"; protocol="$3"; dataset="$4"; dataset_sha="$5"; checkpoint="$6"; checkpoint_sha="$7"
+  python -B methods/lehd/timing_probe.py \
+    --problem "$problem" --problem-size "$size" --protocol "$protocol" \
+    --dataset "$dataset" --expected-dataset-sha256 "$dataset_sha" \
+    --upstream "$LEHD_UPSTREAM" --checkpoint "$checkpoint" \
+    --expected-checkpoint-sha256 "$checkpoint_sha" --device cuda:0 \
+    --output "$LEHD_ARTIFACT_ROOT/bs1_timing/${problem}${size}/${protocol}.json"
+}
+
+# Example shortest pair. Repeat the result command for every formal size/protocol.
+run_lehd_author_result tsp 100 greedy "$LEHD_TSP100_DATASET" "$LEHD_TSP100_DATASET_SHA" "$LEHD_TSP_CHECKPOINT" "$LEHD_TSP_CHECKPOINT_SHA"
+run_lehd_bs1_timing tsp 100 greedy "$LEHD_TSP100_DATASET" "$LEHD_TSP100_DATASET_SHA" "$LEHD_TSP_CHECKPOINT" "$LEHD_TSP_CHECKPOINT_SHA"
+```
+
+Default timing samples are Greedy=5, RRC50=3, and RRC500=1. The old BS1
+fullset path below remains a strict diagnostic/legacy audit; the
+senior-approved baseline reproduction protocol supersedes its former
+full-dataset-BS1 quality requirement.
+
 ## Phase 1: official native TSP1K/CVRP1K smoke
 
 ```bash
@@ -129,7 +184,7 @@ run_lehd_more cvrp 2000 "$LEHD_CVRP2000_DATASET" "$LEHD_CVRP2000_DATASET_SHA" "$
 
 Require all nine summaries to be `KIT_VALIDATED`.
 
-## Phase 4: 27 formal cells
+## Legacy Phase 4: 27-cell BS1 fullset audit
 
 ```bash
 dataset_count () {
@@ -155,7 +210,7 @@ for protocol in greedy fewer more; do
 done
 ```
 
-Formal LEHD evaluation is run on a single NVIDIA RTX 4090 with original-instance
-BS=1. Complete validated runs report `PAPER_READY`. Obj is the mean independent
-objective, Drop is the mean per-instance gap, Time is mean native BS1 batch
-latency, and Total is the sum of those latencies.
+The legacy fullset runs above retain their historical `PAPER_READY` behavior.
+They are strict BS1 diagnostic evidence, not the senior-approved baseline
+reproduction quality path. Author-batch artifacts provide `Obj`/`Gap`; the
+separate BS1 timing probes provide `Time`.

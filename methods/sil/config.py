@@ -88,6 +88,35 @@ PAPER_BUDGETS = {
     "more": 500,
 }
 
+AUTHOR_BATCH_REGISTRY = {
+    ("tsp", 1000): {
+        "dataset_count": 128, "batch_size": 128,
+        "batch_protocol_origin": "author_1k_batch_cap",
+    },
+    ("tsp", 2000): {
+        "dataset_count": 64, "batch_size": 64,
+        "batch_protocol_origin": "adapted_from_author_1k_batch_cap",
+    },
+    ("tsp", 5000): {
+        "dataset_count": 32, "batch_size": 16,
+        "batch_protocol_origin": "author_5k_batch_cap",
+    },
+    ("tsp", 10000): {
+        "dataset_count": 16, "batch_size": 16,
+        "batch_protocol_origin": "author_10k_batch_cap",
+    },
+    ("cvrp", 1000): {
+        "dataset_count": 100, "batch_size": 100,
+        "batch_protocol_origin": "author_1k_batch_cap",
+    },
+    ("cvrp", 2000): {
+        "dataset_count": 100, "batch_size": 100,
+        "batch_protocol_origin": "adapted_from_author_1k_batch_cap",
+    },
+}
+
+TIMING_PROBE_COUNTS = {"greedy": 5, "fewer": 3, "more": 1}
+
 
 def effective_repair_max(problem_size: int, nominal_max: int = 1000) -> int:
     problem_size, nominal_max = int(problem_size), int(nominal_max)
@@ -175,6 +204,36 @@ def resolve_config(problem: str, problem_size: int, budget: str,
             "k_nearest_num": 1000,
         }
     return protocol
+
+
+def resolve_author_batch_config(problem: str, problem_size: int, budget: str,
+                                *, batch_size: int | None = None,
+                                batch_override_reason: str | None = None) -> dict:
+    """Freeze author-style quality batching without changing legacy BS1 config."""
+    base = resolve_config(problem, problem_size, budget)
+    entry = deepcopy(AUTHOR_BATCH_REGISTRY[(problem.lower(), int(problem_size))])
+    requested = entry["batch_size"] if batch_size is None else int(batch_size)
+    if requested <= 1:
+        raise ValueError("SIL author-batch evaluation requires batch_size > 1")
+    if requested != entry["batch_size"] and not batch_override_reason:
+        raise ValueError("SIL author-batch override requires --batch-override-reason")
+    base.update({
+        "artifact_class": "baseline_result_reproduction",
+        "evaluation_path": "author_style_batched_quality",
+        "expected_dataset_count": entry["dataset_count"],
+        "original_instance_batch_size": requested,
+        "batch_size_requested": requested,
+        "author_batch_size": entry["batch_size"],
+        "batch_protocol_origin": entry["batch_protocol_origin"],
+        "batch_override_reason": batch_override_reason,
+        "rng_semantics": (
+            "official tester seed behavior over ordered real author-style "
+            "original-instance batches; this quality artifact is non-resumable"
+        ),
+        "paper_result_eligible_for_quality": True,
+        "timing_column_eligible": False,
+    })
+    return base
 
 
 def validate_checkpoint_path(config: dict, path: Path) -> None:

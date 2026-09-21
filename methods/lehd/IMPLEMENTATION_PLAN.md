@@ -8,13 +8,17 @@
 3. Convert ML4CO tasks at a project-owned boundary, capture the official final
    incumbent without extra solver/objective calls, and validate independently
    and with ML4CO-Kit.
-4. Use an isolated untimed warm-up Tester, exact RNG restoration, a fresh
-   formal Tester, CUDA-synchronized BS1 timing, atomic records, and exact-prefix
-   resume.
-5. Require same-size/project/source/dataset/checkpoint/protocol evidence before
-   every fullset: Greedy and RRC50 use our-data smoke; RRC500 uses preflight.
-6. Run official TSP1K/CVRP1K native smoke, the 18 our-data smoke cells, nine
-   RRC500 preflights, then the 27 formal cells on the user-operated server.
+4. Run official-style real batches for result reproduction only, preserving
+   per-instance capture, independent validation, and ML4CO-Kit validation.
+5. Use an isolated untimed warm-up Tester and a separate CUDA-synchronized BS1
+   small sample for timing; its counts are Greedy=5, RRC50=3, RRC500=1.
+6. Keep the prior exact-prefix-resume BS1 fullset and same-size evidence gates
+   as a strict legacy audit, without making it the baseline-result requirement.
 
-Formal LEHD evaluation runs on a single NVIDIA RTX 4090 with original-instance
-BS=1. A complete validated fullset is eligible for `PAPER_READY`.
+```
+LEHD_RESULT_PROTOCOL = OFFICIAL_STYLE_BATCHED
+LEHD_TIMING_PROTOCOL = BS1_SMALL_SAMPLE
+```
+
+Both paths require a single NVIDIA RTX 4090. Author-batch total wall time is a
+diagnostic and is never presented as a BS1 timing result.

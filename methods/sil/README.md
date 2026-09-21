@@ -75,6 +75,59 @@ test "$(basename "$SIL_CVRP1000_DATASET")" = cvrp1000_hgs-360s_41.171.pkl
 test "$(basename "$SIL_CVRP2000_DATASET")" = cvrp2000_hgs-360s_57.181.pkl
 ```
 
+## Senior-approved baseline reproduction: result batch and BS1 timing probe
+
+```
+SIL_RESULT_PROTOCOL = OFFICIAL_STYLE_BATCHED
+SIL_TIMING_PROTOCOL = BS1_SMALL_SAMPLE
+```
+
+Quality uses one real pinned-Tester batch at the frozen author-style size; its
+wall time is diagnostic only and cannot be used as BS1 `Time`. The separate
+timing probe invokes only original-instance BS=1 calls and validates every
+timed solution after the timed region. Both require an RTX 4090.
+
+| Problem | Dataset count | Author result batch |
+|---|---:|---:|
+| TSP1000 / TSP2000 / TSP5000 / TSP10000 | 128 / 64 / 32 / 16 | 128 / 64 / 16 / 16 |
+| CVRP1000 / CVRP2000 | 100 / 100 | 100 / 100 |
+
+`TSP2000` and `CVRP2000` remain `senior_approved_adaptation` and use
+`adapted_from_author_1k_batch_cap`. Do not lower a batch automatically after
+OOM. An explicit `--batch-size` override requires `--batch-override-reason`
+and is recorded as an override.
+
+```bash
+run_sil_author_result () {
+  problem="$1"; size="$2"; budget="$3"; dataset="$4"; dataset_sha="$5"; checkpoint="$6"; checkpoint_sha="$7"
+  python -B methods/sil/author_batch_eval.py \
+    --problem "$problem" --problem-size "$size" --budget "$budget" \
+    --dataset "$dataset" --expected-dataset-sha256 "$dataset_sha" \
+    --upstream "$SIL_UPSTREAM" --checkpoint "$checkpoint" \
+    --expected-checkpoint-sha256 "$checkpoint_sha" --device cuda:0 \
+    --output-dir "$SIL_ARTIFACT_ROOT/author_batch/${problem}${size}/${budget}"
+}
+
+run_sil_bs1_timing () {
+  problem="$1"; size="$2"; budget="$3"; dataset="$4"; dataset_sha="$5"; checkpoint="$6"; checkpoint_sha="$7"
+  python -B methods/sil/timing_probe.py \
+    --problem "$problem" --problem-size "$size" --budget "$budget" \
+    --dataset "$dataset" --expected-dataset-sha256 "$dataset_sha" \
+    --upstream "$SIL_UPSTREAM" --checkpoint "$checkpoint" \
+    --expected-checkpoint-sha256 "$checkpoint_sha" --device cuda:0 \
+    --output "$SIL_ARTIFACT_ROOT/bs1_timing/${problem}${size}/${budget}.json"
+}
+
+# Example shortest pair. Repeat the result command for every formal size/protocol.
+run_sil_author_result tsp 1000 greedy "$SIL_TSP1000_DATASET" "$SIL_TSP1000_DATASET_SHA" "$SIL_CHECKPOINT_ROOT/checkpoint-tsp1k.pt" "$SIL_TSP1K_SHA"
+run_sil_bs1_timing tsp 1000 greedy "$SIL_TSP1000_DATASET" "$SIL_TSP1000_DATASET_SHA" "$SIL_CHECKPOINT_ROOT/checkpoint-tsp1k.pt" "$SIL_TSP1K_SHA"
+```
+
+Default timing samples are Greedy=5, PRC50=3, and PRC500=1. The old BS1
+fullset path below remains a strict diagnostic/legacy audit; the
+senior-approved baseline reproduction protocol supersedes its former
+full-dataset-BS1 quality requirement.
+
 ## Phase 1: official native smoke
 
 ```bash
@@ -142,7 +195,7 @@ run_sil_more_preflight cvrp 2000 "$SIL_CVRP2000_DATASET" "$SIL_CVRP2000_DATASET_
 Require all six summaries to be `KIT_VALIDATED` with official, independent, and
 Kit objective agreement.
 
-## Phase 4: 18-cell formal fullset
+## Legacy Phase 4: 18-cell BS1 fullset audit
 
 Each cell requires evidence from the same project commit, source provenance,
 problem, size, protocol, dataset, checkpoint, and upstream. Greedy and fewer use
@@ -179,7 +232,7 @@ for protocol in greedy fewer more; do
 done
 ```
 
-Formal SIL evaluation is run on a single NVIDIA RTX 4090 with original-instance
-BS=1. A complete validated fullset reports `PAPER_READY`. Obj is the mean
-independent objective, Drop is the mean per-instance gap, Time is mean BS1 solver
-latency, and Total is their runtime sum.
+The legacy fullset runs above retain their historical `PAPER_READY` behavior.
+They are strict BS1 diagnostic evidence, not the senior-approved baseline
+reproduction quality path. Author-batch artifacts provide `Obj`/`Gap`; the
+separate BS1 timing probes provide `Time`.

@@ -76,3 +76,17 @@ provenance helpers, hashing helpers, ML4CO datasets, and all NeuOpt/GLOP/UDC
 source and result artifacts remain unchanged. SIL only adds its upstream registry
 entry, checkpoint registry, method-owned implementation/tests, and runbook
 section.
+
+## Senior-approved reproduction protocol
+
+```
+SIL_RESULT_PROTOCOL = OFFICIAL_STYLE_BATCHED
+SIL_TIMING_PROTOCOL = BS1_SMALL_SAMPLE
+```
+
+The result runner injects real author-style batches and produces only validated
+Obj/Gap evidence. The timing probe is a separate BS1 small sample with one
+RNG-restored warm-up and counts Greedy=5, PRC50=3, PRC500=1. Author-batch wall
+time is diagnostic and cannot be used as BS1 `Time`. The previous BS1 fullset
+runner remains a strict legacy audit rather than the baseline-reproduction
+quality requirement; both paths require an RTX 4090.

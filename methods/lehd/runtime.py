@@ -10,16 +10,21 @@ import time
 
 import numpy as np
 
+from common.objective_agreement import objective_agrees
 from methods.lehd.config import LEHD_SUBTREE, PROJECT_SEED, resolve_config
 from methods.lehd.paper_results import capture_rng_state, restore_rng_state
 
 
 @contextmanager
-def capture_official_solution(env, *, problem: str, problem_size: int):
+def capture_official_solution(env, *, problem: str, problem_size: int,
+                              batch_size: int = 1):
     """Observe official objective calls, retaining only the last eligible full solution."""
     original = env._get_travel_distance_2
     observed = {"solution": None, "objective": None, "eligible_calls": 0}
-    expected = (1, problem_size) if problem == "tsp" else (1, problem_size, 2)
+    if int(batch_size) <= 0:
+        raise ValueError("LEHD captured batch size must be positive")
+    expected = ((int(batch_size), problem_size) if problem == "tsp"
+                else (int(batch_size), problem_size, 2))
 
     def wrapped(problems, solution, *args, **kwargs):
         result = original(problems, solution, *args, **kwargs)
@@ -117,6 +122,50 @@ def solve_one(tester, *, problem: str, problem_size: int, inject, device, torch,
         "capture": {
             "hook": "temporary instance-level wrapper of env._get_travel_distance_2",
             "selection": "last eligible full-solution objective call",
+            "eligible_official_calls_observed": captured["eligible_calls"],
+            "extra_solver_or_objective_calls": 0,
+            "original_call_return_forwarded_unchanged": True,
+            "solution_clone_excluded_from_timing": True,
+        },
+    }
+
+
+def solve_batch(tester, *, problem: str, problem_size: int, batch_size: int,
+                inject, device, torch, timed: bool = False):
+    """Run one real official batch and retain each final incumbent exactly once."""
+    batch_size = int(batch_size)
+    if batch_size <= 0:
+        raise ValueError("LEHD author-batch solve requires a positive batch_size")
+    inject(tester.env)
+    tester.time_estimator_2.reset()
+    with capture_official_solution(
+            tester.env, problem=problem, problem_size=problem_size,
+            batch_size=batch_size) as captured:
+        if timed:
+            torch.cuda.synchronize(device)
+            started = time.perf_counter()
+        returned = tester._test_one_batch(
+            0, batch_size, clock=tester.time_estimator_2,
+            **({"logger": tester.logger} if problem == "cvrp" else {}))
+        torch.cuda.synchronize(device)
+        runtime = time.perf_counter() - started if timed else None
+    if captured["solution"] is None or captured["objective"] is None:
+        raise RuntimeError("official LEHD tester did not expose a final full batch solution")
+    solution = captured["solution"].detach().cpu().numpy().copy()
+    objective = captured["objective"].detach().cpu().numpy().reshape(-1).copy()
+    expected = ((batch_size, problem_size) if problem == "tsp"
+                else (batch_size, problem_size, 2))
+    if solution.shape != expected or objective.shape != (batch_size,):
+        raise RuntimeError("captured LEHD batch output has an unexpected shape")
+    if not objective_agrees(float(returned[1]), float(objective.mean())):
+        raise RuntimeError("captured LEHD batch objective differs from official tester return")
+    return {
+        "solutions": solution,
+        "official_objectives": objective,
+        "runtime_seconds": runtime,
+        "capture": {
+            "hook": "temporary instance-level wrapper of env._get_travel_distance_2",
+            "selection": "last eligible full-batch objective call",
             "eligible_official_calls_observed": captured["eligible_calls"],
             "extra_solver_or_objective_calls": 0,
             "original_call_return_forwarded_unchanged": True,

@@ -81,7 +81,18 @@ ML4CO representation.
 
 ## Hardware status
 
-Formal LEHD evaluation is frozen to a single NVIDIA RTX 4090 with
-original-instance BS=1. Runtime artifacts record the actual server GPU through
-normal environment provenance, and a complete validated fullset is eligible for
-`PAPER_READY`.
+Formal LEHD evaluation is frozen to a single NVIDIA RTX 4090. Runtime artifacts
+record the actual server GPU through normal environment provenance.
+
+## Senior-approved reproduction paths
+
+`LEHD_RESULT_PROTOCOL = OFFICIAL_STYLE_BATCHED`: `author_batch_eval.py` injects
+a real author-style batch into the pinned Tester and uses the resulting decoded
+solutions only for Obj/Gap with independent and Kit validation. Its total wall
+time is diagnostic and explicitly not comparable to BS1 timing.
+
+`LEHD_TIMING_PROTOCOL = BS1_SMALL_SAMPLE`: `timing_probe.py` uses only BS=1,
+one isolated warm-up, and default sample counts Greedy=5, RRC50=3, RRC500=1.
+Its validation occurs outside the timed interval. The previous BS1 fullset
+runner remains strict diagnostic/legacy evidence and is not the required
+baseline-reproduction quality path.

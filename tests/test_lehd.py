@@ -9,11 +9,16 @@ import unittest
 
 import numpy as np
 
-from methods.lehd.config import (CHECKPOINTS, DATASET_FILENAMES, FORMAL_GPU,
-                                 FORMAL_PROTOCOLS, FORMAL_SIZES, MODEL_PARAMS,
-                                 RRC_BUDGETS,
-                                 SIZE_ORIGINS, resolve_config,
+from methods.lehd.config import (AUTHOR_BATCH_REGISTRY, CHECKPOINTS,
+                                 DATASET_FILENAMES, FORMAL_GPU, FORMAL_PROTOCOLS,
+                                 FORMAL_SIZES, MODEL_PARAMS, RRC_BUDGETS,
+                                 SIZE_ORIGINS, TIMING_PROBE_COUNTS,
+                                 resolve_author_batch_config, resolve_config,
                                  validate_checkpoint_location, validate_dataset_path)
+from methods.lehd.author_batch_eval import (batch_slices as author_batch_slices,
+                                            prepare_batch as prepare_author_batch,
+                                            validate_batch as validate_author_batch,
+                                            _verify_runtime_algorithm_config)
 from methods.lehd.cvrp.adapter import (adapt_task as adapt_cvrp,
                                        canonical_to_official,
                                        decode_official_solution as decode_cvrp)
@@ -22,7 +27,9 @@ from methods.lehd.paper_eval import (_scope_count, _verify_preflight_evidence,
 from methods.lehd.paper_results import (append, capture_rng_state, finalize,
                                         fingerprint, initialize)
 from methods.lehd.runtime import (capture_official_solution,
-                                  run_isolated_warmup)
+                                  run_isolated_warmup,
+                                  solve_batch as solve_official_batch)
+from methods.lehd.timing_probe import timing_count
 from methods.lehd.tsp.adapter import (adapt_task as adapt_tsp,
                                       decode_official_solution as decode_tsp)
 from problems.cvrp.validate import validate as validate_cvrp
@@ -259,6 +266,189 @@ class LEHDRuntimeTests(unittest.TestCase):
         self.assertIn("self.model.load_state_dict(checkpoint['model_state_dict'])", cvrp)
         self.assertIn("for bbbb in range(budget)", tsp)
         self.assertIn("for bbbb in range(budget)", cvrp)
+
+
+class LEHDAuthorBatchProtocolTests(unittest.TestCase):
+    class _ArrayTorch:
+        float32 = np.float32
+        long = np.int64
+
+        @staticmethod
+        def as_tensor(value, *, dtype, device):
+            return np.asarray(value, dtype=dtype)
+
+        @staticmethod
+        def zeros(*shape, dtype, device):
+            return np.zeros(shape, dtype=dtype)
+
+    @staticmethod
+    def _tsp_task(offset=0.0):
+        points = np.asarray([[0, 0], [1 + offset, 0], [0, 1 + offset]], dtype=np.float64)
+        task = types.SimpleNamespace(points=points, ref_sol=np.asarray([0, 1, 2], dtype=np.int64))
+        task.check_constraints = lambda route: validate_tsp(points, route)["feasible"]
+        task.evaluate = lambda route: validate_tsp(points, route)["independent_objective"]
+        return task
+
+    @staticmethod
+    def _cvrp_task(offset=0.0, capacity=5):
+        points = np.asarray([[1 + offset, 0], [2 + offset, 0], [0, 1 + offset],
+                             [0, 2 + offset]], dtype=np.float64)
+        demands = np.asarray([2, 2, 2, 2], dtype=np.int64)
+        task = types.SimpleNamespace(
+            depots=np.asarray([[0.0, 0.0]]), points=points, demands=demands,
+            capacity=capacity, ref_sol=np.asarray([0, 1, 2, 0, 3, 4, 0], dtype=np.int64))
+        task.check_constraints = lambda route: validate_cvrp(
+            task.depots, points, demands, capacity, route)["feasible"]
+        task.evaluate = lambda route: validate_cvrp(
+            task.depots, points, demands, capacity, route)["independent_objective"]
+        return task
+
+    def test_author_batch_registry_and_adaptation_provenance(self):
+        expected = {
+            ("tsp", 100): (1280, 1280), ("tsp", 500): (128, 128),
+            ("tsp", 1000): (128, 128), ("cvrp", 50): (10000, 10000),
+            ("cvrp", 100): (10000, 10000), ("cvrp", 200): (100, 100),
+            ("cvrp", 500): (100, 100), ("cvrp", 1000): (100, 100),
+            ("cvrp", 2000): (100, 100),
+        }
+        self.assertEqual({key: (value["dataset_count"], value["batch_size"])
+                          for key, value in AUTHOR_BATCH_REGISTRY.items()}, expected)
+        for key in (("cvrp", 50), ("cvrp", 2000)):
+            protocol = resolve_author_batch_config(*key, "fewer")
+            self.assertEqual(protocol["config_origin"], "senior_approved_project_adaptation")
+            self.assertTrue(protocol["batch_protocol_origin"].startswith("adapted_from_"))
+        protocol = resolve_author_batch_config("tsp", 100, "greedy")
+        self.assertEqual(protocol["artifact_class"], "baseline_result_reproduction")
+        self.assertEqual(protocol["original_instance_batch_size"], 1280)
+        self.assertEqual(protocol["batch_size_requested"], 1280)
+        with self.assertRaises(ValueError):
+            resolve_author_batch_config("tsp", 100, "greedy", batch_size=64)
+        overridden = resolve_author_batch_config(
+            "tsp", 100, "greedy", batch_size=64, batch_override_reason="documented OOM")
+        self.assertEqual(overridden["batch_size_requested"], 64)
+        _verify_runtime_algorithm_config(resolve_config("tsp", 100, "greedy"), protocol)
+        bad_algorithm = dict(protocol)
+        bad_algorithm["RRC_budget"] = 50
+        with self.assertRaises(RuntimeError):
+            _verify_runtime_algorithm_config(resolve_config("tsp", 100, "greedy"), bad_algorithm)
+
+    def test_real_batch_stack_injection_and_raw_capacity_gate(self):
+        torch = self._ArrayTorch()
+        tsp = prepare_author_batch("tsp", [self._tsp_task(), self._tsp_task(2)], 3,
+                                   device="cuda:0", torch=torch)
+        tsp_env = types.SimpleNamespace()
+        tsp["inject"](tsp_env)
+        self.assertEqual(tsp_env.raw_data_nodes.shape, (2, 3, 2))
+        self.assertEqual(tsp_env.raw_data_tours.shape, (2, 3))
+        cvrp_tasks = [self._cvrp_task(), self._cvrp_task(2)]
+        cvrp = prepare_author_batch("cvrp", cvrp_tasks, 4, device="cuda:0", torch=torch)
+        cvrp_env = types.SimpleNamespace()
+        cvrp["inject"](cvrp_env)
+        self.assertEqual(cvrp_env.raw_data_nodes.shape, (2, 5, 2))
+        self.assertEqual(cvrp_env.raw_data_demand.shape, (2, 5))
+        self.assertEqual(cvrp_env.raw_data_capacity.shape, (2,))
+        self.assertEqual(cvrp_env.raw_data_node_flag.shape, (2, 4, 2))
+        with self.assertRaisesRegex(ValueError, "identical true capacities"):
+            prepare_author_batch("cvrp", [self._cvrp_task(), self._cvrp_task(capacity=6)],
+                                 4, device="cuda:0", torch=torch)
+
+    def test_per_instance_validation_and_kit_aggregation(self):
+        torch = self._ArrayTorch()
+        tsp_tasks = [self._tsp_task(), self._tsp_task(2)]
+        tsp = prepare_author_batch("tsp", tsp_tasks, 3, device="cuda:0", torch=torch)
+        tsp_solutions = np.asarray([[0, 1, 2], [1, 2, 0]], dtype=np.int64)
+        tsp_records = validate_author_batch(
+            "tsp", tsp_tasks, tsp, tsp_solutions,
+            np.asarray([task.evaluate([*solution, solution[0]])
+                        for task, solution in zip(tsp_tasks, tsp_solutions)]),
+            3, dataset_offset=7)
+        self.assertEqual([row["dataset_instance_index"] for row in tsp_records], [7, 8])
+        self.assertTrue(all(row["independent_feasible"] and row["kit_feasible"]
+                            for row in tsp_records))
+        cvrp_tasks = [self._cvrp_task(), self._cvrp_task(2)]
+        cvrp = prepare_author_batch("cvrp", cvrp_tasks, 4, device="cuda:0", torch=torch)
+        cvrp_solutions = np.asarray([[[1, 1], [2, 0], [3, 1], [4, 0]],
+                                     [[3, 1], [4, 0], [1, 1], [2, 0]]], dtype=np.int64)
+        cvrp_records = validate_author_batch(
+            "cvrp", cvrp_tasks, cvrp, cvrp_solutions,
+            np.asarray([task.evaluate([0, 1, 2, 0, 3, 4, 0]) for task in cvrp_tasks]),
+            4, dataset_offset=10)
+        self.assertEqual([row["dataset_instance_index"] for row in cvrp_records], [10, 11])
+        self.assertTrue(all(row["official_vs_independent"]["pass"] and
+                            row["independent_vs_kit"]["pass"] for row in cvrp_records))
+
+    def test_batch_capture_shapes_objective_vector_and_timing_separation(self):
+        class Env:
+            def _get_travel_distance_2(self, problems, solution):
+                return np.asarray([3.0, 4.0])
+
+        env = Env()
+        tsp = np.asarray([[0, 1, 2], [2, 1, 0]], dtype=np.int64)
+        with capture_official_solution(env, problem="tsp", problem_size=3, batch_size=2) as captured:
+            env._get_travel_distance_2(None, tsp)
+        self.assertIs(captured["solution"], tsp)
+        self.assertEqual(captured["objective"].shape, (2,))
+        cvrp = np.asarray([[[1, 1], [2, 0]], [[2, 1], [1, 0]]], dtype=np.int64)
+        with capture_official_solution(env, problem="cvrp", problem_size=2, batch_size=2) as captured:
+            env._get_travel_distance_2(None, cvrp)
+        self.assertIs(captured["solution"], cvrp)
+        self.assertEqual(captured["objective"].shape, (2,))
+        self.assertEqual(author_batch_slices(10, 4), [(0, 4), (4, 8), (8, 10)])
+        self.assertEqual({key: timing_count(key, None) for key in FORMAL_PROTOCOLS},
+                         TIMING_PROBE_COUNTS)
+        with self.assertRaises(ValueError):
+            timing_count("greedy", 0)
+        author_source = Path("methods/lehd/author_batch_eval.py").read_text()
+        timing_source = Path("methods/lehd/timing_probe.py").read_text()
+        self.assertIn("np.stack", author_source)
+        self.assertIn("solve_batch(", author_source)
+        self.assertNotIn("solve_one(", author_source)
+        self.assertNotIn("mean_batch_runtime_seconds", author_source)
+        self.assertIn("solve_one(", timing_source)
+        self.assertNotIn('add_argument("--batch-size"', timing_source)
+        self.assertIn('"original_instance_batch_size": 1', timing_source)
+
+    def test_solve_batch_returns_one_solution_and_objective_per_original_instance(self):
+        class Tensor:
+            def __init__(self, value):
+                self.value = np.asarray(value)
+
+            @property
+            def shape(self):
+                return self.value.shape
+
+            def detach(self):
+                return self
+
+            def cpu(self):
+                return self
+
+            def numpy(self):
+                return self.value
+
+        solution, objective = Tensor([[0, 1, 2], [2, 1, 0]]), Tensor([3.0, 4.0])
+
+        class Env:
+            def _get_travel_distance_2(self, problems, candidate):
+                self.seen = candidate
+                return objective
+
+        class Tester:
+            def __init__(self):
+                self.env = Env()
+                self.time_estimator_2 = types.SimpleNamespace(reset=lambda: None)
+
+            def _test_one_batch(self, episode, batch_size, **kwargs):
+                self.env._get_travel_distance_2(None, solution)
+                return (None, 3.5)
+
+        torch = types.SimpleNamespace(cuda=types.SimpleNamespace(synchronize=lambda device: None))
+        solved = solve_official_batch(
+            Tester(), problem="tsp", problem_size=3, batch_size=2,
+            inject=lambda env: None, device="cuda:0", torch=torch)
+        self.assertEqual(solved["solutions"].shape, (2, 3))
+        self.assertEqual(solved["official_objectives"].tolist(), [3.0, 4.0])
+        self.assertIsNone(solved["runtime_seconds"])
 
 
 class LEHDArtifactTests(unittest.TestCase):

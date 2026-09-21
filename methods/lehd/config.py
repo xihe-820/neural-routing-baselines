@@ -91,6 +91,56 @@ SIZE_ORIGINS = {
     ("cvrp", 2000): "senior_approved_scale_adaptation",
 }
 
+AUTHOR_BATCH_REGISTRY = {
+    ("tsp", 100): {
+        "dataset_count": 1280, "batch_size": 1280,
+        "config_origin": "official_native_training_size",
+        "batch_protocol_origin": "author_small_size_whole_dataset_batch",
+    },
+    ("tsp", 500): {
+        "dataset_count": 128, "batch_size": 128,
+        "config_origin": "official_paper_generalization_size",
+        "batch_protocol_origin": "author_large_scale_batch_cap",
+    },
+    ("tsp", 1000): {
+        "dataset_count": 128, "batch_size": 128,
+        "config_origin": "official_paper_generalization_size",
+        "batch_protocol_origin": "author_large_scale_batch_cap",
+    },
+    ("cvrp", 50): {
+        "dataset_count": 10000, "batch_size": 10000,
+        "config_origin": "senior_approved_project_adaptation",
+        "batch_protocol_origin": "adapted_from_author_small_size_whole_dataset_batch",
+    },
+    ("cvrp", 100): {
+        "dataset_count": 10000, "batch_size": 10000,
+        "config_origin": "official_native_training_size",
+        "batch_protocol_origin": "author_small_size_whole_dataset_batch",
+    },
+    ("cvrp", 200): {
+        "dataset_count": 100, "batch_size": 100,
+        "config_origin": "official_paper_generalization_size",
+        "batch_protocol_origin": "author_large_scale_batch_cap",
+    },
+    ("cvrp", 500): {
+        "dataset_count": 100, "batch_size": 100,
+        "config_origin": "official_paper_generalization_size",
+        "batch_protocol_origin": "author_large_scale_batch_cap",
+    },
+    ("cvrp", 1000): {
+        "dataset_count": 100, "batch_size": 100,
+        "config_origin": "official_paper_generalization_size",
+        "batch_protocol_origin": "author_large_scale_batch_cap",
+    },
+    ("cvrp", 2000): {
+        "dataset_count": 100, "batch_size": 100,
+        "config_origin": "senior_approved_project_adaptation",
+        "batch_protocol_origin": "adapted_from_author_large_scale_batch_cap",
+    },
+}
+
+TIMING_PROBE_COUNTS = {"greedy": 5, "fewer": 3, "more": 1}
+
 
 def resolve_config(problem: str, problem_size: int, protocol: str,
                    *, batch_size: int = FORMAL_BATCH_SIZE) -> dict:
@@ -140,6 +190,37 @@ def resolve_config(problem: str, problem_size: int, protocol: str,
         "upstream_commit": UPSTREAM_COMMIT,
         "official_subtree": str(LEHD_SUBTREE),
     }
+
+
+def resolve_author_batch_config(problem: str, problem_size: int, protocol: str,
+                                *, batch_size: int | None = None,
+                                batch_override_reason: str | None = None) -> dict:
+    """Freeze quality evaluation batching separately from the legacy BS1 runner."""
+    base = resolve_config(problem, problem_size, protocol)
+    entry = deepcopy(AUTHOR_BATCH_REGISTRY[(problem.lower(), int(problem_size))])
+    requested = entry["batch_size"] if batch_size is None else int(batch_size)
+    if requested <= 1:
+        raise ValueError("LEHD author-batch evaluation requires batch_size > 1")
+    if requested != entry["batch_size"] and not batch_override_reason:
+        raise ValueError("LEHD author-batch override requires --batch-override-reason")
+    base.update({
+        "artifact_class": "baseline_result_reproduction",
+        "evaluation_path": "author_style_batched_quality",
+        "config_origin": entry["config_origin"],
+        "expected_dataset_count": entry["dataset_count"],
+        "original_instance_batch_size": requested,
+        "batch_size_requested": requested,
+        "author_batch_size": entry["batch_size"],
+        "batch_protocol_origin": entry["batch_protocol_origin"],
+        "batch_override_reason": batch_override_reason,
+        "rng_resume_semantics": (
+            "ordered real author-style original-instance batches; this quality "
+            "artifact is non-resumable and does not claim BS1 RNG-resume semantics"
+        ),
+        "paper_result_eligible_for_quality": True,
+        "timing_column_eligible": False,
+    })
+    return base
 
 
 def validate_checkpoint_path(config: dict, path: Path) -> None:

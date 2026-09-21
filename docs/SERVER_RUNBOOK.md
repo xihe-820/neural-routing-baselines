@@ -5,25 +5,35 @@ These commands are run manually by the user. They do not require Codex SSH acces
 ## LEHD TSP/CVRP
 
 LEHD is pinned to `CIAM-Group/NCO_code@274df3c4975384592b60fe7f79fbb2441ce11c15`,
-subtree `single_objective/LEHD`. The complete copy-pasteable handoff is in
-[methods/lehd/README.md](../methods/lehd/README.md): repository-owned checkpoint
-hash/strict-load audit, official native TSP1K/CVRP1K smoke, 18 Greedy/RRC50
-our-data smokes, nine same-size RRC500 preflights, and the resumable 27-cell
-BS1 matrix. Formal LEHD evaluation runs on a single NVIDIA RTX 4090 with
-original-instance BS=1; complete validated fullsets report `PAPER_READY`.
+subtree `single_objective/LEHD`.
+
+```
+LEHD_RESULT_PROTOCOL = OFFICIAL_STYLE_BATCHED
+LEHD_TIMING_PROTOCOL = BS1_SMALL_SAMPLE
+```
+
+Use `author_batch_eval.py` for official-style real-batch quality (`Obj`/`Gap`)
+and `timing_probe.py` for the separate BS1 time sample. Both require one
+NVIDIA RTX 4090 and preserve decoded-solution, independent, and Kit gates.
+The old resumable 27-cell BS1 runner remains a strict diagnostic/legacy-audit
+path; it is no longer the baseline-reproduction quality requirement. The
+copy-pasteable commands are in [methods/lehd/README.md](../methods/lehd/README.md).
 
 ## SIL large-scale TSP/CVRP
 
 SIL is pinned at `CIAM-Group/SIL@9ec783e90a1631f7b95f84eb20f8f9751cb45c10`.
-The complete copy-pasteable handoff, explicit `feat/sil` checkout and approved
-commit gate, four checkpoint IDs, official native smoke, twelve all-size ML4CO
-smokes (including actual TSP5K/TSP10K inference), formal Greedy/PRC50 smoke,
-same-size PRC500 preflight evidence, and the resumable 18-cell BS1 matrix are in
-[methods/sil/README.md](../methods/sil/README.md). Run those phases in order.
-Do not start a fullset until the native smoke passes and all required
-ML4CO smoke/preflight summaries are `KIT_VALIDATED`.
-Formal SIL evaluation runs on a single NVIDIA RTX 4090 with original-instance
-BS=1; complete validated fullsets report `PAPER_READY`.
+
+```
+SIL_RESULT_PROTOCOL = OFFICIAL_STYLE_BATCHED
+SIL_TIMING_PROTOCOL = BS1_SMALL_SAMPLE
+```
+
+Use `author_batch_eval.py` for official-style real-batch quality (`Obj`/`Gap`)
+and `timing_probe.py` for the separate BS1 time sample. Both require one
+NVIDIA RTX 4090 and preserve decoded-solution, independent, and Kit gates.
+The old resumable 18-cell BS1 runner remains a strict diagnostic/legacy-audit
+path; it is no longer the baseline-reproduction quality requirement. The
+copy-pasteable commands are in [methods/sil/README.md](../methods/sil/README.md).
 
 ## 1. Repository checkout and paths
 

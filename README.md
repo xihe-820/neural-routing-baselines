@@ -28,12 +28,31 @@ extension.
 
 MVMoE CVRP/CVRPTW 50/100 and NeuOpt CVRP50/100 are server verified. GLOP TSP50/100 is locally verified and ready for user-executed server validation; GLOP CVRP50/100 remains blocked because the official small-size partitioner configuration is undefined.
 
-SIL TSP1K/2K/5K/10K and CVRP1K/2K have a local integration. Formal SIL
-evaluation is run on a single NVIDIA RTX 4090 with original-instance BS=1.
+SIL TSP1K/2K/5K/10K and CVRP1K/2K have a local integration. LEHD uses the two
+official size-100-trained checkpoints for the frozen large-scale generalization
+matrix.
 
-LEHD uses the two official size-100-trained checkpoints for the frozen
-large-scale generalization matrix. Formal LEHD evaluation is run on a single
-NVIDIA RTX 4090 with original-instance BS=1.
+## LEHD and SIL baseline reproduction protocol
+
+```
+LEHD_RESULT_PROTOCOL = OFFICIAL_STYLE_BATCHED
+LEHD_TIMING_PROTOCOL = BS1_SMALL_SAMPLE
+SIL_RESULT_PROTOCOL = OFFICIAL_STYLE_BATCHED
+SIL_TIMING_PROTOCOL = BS1_SMALL_SAMPLE
+```
+
+For these two baseline reproductions, a real official-style batch produces
+quality artifacts (`Obj` and per-instance `Gap`), while an independent small
+sample of original-instance BS=1 calls produces `Time`. Author-batch wall time
+is retained only as a diagnostic and is never a BS1 time. Both paths require a
+single NVIDIA RTX 4090 and retain full independent and ML4CO-Kit validation.
+
+The existing `methods/lehd/paper_eval.py` and `methods/sil/paper_eval.py` BS1
+fullset runners remain strict diagnostic and legacy-audit paths. The
+senior-approved baseline reproduction protocol supersedes their former
+full-dataset-BS1 quality requirement. See the method handoffs for the exact
+result and timing commands: [LEHD](methods/lehd/README.md) and
+[SIL](methods/sil/README.md).
 
 ## Architecture
 

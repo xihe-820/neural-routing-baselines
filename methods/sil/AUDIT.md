@@ -93,9 +93,19 @@ remains a separate non-paper native-smoke identity.
 Formal timing is CUDA-synchronized wall time around one official BS1
 `_test_one_batch`, including initialization/search and its internal official
 objective/logging calls. It excludes data/checkpoint/model loading, adapter work,
-post-timing tensor clone, independent/Kit validation, and artifact I/O. Formal
-SIL evaluation is frozen to a single NVIDIA RTX 4090 with original-instance
-BS=1. Runtime artifacts retain the actual server GPU through normal environment
-provenance, and a complete validated fullset is eligible for `PAPER_READY`.
-Server smoke must establish Python 3.11 / Torch 2.5 compatibility; the official
-README only documents Python 3.8.6 and Torch 1.12.1.
+post-timing tensor clone, independent/Kit validation, and artifact I/O.
+
+## Senior-approved reproduction paths
+
+`SIL_RESULT_PROTOCOL = OFFICIAL_STYLE_BATCHED`: `author_batch_eval.py` injects
+a real author-style batch into the pinned Tester and uses the resulting decoded
+solutions only for Obj/Gap with independent and Kit validation. Its total wall
+time is diagnostic and explicitly not comparable to BS1 timing.
+
+`SIL_TIMING_PROTOCOL = BS1_SMALL_SAMPLE`: `timing_probe.py` uses only BS=1,
+one RNG-restored warm-up, and default sample counts Greedy=5, PRC50=3, PRC500=1.
+Its validation occurs outside the timed interval. Both paths require a single
+NVIDIA RTX 4090. The previous BS1 fullset remains strict diagnostic/legacy
+evidence and is not the required baseline-reproduction quality path. Server
+smoke must establish Python 3.11 / Torch 2.5 compatibility; the official README
+only documents Python 3.8.6 and Torch 1.12.1.
