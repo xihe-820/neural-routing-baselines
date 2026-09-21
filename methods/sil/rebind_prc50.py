@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 from copy import deepcopy
-import json
 from pathlib import Path
 import sys
 
@@ -13,9 +12,7 @@ sys.path.insert(0, str(ROOT))
 
 from common.protocol_rebind import (LEGACY_SOLVER_COMMIT,
                                     verify_quality_artifact,
-                                    verify_timing_artifact,
-                                    write_rebound_artifacts)
-from common.provenance import git_provenance, source_provenance
+                                    verify_timing_artifact)
 from methods.sil.config import (AUTHOR_BATCH_REGISTRY, CHECKPOINTS, FORMAL_SIZES,
                                 UPSTREAM_COMMIT, resolve_author_batch_config,
                                 resolve_config)
@@ -92,31 +89,8 @@ def main(argv=None):
     parser.add_argument("--problem-size", type=int)
     parser.parse_args(argv)
     raise ValueError(
-        "PRC50 is retained only as legacy higher-budget evidence and cannot be "
-        "rebound into the current formal fewer/more mapping")
-    current_project = git_provenance(ROOT)
-    if current_project["dirty"]:
-        raise ValueError("SIL rebind requires a clean project checkout")
-    sources = source_provenance(
-        [Path(__file__), ROOT / "common/protocol_rebind.py",
-         ROOT / "methods/sil/config.py"], root=ROOT)
-    plan = build_plan(
-        legacy_root=args.legacy_root.resolve(), output_root=args.output_root.resolve(),
-        problem=args.problem, problem_size=args.problem_size,
-        current_project=current_project, rebind_source_files=sources)
-    for cell in plan:
-        write_rebound_artifacts(
-            quality=cell["quality"], timing=cell["timing"],
-            quality_destination=cell["quality_destination"],
-            timing_destination=cell["timing_destination"],
-            current_quality_protocol=cell["current_quality_protocol"],
-            current_timing_protocol=cell["current_timing_protocol"],
-            current_project=cell["current_project"],
-            label_key="budget_label", budget_key="budget",
-            rebind_source_files=cell["rebind_source_files"])
-    print(json.dumps({"status": "PASS", "method": "SIL", "rebound_cells": [
-        f"{cell['problem']}{cell['problem_size']}" for cell in plan]}, sort_keys=True))
-    return 0
+        "PRC50 is legacy higher-budget evidence only and cannot be rebound into "
+        "the current formal fewer/more mapping")
 
 
 if __name__ == "__main__":

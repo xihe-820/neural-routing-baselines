@@ -21,7 +21,9 @@ from methods.sil.rebind_prc20 import (
     PRC20_SOLVER_EXECUTION_COMMIT,
     _legacy_quality_protocol as sil_prc20_legacy_protocol,
     build_plan as build_sil_prc20_rebind_plan)
-from methods.sil.rebind_prc50 import _legacy_quality_protocol as sil_prc50_legacy_protocol
+from methods.sil.rebind_prc50 import (
+    _legacy_quality_protocol as sil_prc50_legacy_protocol,
+    main as sil_prc50_main)
 from methods.lehd.config import (AUTHOR_BATCH_REGISTRY as LEHD_AUTHOR_BATCH_REGISTRY,
                                  resolve_author_batch_config as lehd_author_config)
 from methods.sil.config import (AUTHOR_BATCH_REGISTRY as SIL_AUTHOR_BATCH_REGISTRY,
@@ -320,6 +322,37 @@ class VerifiedRebindTests(unittest.TestCase):
                     legacy_solver_commit=PRC20_SOLVER_EXECUTION_COMMIT,
                     legacy_protocol_label="fewer", legacy_budget=20,
                     target_label="more", target_budget=20)
+
+            bad_timing_target = deepcopy(cell["current_timing_protocol"])
+            bad_timing_target["budget_label"] = "fewer"
+            with self.assertRaisesRegex(ValueError, "timing protocol.*target label/budget"):
+                write_rebound_artifacts(
+                    quality=cell["quality"], timing=cell["timing"],
+                    quality_destination=cell["quality_destination"],
+                    timing_destination=cell["timing_destination"],
+                    current_quality_protocol=cell["current_quality_protocol"],
+                    current_timing_protocol=bad_timing_target,
+                    current_project=cell["current_project"], label_key="budget_label",
+                    budget_key="budget", rebind_source_files=[],
+                    legacy_solver_commit=PRC20_SOLVER_EXECUTION_COMMIT,
+                    legacy_protocol_label="fewer", legacy_budget=20,
+                    target_label="more", target_budget=20)
+
+            bad_timing_target = deepcopy(cell["current_timing_protocol"])
+            bad_timing_target["budget"] = 10
+            with self.assertRaisesRegex(ValueError, "timing protocol.*target label/budget"):
+                write_rebound_artifacts(
+                    quality=cell["quality"], timing=cell["timing"],
+                    quality_destination=cell["quality_destination"],
+                    timing_destination=cell["timing_destination"],
+                    current_quality_protocol=cell["current_quality_protocol"],
+                    current_timing_protocol=bad_timing_target,
+                    current_project=cell["current_project"], label_key="budget_label",
+                    budget_key="budget", rebind_source_files=[],
+                    legacy_solver_commit=PRC20_SOLVER_EXECUTION_COMMIT,
+                    legacy_protocol_label="fewer", legacy_budget=20,
+                    target_label="more", target_budget=20)
+
             bad_target = deepcopy(cell["current_quality_protocol"])
             bad_target["budget_label"] = "fewer"
             with self.assertRaisesRegex(ValueError, "target label/budget"):
@@ -334,6 +367,10 @@ class VerifiedRebindTests(unittest.TestCase):
                     legacy_solver_commit=PRC20_SOLVER_EXECUTION_COMMIT,
                     legacy_protocol_label="fewer", legacy_budget=20,
                     target_label="more", target_budget=20)
+
+    def test_sil_prc50_cli_is_formal_rebind_blocked(self):
+        with self.assertRaisesRegex(ValueError, "legacy higher-budget evidence only"):
+            sil_prc50_main(["--legacy-root", "/legacy", "--output-root", "/output"])
 
     def test_sil_prc20_rebind_rejects_source_identity_and_semantic_tampering(self):
         cases = {

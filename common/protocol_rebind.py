@@ -351,6 +351,10 @@ def write_rebound_artifacts(
     if (metadata["protocol"].get(label_key) != target_label or
             metadata["protocol"].get(budget_key) != int(target_budget)):
         raise ValueError("current rebound protocol does not match target label/budget")
+    if (current_timing_protocol.get(label_key) != target_label or
+            current_timing_protocol.get(budget_key) != int(target_budget)):
+        raise ValueError(
+            "current rebound timing protocol does not match target label/budget")
     quality_destination.mkdir(parents=True)
     (quality_destination / "validated_records.jsonl").write_bytes(
         quality["records_bytes"])

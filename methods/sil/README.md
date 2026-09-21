@@ -21,8 +21,8 @@ else
   git switch --track -c feat/lehd origin/feat/lehd
 fi
 git pull --ff-only origin feat/lehd
-# Current reviewed unified-protocol commit: 5dd0eb4670ccafe12100bf6dffbd6580c4b3ffa1
-export SIL_PROJECT_COMMIT=<approved-unified-protocol-commit>
+# Set this to the exact reviewed/pushed commit for the current run.
+export SIL_PROJECT_COMMIT=<approved-current-commit>
 test "$(git rev-parse HEAD)" = "$SIL_PROJECT_COMMIT"
 test -z "$(git status --porcelain)"
 
