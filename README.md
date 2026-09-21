@@ -41,6 +41,12 @@ SIL_RESULT_PROTOCOL = OFFICIAL_STYLE_BATCHED
 SIL_TIMING_PROTOCOL = BS1_SMALL_SAMPLE
 ```
 
+The current paper mappings are LEHD Greedy/RRC20/RRC50 and SIL
+Greedy/PRC20/PRC50 for `greedy`/`fewer`/`more`. RRC20 and PRC20 are
+senior-approved project budget adaptations. The previously generated RRC50 and
+PRC50 `fewer` evidence is eligible for strict, no-solver rebind to `more`;
+RRC500 and PRC500 remain legacy extra-budget evidence only.
+
 For these two baseline reproductions, a real official-style batch produces
 quality artifacts (`Obj` and per-instance `Gap`), while an independent small
 sample of original-instance BS=1 calls produces `Time`. Author-batch wall time
@@ -53,6 +59,12 @@ senior-approved baseline reproduction protocol supersedes their former
 full-dataset-BS1 quality requirement. See the method handoffs for the exact
 result and timing commands: [LEHD](methods/lehd/README.md) and
 [SIL](methods/sil/README.md).
+
+LEHD appendix parallel evaluation covers TSP100/500/1000 at BS1/BS128 and
+CVRP50/100/200 at BS1/BS100 for RRC20 and RRC50. Measured batch rows use full
+dataset solver timing. BS1 rows may be explicitly derived from verified full
+quality plus three-sample BS1 timing evidence, with derived Total recorded as
+an estimate rather than a measured serial sweep.
 
 ## Architecture
 

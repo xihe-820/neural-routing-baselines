@@ -83,6 +83,11 @@ SIL_RESULT_PROTOCOL = OFFICIAL_STYLE_BATCHED
 SIL_TIMING_PROTOCOL = BS1_SMALL_SAMPLE
 ```
 
+Current project mapping: Greedy=PRC0, fewer=PRC20, more=PRC50. PRC20 is a
+senior-approved project adaptation within the unchanged official mechanism.
+PRC50 is an official setting reclassified from the former project label
+`fewer` to `more`. Existing PRC500 artifacts are legacy extra-budget evidence.
+
 Quality uses one real pinned-Tester batch at the frozen author-style size; its
 wall time is diagnostic only and cannot be used as BS1 `Time`. The separate
 timing probe invokes only original-instance BS=1 calls and validates every
@@ -124,10 +129,23 @@ run_sil_author_result tsp 1000 greedy "$SIL_TSP1000_DATASET" "$SIL_TSP1000_DATAS
 run_sil_bs1_timing tsp 1000 greedy "$SIL_TSP1000_DATASET" "$SIL_TSP1000_DATASET_SHA" "$SIL_CHECKPOINT_ROOT/checkpoint-tsp1k.pt" "$SIL_TSP1K_SHA"
 ```
 
-Default timing samples are Greedy=5, PRC50=3, and PRC500=1. The old BS1
+Default timing samples are Greedy=5, PRC20=3, and PRC50=3. The old BS1
 fullset path below remains a strict diagnostic/legacy audit; the
 senior-approved baseline reproduction protocol supersedes its former
 full-dataset-BS1 quality requirement.
+
+## Verified legacy PRC50 rebind
+
+The old root is read-only. This validates the complete quality and timing
+evidence before writing current `more=PRC50` artifacts, preserving the actual
+solver-execution commit separately from the rebind commit.
+
+```bash
+export SIL_LEGACY_ROOT="$SERVER_ROOT/artifacts/neural-routing-baselines/sil/6630301"
+python -B methods/sil/rebind_prc50.py \
+  --legacy-root "$SIL_LEGACY_ROOT" \
+  --output-root "$SIL_ARTIFACT_ROOT"
+```
 
 ## Phase 1: official native smoke
 
@@ -146,7 +164,7 @@ checkpoint strict-load, and official native-data compatibility.
 ## Phase 2: our-data formal-protocol smoke
 
 Run one official-inference smoke for `greedy` at every formal size, followed by
-one `fewer=PRC50` smoke at every size. All runs use actual solution capture,
+one `fewer=PRC20` smoke at every size. All runs use actual solution capture,
 independent validation, and ML4CO-Kit validation.
 
 ```bash
@@ -171,13 +189,13 @@ run_sil_smoke cvrp 2000 fewer "$SIL_CVRP2000_DATASET" "$SIL_CVRP2000_DATASET_SHA
 ```
 
 Require all twelve summaries to be `KIT_VALIDATED`. Greedy uses official pure
-greedy (`budget=0`, no random insertion, no kNN). Fewer uses the frozen PRC50
+greedy (`budget=0`, no random insertion, no kNN). Fewer uses the frozen PRC20
 pipeline. CVRP must preserve raw demands, true per-instance capacity, and exactly
 one model-side normalization.
 
 ## Phase 3: same-size more preflight
 
-Run `more=PRC500` on every formal size. The evidence is intentionally
+Run `more=PRC50` on every formal size. The evidence is intentionally
 size-specific because checkpoints, memory use, and runtime differ by size.
 
 ```bash

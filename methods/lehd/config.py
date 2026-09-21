@@ -15,7 +15,12 @@ FORMAL_SIZES = {
     "cvrp": (50, 100, 200, 500, 1000, 2000),
 }
 FORMAL_PROTOCOLS = ("greedy", "fewer", "more")
-RRC_BUDGETS = {"greedy": 0, "fewer": 50, "more": 500}
+RRC_BUDGETS = {"greedy": 0, "fewer": 20, "more": 50}
+RRC_BUDGET_ORIGINS = {
+    "greedy": "official_greedy_construction",
+    "fewer": "senior_approved_project_adaptation",
+    "more": "official_rrc50_reclassified_from_legacy_fewer",
+}
 FORMAL_GPU = "NVIDIA RTX 4090"
 
 WARMUP_POLICY = {
@@ -139,7 +144,7 @@ AUTHOR_BATCH_REGISTRY = {
     },
 }
 
-TIMING_PROBE_COUNTS = {"greedy": 5, "fewer": 3, "more": 1}
+TIMING_PROBE_COUNTS = {"greedy": 5, "fewer": 3, "more": 3}
 
 
 def resolve_config(problem: str, problem_size: int, protocol: str,
@@ -164,9 +169,7 @@ def resolve_config(problem: str, problem_size: int, protocol: str,
         "checkpoint": checkpoint,
         "protocol_label": protocol,
         "RRC_budget": RRC_BUDGETS[protocol],
-        "budget_mapping_origin": (
-            "project_protocol_mapping_of_author_reported_budgets"
-        ),
+        "budget_mapping_origin": RRC_BUDGET_ORIGINS[protocol],
         "inference_algorithm": (
             "official greedy construction followed by exactly RRC_budget "
             "official random reconstruction cycles with improvement-only acceptance"

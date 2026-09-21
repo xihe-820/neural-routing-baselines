@@ -55,7 +55,8 @@ SIL follows these established choices:
 
 `config.py` owns the six-size senior-approved scope (TSP1K/2K/5K/10K and
 CVRP1K/2K), official checkpoint registry, size adaptations, and exact formal
-Greedy/PRC50/PRC500 protocols. `runtime.py` invokes pinned
+Greedy/PRC20/PRC50 protocols. PRC20 is a senior-approved project adaptation;
+PRC500 remains legacy extra-budget evidence. `runtime.py` invokes pinned
 `TSPTester._test_one_batch` or
 `VRPTester._test_one_batch`; it does not reproduce the solver. A temporary
 instance-method hook observes existing `_get_travel_distance_2` calls and retains
@@ -86,7 +87,11 @@ SIL_TIMING_PROTOCOL = BS1_SMALL_SAMPLE
 
 The result runner injects real author-style batches and produces only validated
 Obj/Gap evidence. The timing probe is a separate BS1 small sample with one
-RNG-restored warm-up and counts Greedy=5, PRC50=3, PRC500=1. Author-batch wall
+RNG-restored warm-up and counts Greedy=5, PRC20=3, PRC50=3. Author-batch wall
 time is diagnostic and cannot be used as BS1 `Time`. The previous BS1 fullset
 runner remains a strict legacy audit rather than the baseline-reproduction
 quality requirement; both paths require an RTX 4090.
+
+Legacy `fewer=PRC50` evidence is reused only through `rebind_prc50.py`, which
+checks all records, aggregates, assets, protocol semantics, and provenance and
+records both the historical solver commit and current rebind commit.

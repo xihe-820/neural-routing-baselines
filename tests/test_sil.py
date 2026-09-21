@@ -86,8 +86,8 @@ class SILConfigTests(unittest.TestCase):
     def test_fewer_more_are_same_pipeline_different_budget(self):
         fewer = resolve_config("tsp", 1000, "fewer")
         more = resolve_config("tsp", 1000, "more")
-        self.assertEqual(fewer["budget"], 50)
-        self.assertEqual(more["budget"], 500)
+        self.assertEqual(fewer["budget"], 20)
+        self.assertEqual(more["budget"], 50)
         for field in ("random_insertion", "PRC", "repair_max_sub_length_nominal",
                       "repair_max_sub_length_effective", "repair_max_rule",
                       "pomo_size", "decode_method", "seed"):
@@ -98,8 +98,8 @@ class SILConfigTests(unittest.TestCase):
         self.assertEqual(FORMAL_PROTOCOLS, ("greedy", "fewer", "more"))
         expected = {
             "greedy": (0, False, False),
-            "fewer": (50, True, True),
-            "more": (500, True, True),
+            "fewer": (20, True, True),
+            "more": (50, True, True),
         }
         for label, (budget, insertion, knn) in expected.items():
             config = resolve_config("tsp", 1000, label)
@@ -480,6 +480,7 @@ class SILAuthorBatchProtocolTests(unittest.TestCase):
         self.assertEqual(author_batch_slices(10, 4), [(0, 4), (4, 8), (8, 10)])
         self.assertEqual({key: timing_count(key, None) for key in FORMAL_PROTOCOLS},
                          TIMING_PROBE_COUNTS)
+        self.assertEqual(TIMING_PROBE_COUNTS, {"greedy": 5, "fewer": 3, "more": 3})
         with self.assertRaises(ValueError):
             timing_count("greedy", 0)
         author_source = Path("methods/sil/author_batch_eval.py").read_text()

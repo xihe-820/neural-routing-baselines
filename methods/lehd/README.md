@@ -73,6 +73,11 @@ LEHD_RESULT_PROTOCOL = OFFICIAL_STYLE_BATCHED
 LEHD_TIMING_PROTOCOL = BS1_SMALL_SAMPLE
 ```
 
+Current project mapping: Greedy=RRC0, fewer=RRC20, more=RRC50. RRC20 is a
+senior-approved project adaptation. RRC50 is an official setting reclassified
+from the former project label `fewer` to `more`. Existing RRC500 artifacts are
+legacy extra-budget evidence and are not current formal results.
+
 Quality uses one real pinned-Tester batch at the frozen author-style size; its
 wall time is diagnostic only and cannot be used as BS1 `Time`. The separate
 timing probe invokes only original-instance BS=1 calls and validates every
@@ -116,10 +121,24 @@ run_lehd_author_result tsp 100 greedy "$LEHD_TSP100_DATASET" "$LEHD_TSP100_DATAS
 run_lehd_bs1_timing tsp 100 greedy "$LEHD_TSP100_DATASET" "$LEHD_TSP100_DATASET_SHA" "$LEHD_TSP_CHECKPOINT" "$LEHD_TSP_CHECKPOINT_SHA"
 ```
 
-Default timing samples are Greedy=5, RRC50=3, and RRC500=1. The old BS1
+Default timing samples are Greedy=5, RRC20=3, and RRC50=3. The old BS1
 fullset path below remains a strict diagnostic/legacy audit; the
 senior-approved baseline reproduction protocol supersedes its former
 full-dataset-BS1 quality requirement.
+
+## Verified legacy RRC50 rebind
+
+The old root is read-only. This command validates every RRC50 record, aggregate,
+asset hash, batch identity, source commit, and timing sample before writing
+current `more=RRC50` artifacts. It records the old solver commit separately and
+states that no solver execution occurred during rebind.
+
+```bash
+export LEHD_LEGACY_ROOT="$SERVER_ROOT/artifacts/neural-routing-baselines/lehd/6630301"
+python -B methods/lehd/rebind_rrc50.py \
+  --legacy-root "$LEHD_LEGACY_ROOT" \
+  --output-root "$LEHD_ARTIFACT_ROOT"
+```
 
 ## Phase 1: official native TSP1K/CVRP1K smoke
 
@@ -135,7 +154,7 @@ python -B methods/lehd/official_smoke.py --problem cvrp --problem-size 1000 --up
 Both artifacts must report `PASS`. This proves native parsing, strict checkpoint
 load, CUDA, and official inference compatibility only.
 
-## Phase 2: nine-size Greedy and RRC50 smoke
+## Phase 2: nine-size Greedy and RRC20 smoke
 
 ```bash
 run_lehd_smoke () {
@@ -164,7 +183,7 @@ run_lehd_smoke cvrp 2000 fewer "$LEHD_CVRP2000_DATASET" "$LEHD_CVRP2000_DATASET_
 
 Require all 18 summaries to be `KIT_VALIDATED`.
 
-## Phase 3: nine same-size RRC500 preflights
+## Phase 3: nine same-size RRC50 preflights
 
 ```bash
 run_lehd_more () {
@@ -182,7 +201,67 @@ run_lehd_more cvrp 1000 "$LEHD_CVRP1000_DATASET" "$LEHD_CVRP1000_DATASET_SHA" "$
 run_lehd_more cvrp 2000 "$LEHD_CVRP2000_DATASET" "$LEHD_CVRP2000_DATASET_SHA" "$LEHD_CVRP_CHECKPOINT" "$LEHD_CVRP_CHECKPOINT_SHA"
 ```
 
-Require all nine summaries to be `KIT_VALIDATED`.
+Require all nine summaries to be `KIT_VALIDATED`. These are current
+`more=RRC50`, not the historical RRC500 protocol.
+
+## Appendix parallel evaluation
+
+Measured rows use complete datasets, one real official `solve_batch` call per
+batch, CUDA-synchronized solver-only time, and validation outside timing. The
+formal measured matrix is TSP100/500/1000 BS128 and CVRP50/100/200 BS100 for
+both RRC20 and RRC50. The artifact stores raw values; the current LaTeX table
+renders Obj, Drop, Total, and Time to three decimal places, with Total expressed
+in human-readable seconds/minutes/hours.
+
+```bash
+run_lehd_parallel () {
+  problem="$1"; size="$2"; protocol="$3"; batch="$4"; dataset="$5"; dataset_sha="$6"; checkpoint="$7"; checkpoint_sha="$8"
+  python -B methods/lehd/parallel_eval.py \
+    --problem "$problem" --problem-size "$size" --protocol "$protocol" --batch-size "$batch" \
+    --dataset "$dataset" --expected-dataset-sha256 "$dataset_sha" \
+    --upstream "$LEHD_UPSTREAM" --checkpoint "$checkpoint" \
+    --expected-checkpoint-sha256 "$checkpoint_sha" --device cuda:0 \
+    --output "$LEHD_ARTIFACT_ROOT/parallel/${problem}${size}/${protocol}/bs${batch}"
+}
+
+run_lehd_parallel tsp 100 fewer 128 "$LEHD_TSP100_DATASET" "$LEHD_TSP100_DATASET_SHA" "$LEHD_TSP_CHECKPOINT" "$LEHD_TSP_CHECKPOINT_SHA"
+run_lehd_parallel tsp 500 fewer 128 "$LEHD_TSP500_DATASET" "$LEHD_TSP500_DATASET_SHA" "$LEHD_TSP_CHECKPOINT" "$LEHD_TSP_CHECKPOINT_SHA"
+run_lehd_parallel tsp 1000 fewer 128 "$LEHD_TSP1000_DATASET" "$LEHD_TSP1000_DATASET_SHA" "$LEHD_TSP_CHECKPOINT" "$LEHD_TSP_CHECKPOINT_SHA"
+run_lehd_parallel tsp 100 more 128 "$LEHD_TSP100_DATASET" "$LEHD_TSP100_DATASET_SHA" "$LEHD_TSP_CHECKPOINT" "$LEHD_TSP_CHECKPOINT_SHA"
+run_lehd_parallel tsp 500 more 128 "$LEHD_TSP500_DATASET" "$LEHD_TSP500_DATASET_SHA" "$LEHD_TSP_CHECKPOINT" "$LEHD_TSP_CHECKPOINT_SHA"
+run_lehd_parallel tsp 1000 more 128 "$LEHD_TSP1000_DATASET" "$LEHD_TSP1000_DATASET_SHA" "$LEHD_TSP_CHECKPOINT" "$LEHD_TSP_CHECKPOINT_SHA"
+run_lehd_parallel cvrp 50 fewer 100 "$LEHD_CVRP50_DATASET" "$LEHD_CVRP50_DATASET_SHA" "$LEHD_CVRP_CHECKPOINT" "$LEHD_CVRP_CHECKPOINT_SHA"
+run_lehd_parallel cvrp 100 fewer 100 "$LEHD_CVRP100_DATASET" "$LEHD_CVRP100_DATASET_SHA" "$LEHD_CVRP_CHECKPOINT" "$LEHD_CVRP_CHECKPOINT_SHA"
+run_lehd_parallel cvrp 200 fewer 100 "$LEHD_CVRP200_DATASET" "$LEHD_CVRP200_DATASET_SHA" "$LEHD_CVRP_CHECKPOINT" "$LEHD_CVRP_CHECKPOINT_SHA"
+run_lehd_parallel cvrp 50 more 100 "$LEHD_CVRP50_DATASET" "$LEHD_CVRP50_DATASET_SHA" "$LEHD_CVRP_CHECKPOINT" "$LEHD_CVRP_CHECKPOINT_SHA"
+run_lehd_parallel cvrp 100 more 100 "$LEHD_CVRP100_DATASET" "$LEHD_CVRP100_DATASET_SHA" "$LEHD_CVRP_CHECKPOINT" "$LEHD_CVRP_CHECKPOINT_SHA"
+run_lehd_parallel cvrp 200 more 100 "$LEHD_CVRP200_DATASET" "$LEHD_CVRP200_DATASET_SHA" "$LEHD_CVRP_CHECKPOINT" "$LEHD_CVRP_CHECKPOINT_SHA"
+```
+
+BS1 rows are generated only with the explicit derived flag. `Obj`/`Drop` come
+from the full quality artifact, `Time` from all three BS1 probe samples, and
+`Total=Time*dataset_count`; the result never claims a measured serial sweep.
+
+```bash
+run_lehd_derived_bs1 () {
+  problem="$1"; size="$2"; protocol="$3"
+  python -B methods/lehd/parallel_eval.py \
+    --problem "$problem" --problem-size "$size" --protocol "$protocol" --batch-size 1 \
+    --derive-bs1-from-verified-artifacts \
+    --quality-source "$LEHD_ARTIFACT_ROOT/author_batch/${problem}${size}/${protocol}" \
+    --timing-source "$LEHD_ARTIFACT_ROOT/bs1_timing/${problem}${size}/${protocol}.json" \
+    --output "$LEHD_ARTIFACT_ROOT/parallel/${problem}${size}/${protocol}/bs1"
+}
+
+for protocol in fewer more; do
+  run_lehd_derived_bs1 tsp 100 "$protocol"
+  run_lehd_derived_bs1 tsp 500 "$protocol"
+  run_lehd_derived_bs1 tsp 1000 "$protocol"
+  run_lehd_derived_bs1 cvrp 50 "$protocol"
+  run_lehd_derived_bs1 cvrp 100 "$protocol"
+  run_lehd_derived_bs1 cvrp 200 "$protocol"
+done
+```
 
 ## Legacy Phase 4: 27-cell BS1 fullset audit
 

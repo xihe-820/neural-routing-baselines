@@ -43,10 +43,12 @@ replacement. Subpath length is sampled by the official environment from the
 actual current problem size. There is no SIL PRC, random insertion, kNN, POMO,
 beam width, or fixed repair-length protocol in LEHD.
 
-The author reports several RRC budgets including 50 and 500. Mapping those to
-project labels `fewer` and `more` is recorded as
-`project_protocol_mapping_of_author_reported_budgets`; they are not called
-official fewer/more configurations.
+The current project mapping is `greedy=RRC0`, `fewer=RRC20`, and
+`more=RRC50`. RRC20 is a senior-approved project adaptation using the unchanged
+official RRC mechanism. RRC50 is an author-reported setting reclassified from
+the legacy project label `fewer` to `more`. RRC500 remains legacy extra-budget
+evidence and is not part of the current formal table. These project labels do
+not claim equivalence to SIL PRC budgets.
 
 ## RNG and warm-up
 
@@ -92,7 +94,13 @@ solutions only for Obj/Gap with independent and Kit validation. Its total wall
 time is diagnostic and explicitly not comparable to BS1 timing.
 
 `LEHD_TIMING_PROTOCOL = BS1_SMALL_SAMPLE`: `timing_probe.py` uses only BS=1,
-one isolated warm-up, and default sample counts Greedy=5, RRC50=3, RRC500=1.
+one isolated warm-up, and default sample counts Greedy=5, RRC20=3, RRC50=3.
 Its validation occurs outside the timed interval. The previous BS1 fullset
 runner remains strict diagnostic/legacy evidence and is not the required
 baseline-reproduction quality path.
+
+`rebind_rrc50.py` verifies every legacy RRC50 quality record, aggregate, asset,
+batch, source, and timing identity before generating current `more` artifacts.
+It preserves the original solver commit separately from the rebind commit and
+never claims a new GPU execution. `parallel_eval.py` supplies the independent
+appendix parallel matrix and an explicit provenance-bearing derived BS1 mode.

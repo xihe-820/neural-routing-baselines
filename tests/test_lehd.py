@@ -76,7 +76,12 @@ class LEHDConfigTests(unittest.TestCase):
             self.assertEqual(resolve_config(*key, "greedy")["config_origin"], origin)
 
     def test_protocols_are_exact_rrc_budgets(self):
-        self.assertEqual(RRC_BUDGETS, {"greedy": 0, "fewer": 50, "more": 500})
+        self.assertEqual(RRC_BUDGETS, {"greedy": 0, "fewer": 20, "more": 50})
+        origins = {
+            "greedy": "official_greedy_construction",
+            "fewer": "senior_approved_project_adaptation",
+            "more": "official_rrc50_reclassified_from_legacy_fewer",
+        }
         for problem, sizes in FORMAL_SIZES.items():
             for size in sizes:
                 for label, budget in RRC_BUDGETS.items():
@@ -86,8 +91,7 @@ class LEHDConfigTests(unittest.TestCase):
                     self.assertEqual(config["formal_gpu"], FORMAL_GPU)
                     self.assertNotIn("hardware_" + "protocol_pending", config)
                     self.assertNotIn("manuscript_" + "hardware_statement", config)
-                    self.assertEqual(config["budget_mapping_origin"],
-                                     "project_protocol_mapping_of_author_reported_budgets")
+                    self.assertEqual(config["budget_mapping_origin"], origins[label])
                     for forbidden in ("PRC", "random_insertion", "repair_max_sub_length",
                                       "pomo_size", "beam_width", "use_k_nearest"):
                         self.assertNotIn(forbidden, config)
@@ -137,7 +141,7 @@ class LEHDConfigTests(unittest.TestCase):
             ])
         payload = json.loads(stream.getvalue())
         self.assertEqual(result, 0)
-        self.assertEqual(payload["RRC_budget"], 500)
+        self.assertEqual(payload["RRC_budget"], 50)
         self.assertEqual(payload["trained_on_size"], 100)
 
 
@@ -432,6 +436,7 @@ class LEHDAuthorBatchProtocolTests(unittest.TestCase):
         self.assertEqual(author_batch_slices(10, 4), [(0, 4), (4, 8), (8, 10)])
         self.assertEqual({key: timing_count(key, None) for key in FORMAL_PROTOCOLS},
                          TIMING_PROBE_COUNTS)
+        self.assertEqual(TIMING_PROBE_COUNTS, {"greedy": 5, "fewer": 3, "more": 3})
         with self.assertRaises(ValueError):
             timing_count("greedy", 0)
         author_source = Path("methods/lehd/author_batch_eval.py").read_text()

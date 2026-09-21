@@ -84,8 +84,14 @@ SIZE_REGISTRY = {
 
 PAPER_BUDGETS = {
     "greedy": 0,
-    "fewer": 50,
-    "more": 500,
+    "fewer": 20,
+    "more": 50,
+}
+
+BUDGET_ORIGINS = {
+    "greedy": "official_greedy_construction",
+    "fewer": "senior_approved_project_adaptation",
+    "more": "official_prc50_reclassified_from_legacy_fewer",
 }
 
 AUTHOR_BATCH_REGISTRY = {
@@ -115,7 +121,7 @@ AUTHOR_BATCH_REGISTRY = {
     },
 }
 
-TIMING_PROBE_COUNTS = {"greedy": 5, "fewer": 3, "more": 1}
+TIMING_PROBE_COUNTS = {"greedy": 5, "fewer": 3, "more": 3}
 
 
 def effective_repair_max(problem_size: int, nominal_max: int = 1000) -> int:
@@ -159,7 +165,11 @@ def resolve_config(problem: str, problem_size: int, budget: str,
         "evaluation_mapping": (
             "diagnostic official native greedy path" if is_diagnostic else
             "manuscript SIL (Greedy) using official pure greedy path" if is_greedy else
-            f"project mapping to paper-reported PRC{PAPER_BUDGETS[budget]}"
+            "senior-approved project PRC20 adaptation" if budget == "fewer" else
+            "official SIL PRC50 reclassified from legacy project label fewer"
+        ),
+        "budget_mapping_origin": (
+            "diagnostic" if is_diagnostic else BUDGET_ORIGINS[budget]
         ),
         "random_insertion": not is_greedy,
         "PRC": True,

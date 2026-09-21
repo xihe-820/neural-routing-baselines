@@ -83,10 +83,12 @@ value unchanged. The retained tensor is cloned after CUDA-synchronized timing.
 
 The paper's synthetic Table 1 reports greedy and PRC10, PRC50, PRC100, PRC500,
 and PRC1000 for both TSP and CVRP. It states that PRC uses random insertion for
-initial solutions. Both PRC50 and PRC500 are therefore author-reported settings
-within the same algorithmic pipeline. This project maps `fewer=PRC50` and
-`more=PRC500`. This mapping is a project evaluation policy; the authors did not
-name these settings “fewer” and “more”. `PROTOCOL_PENDING` is false. Formal
+initial solutions. The current project maps `fewer=PRC20` and `more=PRC50`.
+PRC20 is a senior-approved project adaptation within the unchanged official PRC
+mechanism; it is not a row directly reported by the SIL paper. PRC50 is an
+officially reported budget reclassified from the legacy project label `fewer`
+to `more`. PRC500 is retained only as legacy extra-budget evidence. The authors
+did not name these settings “fewer” and “more”. `PROTOCOL_PENDING` is false. Formal
 `greedy` uses budget 0, no random insertion, and no kNN; `greedy_diagnostic`
 remains a separate non-paper native-smoke identity.
 
@@ -103,9 +105,14 @@ solutions only for Obj/Gap with independent and Kit validation. Its total wall
 time is diagnostic and explicitly not comparable to BS1 timing.
 
 `SIL_TIMING_PROTOCOL = BS1_SMALL_SAMPLE`: `timing_probe.py` uses only BS=1,
-one RNG-restored warm-up, and default sample counts Greedy=5, PRC50=3, PRC500=1.
+one RNG-restored warm-up, and default sample counts Greedy=5, PRC20=3, PRC50=3.
 Its validation occurs outside the timed interval. Both paths require a single
 NVIDIA RTX 4090. The previous BS1 fullset remains strict diagnostic/legacy
 evidence and is not the required baseline-reproduction quality path. Server
 smoke must establish Python 3.11 / Torch 2.5 compatibility; the official README
 only documents Python 3.8.6 and Torch 1.12.1.
+
+`rebind_prc50.py` verifies the complete legacy PRC50 quality and timing evidence
+before generating current `more` artifacts. Solver-execution and protocol-rebind
+commits remain separate, and the derived artifact explicitly states that no GPU
+solver execution occurred during rebinding.
