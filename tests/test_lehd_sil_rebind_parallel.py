@@ -13,9 +13,13 @@ from common.protocol_rebind import (GENERATION_MODE, LEGACY_SOLVER_COMMIT,
 from methods.lehd.parallel_eval import (DERIVED_MODE, batch_ranges,
                                         derive_bs1_summary, parallel_scope,
                                         summarize_measured)
-from methods.lehd.rebind_rrc50 import _legacy_quality_protocol as lehd_legacy_protocol
+from methods.lehd.rebind_rrc50 import (
+    LEGACY_RRC50_BATCH_OVERRIDES, _legacy_batch_size,
+    _legacy_quality_protocol as lehd_legacy_protocol,
+    build_plan as build_lehd_rebind_plan)
 from methods.sil.rebind_prc50 import _legacy_quality_protocol as sil_legacy_protocol
-from methods.lehd.config import resolve_author_batch_config as lehd_author_config
+from methods.lehd.config import (AUTHOR_BATCH_REGISTRY as LEHD_AUTHOR_BATCH_REGISTRY,
+                                 resolve_author_batch_config as lehd_author_config)
 from methods.sil.config import resolve_author_batch_config as sil_author_config
 
 
@@ -26,13 +30,19 @@ UPSTREAMS = {
 
 
 class ArtifactFixture:
-    def __init__(self, root: Path, method: str):
+    def __init__(self, root: Path, method: str, *, problem: str = "tsp",
+                 size: int = 3, count: int = 3, batch_size: int = 2,
+                 dataset_name: str = "fixture.pkl",
+                 checkpoint_name: str = "fixture.pt",
+                 protocol: dict | None = None):
+        root.mkdir(parents=True, exist_ok=True)
         self.root, self.method = root, method
-        self.problem, self.size, self.count, self.batch_size = "tsp", 3, 3, 2
+        self.problem, self.size = problem, int(size)
+        self.count, self.batch_size = int(count), int(batch_size)
         self.label_key = "protocol_label" if method == "LEHD" else "budget_label"
         self.budget_key = "RRC_budget" if method == "LEHD" else "budget"
-        self.dataset_name = "fixture.pkl"
-        self.checkpoint_name = "fixture.pt"
+        self.dataset_name = dataset_name
+        self.checkpoint_name = checkpoint_name
         self.dataset = root / self.dataset_name
         self.checkpoint = root / self.checkpoint_name
         self.dataset.write_bytes(b"dataset")
@@ -44,10 +54,10 @@ class ArtifactFixture:
         self.upstream = {"commit": UPSTREAMS[method], "dirty": False,
                          "url": "https://github.com/example/upstream"}
         self.source_files = [{"path": "runner.py", "sha256": "a" * 64}]
-        self.protocol = {
-            "method": method, "problem": "TSP", "actual_problem_size": self.size,
-            self.label_key: "fewer", self.budget_key: 50,
-            "solver_semantics": "frozen",
+        self.protocol = deepcopy(protocol) if protocol is not None else {
+            "method": method, "problem": self.problem.upper(),
+            "actual_problem_size": self.size, self.label_key: "fewer",
+            self.budget_key: 50, "solver_semantics": "frozen",
         }
         self.quality_dir = root / "quality"
         self.timing_path = root / "timing.json"
@@ -57,7 +67,7 @@ class ArtifactFixture:
     def _record(self, index: int, runtime: float | None = None) -> dict:
         objective, reference = float(index + 2), float(index + 1)
         row = {
-            "dataset_instance_index": index, "problem": "TSP",
+            "dataset_instance_index": index, "problem": self.problem.upper(),
             "problem_size": self.size, "evidence_status": "KIT_VALIDATED",
             "independent_feasible": True, "kit_feasible": True,
             "official_vs_independent": {"pass": True},
@@ -89,7 +99,8 @@ class ArtifactFixture:
         gaps = [row["gap_percent"] for row in records]
         summary = {
             "status": "KIT_VALIDATED", "artifact_class": "baseline_result_reproduction",
-            "method": self.method, "problem": "TSP", "problem_size": self.size,
+            "method": self.method, "problem": self.problem.upper(),
+            "problem_size": self.size,
             "protocol": "fewer", self.budget_key: 50,
             "failed_count": 0, "validated_count": self.count,
             "paper_result_eligible_for_quality": True, "timing_column_eligible": False,
@@ -99,7 +110,11 @@ class ArtifactFixture:
             "mean_instance_gap_percent": sum(gaps) / self.count,
             "batch_size_requested": self.batch_size,
             "original_instance_batch_size": self.batch_size,
-            "effective_batch_sizes": [2, 1], "number_of_batches": 2,
+            "effective_batch_sizes": [
+                min(self.batch_size, self.count - start)
+                for start in range(0, self.count, self.batch_size)
+            ],
+            "number_of_batches": len(range(0, self.count, self.batch_size)),
             "total_wall_time_seconds": 2.0, "project": self.project,
             "upstream": self.upstream, "source_files": self.source_files,
         }
@@ -110,7 +125,8 @@ class ArtifactFixture:
         runtimes = [1.0, 2.0, 3.0]
         summary = {
             "status": "KIT_VALIDATED", "artifact_class": "baseline_bs1_timing_probe",
-            "method": self.method, "problem": "TSP", "problem_size": self.size,
+            "method": self.method, "problem": self.problem.upper(),
+            "problem_size": self.size,
             "protocol": "fewer", self.budget_key: 50,
             "original_instance_batch_size": 1, "count": 3, "validated_count": 3,
             "failed_count": 0, "timing_column_eligible": True,
@@ -146,6 +162,29 @@ class ArtifactFixture:
             upstream_commit=UPSTREAMS[self.method],
             dataset_sha256=quality["dataset"]["sha256"],
             checkpoint_sha256=quality["checkpoint"]["sha256"])
+
+
+LEGACY_CVRP2000_OVERRIDE_REASON = (
+    "RTX 4090 author batch 100 CUDA OOM; explicitly approved batch 50 retry"
+)
+
+
+def make_legacy_cvrp2000_fixture(root: Path):
+    legacy_root = root / "legacy"
+    staging = root / "staging"
+    protocol = lehd_legacy_protocol(
+        "cvrp", 2000, LEGACY_CVRP2000_OVERRIDE_REASON)
+    fixture = ArtifactFixture(
+        staging, "LEHD", problem="cvrp", size=2000, count=100, batch_size=50,
+        dataset_name="cvrp2000_hgs-360s_57.181.pkl",
+        checkpoint_name="checkpoint-40.pt", protocol=protocol)
+    quality = legacy_root / "author_batch/cvrp2000/fewer"
+    timing = legacy_root / "bs1_timing/cvrp2000/fewer.json"
+    quality.parent.mkdir(parents=True)
+    timing.parent.mkdir(parents=True)
+    fixture.quality_dir.rename(quality)
+    fixture.timing_path.rename(timing)
+    return legacy_root, quality
 
 
 class VerifiedRebindTests(unittest.TestCase):
@@ -278,6 +317,100 @@ class VerifiedRebindTests(unittest.TestCase):
                     current_project={"commit": "new", "dirty": False},
                     label_key="protocol_label", budget_key="RRC_budget",
                     rebind_source_files=[{"path": "x", "sha256": "a" * 64}])
+
+    def test_lehd_cvrp2000_legacy_bs50_override_rebinds_with_exact_provenance(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            legacy_root, _ = make_legacy_cvrp2000_fixture(root)
+            plan = build_lehd_rebind_plan(
+                legacy_root=legacy_root, output_root=root / "output",
+                problem="cvrp", problem_size=2000,
+                current_project={"commit": "current", "dirty": False},
+                rebind_source_files=[{"path": "rebind.py", "sha256": "b" * 64}])
+            self.assertEqual(len(plan), 1)
+            cell = plan[0]
+            self.assertEqual(cell["quality"]["summary"]["batch_size_requested"], 50)
+            self.assertEqual(cell["quality"]["summary"]["effective_batch_sizes"], [50, 50])
+            self.assertEqual(cell["quality"]["summary"]["number_of_batches"], 2)
+            self.assertEqual(cell["quality"]["metadata"]["protocol"]["author_batch_size"], 100)
+            self.assertEqual(cell["current_quality_protocol"]["author_batch_size"], 100)
+            self.assertEqual(cell["current_quality_protocol"]["batch_size_requested"], 100)
+            write_rebound_artifacts(
+                quality=cell["quality"], timing=cell["timing"],
+                quality_destination=cell["quality_destination"],
+                timing_destination=cell["timing_destination"],
+                current_quality_protocol=cell["current_quality_protocol"],
+                current_timing_protocol=cell["current_timing_protocol"],
+                current_project=cell["current_project"], label_key="protocol_label",
+                budget_key="RRC_budget", rebind_source_files=cell["rebind_source_files"],
+                preserve_solver_execution_batch_identity=True)
+            metadata = json.loads(
+                (cell["quality_destination"] / "metadata.json").read_text())
+            summary = json.loads(
+                (cell["quality_destination"] / "summary.json").read_text())
+            expected = {
+                "author_batch_size": 100,
+                "batch_size_requested": 50,
+                "original_instance_batch_size": 50,
+                "effective_batch_sizes": [50, 50],
+                "number_of_batches": 2,
+                "batch_override_reason": LEGACY_CVRP2000_OVERRIDE_REASON,
+            }
+            self.assertEqual(metadata["solver_execution_batch_identity"], expected)
+            self.assertEqual(summary["solver_execution_batch_identity"], expected)
+            self.assertEqual(
+                metadata["derived_from"]["solver_execution_batch_identity"], expected)
+            self.assertEqual(metadata["protocol"]["batch_size_requested"], 100)
+            self.assertEqual(summary["batch_size_requested"], 50)
+
+    def test_lehd_cvrp2000_legacy_bs100_claim_conflicting_with_protocol_fails(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            legacy_root, quality = make_legacy_cvrp2000_fixture(root)
+            path = quality / "summary.json"
+            summary = json.loads(path.read_text())
+            summary.update({
+                "batch_size_requested": 100,
+                "original_instance_batch_size": 100,
+                "effective_batch_sizes": [100],
+                "number_of_batches": 1,
+            })
+            path.write_text(json.dumps(summary))
+            with self.assertRaisesRegex(ValueError, "batch mapping mismatch"):
+                build_lehd_rebind_plan(
+                    legacy_root=legacy_root, output_root=root / "output",
+                    problem="cvrp", problem_size=2000,
+                    current_project={"commit": "current", "dirty": False},
+                    rebind_source_files=[])
+
+    def test_lehd_cvrp2000_override_reason_is_required_and_semantic(self):
+        for reason in (None, "", "manual batch override"):
+            with self.subTest(reason=reason), tempfile.TemporaryDirectory() as temp:
+                root = Path(temp)
+                legacy_root, quality = make_legacy_cvrp2000_fixture(root)
+                path = quality / "metadata.json"
+                metadata = json.loads(path.read_text())
+                metadata["protocol"]["batch_override_reason"] = reason
+                path.write_text(json.dumps(metadata))
+                with self.assertRaisesRegex(ValueError, "override reason"):
+                    build_lehd_rebind_plan(
+                        legacy_root=legacy_root, output_root=root / "output",
+                        problem="cvrp", problem_size=2000,
+                        current_project={"commit": "current", "dirty": False},
+                        rebind_source_files=[])
+
+    def test_lehd_legacy_batch_override_is_isolated_to_cvrp2000(self):
+        self.assertEqual(LEGACY_RRC50_BATCH_OVERRIDES,
+                         {("cvrp", 2000): {"batch_size": 50}})
+        for key, entry in LEHD_AUTHOR_BATCH_REGISTRY.items():
+            protocol = (lehd_legacy_protocol(*key, LEGACY_CVRP2000_OVERRIDE_REASON)
+                        if key == ("cvrp", 2000) else lehd_legacy_protocol(*key))
+            expected = 50 if key == ("cvrp", 2000) else entry["batch_size"]
+            self.assertEqual(_legacy_batch_size(*key), expected)
+            self.assertEqual(protocol["batch_size_requested"], expected)
+            self.assertEqual(protocol["author_batch_size"], entry["batch_size"])
+        with self.assertRaisesRegex(ValueError, "not allowed"):
+            lehd_legacy_protocol("tsp", 100, LEGACY_CVRP2000_OVERRIDE_REASON)
 
 
 class LEHDParallelTests(unittest.TestCase):

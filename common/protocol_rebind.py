@@ -259,11 +259,26 @@ def _derived_from(quality: dict, timing: dict) -> dict:
     }
 
 
+def _solver_execution_batch_identity(quality: dict) -> dict:
+    """Retain the verified legacy batch execution without relabelling it."""
+    protocol = quality["metadata"]["protocol"]
+    summary = quality["summary"]
+    return {
+        "author_batch_size": protocol.get("author_batch_size"),
+        "batch_size_requested": summary.get("batch_size_requested"),
+        "original_instance_batch_size": summary.get("original_instance_batch_size"),
+        "effective_batch_sizes": deepcopy(summary.get("effective_batch_sizes")),
+        "number_of_batches": summary.get("number_of_batches"),
+        "batch_override_reason": protocol.get("batch_override_reason"),
+    }
+
+
 def write_rebound_artifacts(
         *, quality: dict, timing: dict, quality_destination: Path,
         timing_destination: Path, current_quality_protocol: dict,
         current_timing_protocol: dict, current_project: dict,
-        label_key: str, budget_key: str, rebind_source_files: list[dict]) -> None:
+        label_key: str, budget_key: str, rebind_source_files: list[dict],
+        preserve_solver_execution_batch_identity: bool = False) -> None:
     quality_destination = Path(quality_destination)
     timing_destination = Path(timing_destination)
     if quality_destination.exists() or timing_destination.exists():
@@ -272,6 +287,10 @@ def write_rebound_artifacts(
     if current_project["commit"] == LEGACY_SOLVER_COMMIT:
         raise ValueError("protocol rebind must run from the new reviewed project commit")
     derived = _derived_from(quality, timing)
+    execution_batch = None
+    if preserve_solver_execution_batch_identity:
+        execution_batch = _solver_execution_batch_identity(quality)
+        derived["solver_execution_batch_identity"] = deepcopy(execution_batch)
     metadata = deepcopy(quality["metadata"])
     metadata.update({
         "schema": f"{quality['summary']['method'].lower()}-verified-protocol-rebind.v1",
@@ -303,6 +322,9 @@ def write_rebound_artifacts(
         "source_files": deepcopy(rebind_source_files),
         "official_source_modified": False,
     })
+    if execution_batch is not None:
+        metadata["solver_execution_batch_identity"] = deepcopy(execution_batch)
+        summary["solver_execution_batch_identity"] = deepcopy(execution_batch)
     timing_summary = deepcopy(timing["summary"])
     timing_summary.update({
         "schema": f"{quality['summary']['method'].lower()}-verified-timing-rebind.v1",
