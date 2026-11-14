@@ -50,9 +50,16 @@ def _clear_official_namespaces():
 
 def build_tester(*, problem: str, problem_size: int, budget_label: str,
                  upstream: Path, checkpoint: Path, device, torch,
-                 allow_diagnostic: bool = False):
+                 allow_diagnostic: bool = False,
+                 rebuttal_prc_budget: int | None = None):
     config = resolve_config(
         problem, problem_size, budget_label, allow_diagnostic=allow_diagnostic)
+    if rebuttal_prc_budget is not None:
+        if (problem, problem_size, budget_label, allow_diagnostic) != (
+                "tsp", 2000, "fewer", False):
+            raise ValueError("rebuttal PRC override is limited to TSP2K PRC inference")
+        from rebuttal.tsp2k.config import solver_config
+        config = solver_config("SIL", rebuttal_prc_budget)
     _clear_official_namespaces()
     upstream = Path(upstream).resolve()
     sys.path.insert(0, str(upstream))
