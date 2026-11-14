@@ -1,22 +1,27 @@
 # TSP-2K runtime–quality rebuttal experiment
 
-Local development is split into two worktrees from the same baseline repository:
+Deployment uses two independent worktrees from
+`https://github.com/xihe-820/neural-routing-baselines.git`:
 
-| Branch | Base | Solver implementation |
+| Remote branch | Reviewed implementation commit | Solver implementation |
 | --- | --- | --- |
-| rebuttal/tsp2k-glop-udc | master@395070d19ce53c798db629acf70fecdeb18f59b9 | unchanged formal GLOP / UDC |
-| rebuttal/tsp2k-sil | feat/lehd@cc4d017ae00c1ab1c4099e034e6ee819e139d3bd | existing SIL, explicit PRC constructor option |
+| master | efcc54188586d2a52f6f053cda781b3444258833 | unchanged formal GLOP / UDC |
+| feat/lehd | 5f536663e5c0b296c42fb6f9dc8e1259d7b4ec8e | existing SIL, explicit PRC constructor option |
 
 The shared `rebuttal/tsp2k/` modules and regression tests are identical in both
-worktrees. The SIL branch contains the aggregation/plot entrypoints used for all
-three methods. No branch was merged and no production registry was edited.
+worktrees. These commits are the reviewed bases preceding the warmup correction.
+Use the exact corrected commit SHAs from the patch delivery as TSP2K_GU_SHA and
+TSP2K_SIL_SHA in SERVER_RUNBOOK.md, then create detached worktrees. The local
+rebuttal branch names are not remote deployment branches. The feat/lehd worktree
+contains the aggregation/plot entrypoints used for all three methods.
+No branch merge or production-registry change is required.
 
 Reviewed manuscript: `D:\\Downloads\\ICLR-2027 RS4CO Rebuttal.md`, SHA256
 `a0b97fa9b7f6c2843f6137604e04a450a39cf6c26475fbdd416dd20b123dedb6`.
 Read in full locally. Reviewer Yj3H 3.1 requests runtime/quality curves; section
 3.2 W1 is currently an empty response. No manuscript text was modified.
 
-2026-11-14 remote audit: baseline master=395070d, feat/lehd=cc4d017,
+Initial source audit before publication: master=395070d, feat/lehd=cc4d017,
 feat/sil=0a5036a after successful fetch. master is ancestor of feat/lehd.
 The latter adds/changes 83 files, including unrelated baselines: merging it into
 master would exceed this experiment. RS4CO HTTPS fetch failed authentication;
@@ -52,7 +57,10 @@ models and after inference. Review that lock before GPU preflight.
   are unchanged, including the required mode/test and sqrt_embedding_dim keys.
   Fullset quality is one native original-instance BS64 solve. Independent
   BS1 timing uses indices [0,1,2], with its own freshly seeded tester and one
-  RNG-neutral warmup. Calibration uses indices [0,1] in both paths.
+  RNG-neutral BS1 solve_one warmup, matching timing_probe.py. Quality executes
+  directly without warmup, matching author_batch_eval.py; this also applies to
+  calibration quality. Calibration uses indices [0,1] in both paths.
+  Metadata records warmup separately for quality (0 batches) and timing (1 BS1 batch).
   Quality runtimes are null; no division of batch wall time is used.
 
 Every actual tour is checked using original task coordinates, independently

@@ -18,6 +18,12 @@ from rebuttal.tsp2k.config import COUNT, SWEEPS, protocol
 
 ROOT = Path(__file__).resolve().parents[2]
 
+SIL_WARMUP_POLICY = {
+    "quality": {"batches": 0},
+    "timing": {"batches": 1, "original_instance_batch_size": 1,
+               "rng_state_restored": True, "excluded_from_timing": True},
+}
+
 
 def validated(task, index, canonical, official, runtime=None, **extra):
     canonical = np.asarray(canonical, dtype=np.int64).tolist()
@@ -122,13 +128,13 @@ def sil_execute(tasks, config, spec, torch, device, indices, writer):
     # Separate official tester construction resets the same official seed for each path.
     for role, selected in (("quality", indices), ("timing", writer.identity["timing_indices"])):
         current = tester()
-        warm_indices = indices if role == "quality" else [0]
-        warm = prepare_batch("tsp", [tasks[i] for i in warm_indices], 2000,
-                             device=device, torch=torch)
-        run_rng_preserving_warmup(
-            lambda: solve_batch(current, problem="tsp", problem_size=2000,
-                batch_size=len(warm_indices), inject=warm["inject"], device=device,
-                torch=torch, timed=False), torch=torch)
+        if role == "timing":
+            warm = prepare_batch("tsp", [tasks[0]], 2000,
+                                 device=device, torch=torch)
+            run_rng_preserving_warmup(
+                lambda: solve_one(current, problem="tsp", problem_size=2000,
+                    inject=warm["inject"], device=device, torch=torch,
+                    timed=False), torch=torch)
         groups = [selected] if role == "quality" else [[i] for i in selected]
         for group in groups:
             prepared = prepare_batch("tsp", [tasks[i] for i in group], 2000,
@@ -217,8 +223,7 @@ def main(argv=None, *, method=None):
                       cuda_allocator=CUDA_ALLOCATOR_PROVENANCE)
     else:
         from methods.sil.paper_results import TIMING_SEMANTICS
-        timing.update(semantics=TIMING_SEMANTICS, warmup_batches=1,
-                      warmup_rng_restored=True)
+        timing.update(semantics=TIMING_SEMANTICS, warmup=SIL_WARMUP_POLICY)
     identity = {
         **config, "phase": args.phase, "requested_count": len(indices),
         "dataset_indices": indices, "timing_indices": timing_indices,
