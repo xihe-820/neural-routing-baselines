@@ -1,5 +1,10 @@
 # Server runbook — TSP2K runtime/quality curves
 
+For the isolated extended UDC experiment use
+[UDC_EXTENDED_RUNBOOK.md](UDC_EXTENDED_RUNBOOK.md). This original three-method
+workflow is retained for the already running GLOP/SIL fullsets; do not rerun or
+overwrite those jobs to extend UDC.
+
 Commands are run manually by the user in cp311_base. The remote repository is
 xihe-820/neural-routing-baselines: GLOP/UDC is on master (reviewed base
 efcc54188586d2a52f6f053cda781b3444258833); SIL is on feat/lehd (reviewed base

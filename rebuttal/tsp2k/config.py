@@ -4,7 +4,7 @@ from copy import deepcopy
 DATASET = "tsp2000_lkh_500_32.436.pkl"
 COUNT = 64
 GLOP_SWEEP = {i: [20*i, 25*i, 5*i] for i in range(1, 7)}
-UDC_SWEEP = (1, 2, 5, 10, 20, 50)
+UDC_SWEEP = (1, 2, 5, 10, 20, 50, 100, 150, 200, 250, 300)
 SIL_SWEEP = (1, 2, 5, 10)
 SWEEPS = {"GLOP": tuple(GLOP_SWEEP), "UDC": UDC_SWEEP, "SIL": SIL_SWEEP}
 UPSTREAMS = {

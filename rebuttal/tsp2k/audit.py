@@ -89,7 +89,41 @@ def verify_lock(lock, method, root):
             if gate(Path(gates[name]["path"])) != gates[name]:
                 raise ValueError("UDC authoritative evidence changed after audit")
         checkpoint_gate(Path(spec["supplemental_root"]), "tsp")
+    if "reference_lock" in lock:
+        verify_reference_lock(lock)
     return spec
+
+
+def verify_reference_lock(lock):
+    reference = lock["reference_lock"]
+    if sha256_file(reference["path"]) != reference["sha256"]:
+        raise ValueError("original asset lock bytes changed")
+    old = json.loads(Path(reference["path"]).read_text())
+    expected = {"GLOP": "14a3ebd6d3d2a6c7d371487bc1895a1ebb639fe7",
+                "UDC": "14a3ebd6d3d2a6c7d371487bc1895a1ebb639fe7",
+                "SIL": "c51d1edae0fbaadf7d8af1993da6ca3517404c9a"}
+    if old.get("schema") != "tsp2k-asset-lock.v1" or any(
+            old["projects"][method]["commit"] != commit for method, commit in expected.items()):
+        raise ValueError("reference lock is not the reviewed original experiment")
+    for key in ("sha256", "count", "reference_objectives_sha256"):
+        if old["dataset"][key] != lock["dataset"][key]:
+            raise ValueError(f"original dataset/reference identity changed: {key}")
+    for method in expected:
+        original_source, new_source = (old["methods"][method]["upstream"],
+                                       lock["methods"][method]["upstream"])
+        same_source = (
+            original_source.get("dirty") is False and new_source.get("dirty") is False and
+            original_source["commit"] == new_source["commit"] and
+            normalize_git_repository_identity(original_source["url"]) ==
+            normalize_git_repository_identity(new_source["url"]))
+        if (not same_source or
+                [a["sha256"] for a in old["methods"][method]["assets"]] !=
+                [a["sha256"] for a in lock["methods"][method]["assets"]]):
+            raise ValueError(f"original {method} official source/checkpoint identity changed")
+    if (lock["projects"]["UDC"]["commit"] == expected["UDC"] or
+            lock["projects"]["SIL"]["commit"] == expected["SIL"]):
+        raise ValueError("extended experiment requires both new reviewed worktree commits")
+    return old
 
 
 def main(argv=None):
@@ -101,6 +135,7 @@ def main(argv=None):
         parser.add_argument(f"--{name}-upstream", type=Path)
     parser.add_argument("--sil-checkpoint", type=Path)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--reference-lock", type=Path)
     args = parser.parse_args(argv)
     if args.output.exists():
         raise ValueError("audit output exists; retain historical lock")
@@ -221,7 +256,7 @@ def main(argv=None):
         if (summary.get("method"), summary.get("problem"), summary.get("problem_size"),
                 summary.get("budget")) == ("SIL", "TSP", 2000, 10):
             historical["SIL_timing"].append(str(path))
-    write_json(args.output, {
+    result = {
         "schema": "tsp2k-asset-lock.v1", "dataset": dataset, "methods": methods,
         "projects": projects, "search_roots": list(map(str, roots)),
         "environment": {"python": sys.version, "executable": sys.executable,
@@ -230,7 +265,21 @@ def main(argv=None):
         "gpu_status": "PENDING_RUNTIME_PREFLIGHT",
         "historical_reuse": "PENDING_EXPLICIT_ARTIFACT_AUDIT",
         "historical_candidates": historical,
-    })
+    }
+    if args.reference_lock is not None:
+        result["reference_lock"] = {"path": str(args.reference_lock.resolve()),
+                                    "sha256": sha256_file(args.reference_lock)}
+        verify_reference_lock(result)
+        # Inventory only: no model, solver, forward or training is invoked.
+        import torch
+        from common.provenance import environment_provenance
+        if (not torch.cuda.is_available() or torch.cuda.device_count() != 1 or
+                "RTX 4090" not in torch.cuda.get_device_name(0)):
+            raise ValueError("extended inventory requires one visible RTX 4090")
+        result["environment"] = environment_provenance(torch.device("cuda:0"))
+        result["gpu_status"] = "VERIFIED_RTX4090_INVENTORY"
+        result["dataset"]["reference_objectives"] = refs
+    write_json(args.output, result)
     print(args.output)
 
 

@@ -170,6 +170,9 @@ def main(argv=None, *, method=None):
     parser.add_argument("--asset-lock", type=Path)
     parser.add_argument("--output-dir", type=Path)
     parser.add_argument("--dump-config", action="store_true")
+    parser.add_argument("--experiment-stage", choices=["preflight", "calibration", "fullset"])
+    parser.add_argument("--evidence-root", type=Path)
+    parser.add_argument("--calibration-report", type=Path)
     args = parser.parse_args(argv)
     method = method or args.method
     config = protocol(method, args.budget)
@@ -188,7 +191,19 @@ def main(argv=None, *, method=None):
         raise ValueError("new output must be outside source checkout and must not exist")
     lock = json.loads(args.asset_lock.read_text())
     spec = verify_lock(lock, method, ROOT)
+    stage_evidence = None
     if method == "UDC":
+        from rebuttal.tsp2k.udc_extended import stage_gate
+        if args.experiment_stage is None or args.evidence_root is None:
+            raise ValueError("extended UDC execution requires an explicit gated stage and evidence root")
+        expected_phase = "fullset" if args.experiment_stage == "fullset" else "calibration"
+        if args.phase != expected_phase or len(indices) != (64 if expected_phase == "fullset" else 2):
+            raise ValueError("UDC stage requires exact two-instance calibration or 64-instance fullset")
+        expected_output = args.evidence_root.resolve() / args.experiment_stage / "UDC" / str(args.budget)
+        if output != expected_output:
+            raise ValueError("UDC output does not match its explicit stage and budget")
+        stage_evidence = stage_gate(args.experiment_stage, args.evidence_root,
+                                    args.asset_lock, args.calibration_report)
         from methods.udc.paper_production import cuda_allocator_gate
         cuda_allocator_gate()  # Must precede importing Torch.
     import torch
@@ -239,6 +254,10 @@ def main(argv=None, *, method=None):
         "source_provenance": sources, "timing": timing,
         "evidence_kind": "SERVER_MEASUREMENT",
     }
+    if method == "UDC":
+        identity.update(experiment_stage=args.experiment_stage,
+                        udc_evidence_root=str(args.evidence_root.resolve()),
+                        stage_evidence=stage_evidence)
     writer = Writer(output, identity)
     try:
         {"GLOP": glop_execute, "UDC": udc_execute, "SIL": sil_execute}[method](

@@ -393,7 +393,7 @@ class DelegationTests(unittest.TestCase):
             lock = Path(temp) / "lock.json"
             write_json(lock, {"projects": {m: {"path": f"/source/{m}"} for m in SWEEPS}})
             jobs = commands(lock, Path(temp), "calibration")
-            self.assertEqual(len(jobs), 16)
+            self.assertEqual(len(jobs), 21)
             for command in jobs:
                 self.assertIn("--budget", command)
                 self.assertEqual(command[command.index("--count")+1], "2")
@@ -434,7 +434,7 @@ class AggregationTests(unittest.TestCase):
                 aggregate(paths, require_fullset=True)  # Synthetic rejected.
             with patch("rebuttal.tsp2k.aggregate.read_artifact", side_effect=self.measured_read):
                 report = aggregate(paths, require_fullset=True)
-                self.assertEqual(len(report["points"]), 16)
+                self.assertEqual(len(report["points"]), 21)
                 self.assertEqual(report["status"], "MEASURED_FULLSET")
                 for selected in (paths[:-1], paths + [paths[0]]):
                     with self.assertRaises(ValueError):

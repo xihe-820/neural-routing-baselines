@@ -12,7 +12,15 @@ def checked_report(path):
             report.get("evidence_kind") != "SERVER_MEASUREMENT" or
             report.get("status") != "MEASURED_FULLSET"):
         raise ValueError("only verified measured fullset artifacts may be plotted")
-    actual = aggregate([p["artifact_path"] for p in report["points"]], require_fullset=True)
+    if "artifact_manifest" in report:
+        from common.hashing import sha256_file
+        from rebuttal.tsp2k.manifest import verify_manifest
+        source = report["artifact_manifest"]
+        if sha256_file(source["path"]) != source["sha256"]:
+            raise ValueError("artifact manifest bytes changed")
+        actual, verification = verify_manifest(source["path"])
+    else:
+        actual = aggregate([p["artifact_path"] for p in report["points"]], require_fullset=True)
     if actual != report:
         raise ValueError("curve report differs from hash-verified measurement artifacts")
     return report
