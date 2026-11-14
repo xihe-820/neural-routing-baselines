@@ -78,14 +78,23 @@ def aggregate(directories, *, require_fullset=False):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--artifact-root", type=Path, required=True)
+    inputs = parser.add_mutually_exclusive_group(required=True)
+    inputs.add_argument("--artifact-root", type=Path)
+    inputs.add_argument("--manifest", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--require-fullset", action="store_true")
     args = parser.parse_args(argv)
-    if args.output.exists() or args.output.with_suffix(".csv").exists():
+    verification_path = args.output.with_name(args.output.stem + "_verification.json")
+    if (args.output.exists() or args.output.with_suffix(".csv").exists() or
+            (args.manifest is not None and verification_path.exists())):
         raise ValueError("aggregation output already exists")
-    directories = sorted(p.parent for p in args.artifact_root.glob("*/*/metadata.json"))
-    report = aggregate(directories, require_fullset=args.require_fullset)
+    if args.manifest is not None:
+        from rebuttal.tsp2k.manifest import verify_manifest
+        report, verification = verify_manifest(args.manifest)
+        write_json(verification_path, verification)
+    else:
+        directories = sorted(p.parent for p in args.artifact_root.glob("*/*/metadata.json"))
+        report = aggregate(directories, require_fullset=args.require_fullset)
     write_json(args.output, report)
     fields = ["method", "budget_parameter", "budget_value", "mean_objective",
               "mean_drop_percent", "mean_time_seconds", "quality_instance_count",

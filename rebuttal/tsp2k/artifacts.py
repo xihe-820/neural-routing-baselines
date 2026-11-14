@@ -35,8 +35,13 @@ def indices_for(phase, count=None):
 
 def check_identity(identity):
     config = protocol(identity["method"], identity["budget_value"])
-    if any(identity.get(k) != v for k, v in config.items()):
-        raise ValueError("budget/protocol fingerprint mismatch")
+    mismatches = [k for k, v in config.items() if identity.get(k) != v]
+    if mismatches:
+        actual_solver = identity.get("full_solver_config")
+        if "full_solver_config" in mismatches and isinstance(actual_solver, dict):
+            mismatches.extend("full_solver_config." + key for key, value in
+                              config["full_solver_config"].items() if actual_solver.get(key) != value)
+        raise ValueError("budget/protocol fingerprint mismatch: " + ", ".join(mismatches))
     dataset = identity["dataset"]
     if (dataset.get("count") != COUNT or Path(dataset.get("path", "")).name != DATASET or
             len(dataset.get("sha256", "")) != 64 or

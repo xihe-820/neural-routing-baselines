@@ -1,5 +1,14 @@
 # TSP-2K runtime–quality rebuttal experiment
 
+The UDC extension uses new independent branches
+`rebuttal/tsp2k-udc-extended-gu` and `rebuttal/tsp2k-udc-extended-sil`, based
+on 14a3ebd6d3d2a6c7d371487bc1895a1ebb639fe7 and
+c51d1edae0fbaadf7d8af1993da6ca3517404c9a respectively.
+Use [UDC_EXTENDED_RUNBOOK.md](UDC_EXTENDED_RUNBOOK.md) for new UDC-only stages
+and cross-commit manifest aggregation. Preserve the original GLOP/SIL worktrees,
+old asset lock and running fullset outputs. Original 16-point calibration is
+two-instance evidence only; x100–x300 runtime/memory remain unverified.
+
 Deployment uses two independent worktrees from
 `https://github.com/xihe-820/neural-routing-baselines.git`:
 
@@ -43,7 +52,7 @@ models and after inference. Review that lock before GPU preflight.
   seed/setup, shared-order builder, warmup and runtime accounting functions.
   Decoder/D2H remains inside that original timer. Order generation is charged
   once to dataset index zero; two RNG-neutral warmup instances.
-- UDC x=1,2,5,10,20,50: alpha=50, sub_size=100, configured/effective POMO=2,
+- UDC x=1,2,5,10,20,50,100,150,200,250,300: alpha=50, sub_size=100, configured/effective POMO=2,
   seed=1234, BS1, official supplemental checkpoints with existing exact hashes.
   Calls `s3_eval.solve_tsp(x_stages=x)`; unchanged production seed, allocator,
   inter-instance memory cleanup and timing semantics. No warmup. Authoritative
@@ -114,5 +123,10 @@ legacy results. Keep audited legacy sources and their execution commit if
 using them in an independently reviewed final result import. Until that audit
 is available, the prepared fullset commands explicitly remeasure every point.
 
-See SERVER_RUNBOOK.md for server setup, inventory, preflight, calibration,
-manual latency-only UDC selection, fullset and plots.
+SERVER_RUNBOOK.md describes the original three-method execution.
+The extension uses only udc_extended.py; it requires a new reference-bound lock,
+remeasures all 11 UDC budgets in preflight/calibration at the new execution SHA,
+and requires a manual latency-only fullset selection.
+manifest.py binds original GLOP/SIL and new UDC execution commits independently,
+checks source bytes against their historical Git snapshots and CPU-revalidates
+all 64 actual tours/references. It never relabels an old solver configuration.
