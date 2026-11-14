@@ -331,30 +331,62 @@ class DelegationTests(unittest.TestCase):
                 self.assertTrue(all(c.kwargs["capture_memory"] is False for c in solve.call_args_list))
 
     @unittest.skipUnless(HAS_SIL, "independent SIL worktree")
-    def test_sil_native64_batch_and_singleton_timing_calls(self):
+    def test_sil_quality_has_no_warmup_and_timing_has_bs1_warmup(self):
         from rebuttal.tsp2k.runner import sil_execute
         import methods.sil.runtime as native
         import methods.sil.author_batch_eval as helpers
-        writer = types.SimpleNamespace(identity={"timing_indices": [0, 1, 2]}, append=Mock())
-        config = solver_config("SIL", 5)
-        solved_batch = {"solutions": np.zeros((64, 2000)), "official_objectives": np.ones(64), "capture": {}}
-        solved_one = {"solution": np.zeros(2000), "official_objective": 1, "capture": {}, "runtime_seconds": 2}
-        with patch.object(native, "build_tester", return_value=(Mock(), config)) as build, \
-             patch.object(native, "run_rng_preserving_warmup"), \
-             patch.object(native, "solve_batch", return_value=solved_batch) as batched, \
-             patch.object(native, "solve_one", return_value=solved_one) as single, \
-             patch.object(helpers, "prepare_batch", return_value={"inject": Mock()}), \
-             patch.object(helpers, "validate_batch", side_effect=lambda problem, tasks, *a, **k:
-                 [{"canonical_solution": list(range(2000)), "official_objective": 1} for t in tasks]), \
-             patch("rebuttal.tsp2k.runner.validated", return_value=row(0)):
-            sil_execute([None]*64, config, {"upstream_path": "/SIL", "checkpoint": "/model"},
-                        Mock(), Mock(), list(range(64)), writer)
-        self.assertEqual(batched.call_count, 1)
-        self.assertEqual(batched.call_args.kwargs["batch_size"], 64)
-        self.assertFalse(batched.call_args.kwargs["timed"])
-        self.assertEqual(single.call_count, 3)
-        self.assertTrue(all(c.kwargs["timed"] for c in single.call_args_list))
-        self.assertTrue(all(c.kwargs["rebuttal_prc_budget"] == 5 for c in build.call_args_list))
+        for budget in SIL_SWEEP:
+            for count in (2, 64):
+                with self.subTest(budget=budget, count=count):
+                    timing_indices = list(range(min(3, count)))
+                    writer = types.SimpleNamespace(
+                        identity={"timing_indices": timing_indices}, append=Mock())
+                    config = solver_config("SIL", budget)
+                    quality_tester, timing_tester = Mock(), Mock()
+                    solved_one = {"solution": np.zeros(2000), "official_objective": 1,
+                                  "capture": {}, "runtime_seconds": 2}
+
+                    def quality_solve(tester, **kwargs):
+                        warmup.assert_not_called()
+                        self.assertIs(tester, quality_tester)
+                        self.assertEqual(kwargs["batch_size"], count)
+                        return {"solutions": np.zeros((count, 2000)),
+                                "official_objectives": np.ones(count), "capture": {}}
+
+                    with patch.object(native, "build_tester", side_effect=[
+                            (quality_tester, config), (timing_tester, config)]) as build, \
+                         patch.object(native, "run_rng_preserving_warmup",
+                                      side_effect=lambda solve, **kwargs: solve()) as warmup, \
+                         patch.object(native, "solve_batch", side_effect=quality_solve) as batched, \
+                         patch.object(native, "solve_one", return_value=solved_one) as single, \
+                         patch.object(helpers, "prepare_batch",
+                                      return_value={"inject": Mock()}) as prepare, \
+                         patch.object(helpers, "validate_batch", side_effect=lambda problem, tasks, *a, **k:
+                             [{"canonical_solution": list(range(2000)), "official_objective": 1}
+                              for task in tasks]), \
+                         patch("rebuttal.tsp2k.runner.validated", return_value=row(0)):
+                        sil_execute([None]*count, config,
+                            {"upstream_path": "/SIL", "checkpoint": "/model"},
+                            Mock(), Mock(), list(range(count)), writer)
+                    self.assertEqual(batched.call_count, 1)
+                    self.assertFalse(batched.call_args.kwargs["timed"])
+                    self.assertEqual(warmup.call_count, 1)
+                    self.assertEqual([c.kwargs["timed"] for c in single.call_args_list],
+                                     [False] + [True]*len(timing_indices))
+                    self.assertTrue(all(c.args[0] is timing_tester for c in single.call_args_list))
+                    self.assertEqual([len(c.args[1]) for c in prepare.call_args_list],
+                                     [count, 1] + [1]*len(timing_indices))
+                    self.assertEqual(build.call_count, 2)
+                    self.assertTrue(all(c.kwargs["rebuttal_prc_budget"] == budget
+                                        for c in build.call_args_list))
+
+    def test_sil_metadata_distinguishes_quality_and_timing_warmup(self):
+        from rebuttal.tsp2k.runner import SIL_WARMUP_POLICY
+        self.assertEqual(SIL_WARMUP_POLICY, {
+            "quality": {"batches": 0},
+            "timing": {"batches": 1, "original_instance_batch_size": 1,
+                       "rng_state_restored": True, "excluded_from_timing": True},
+        })
 
     def test_subprocess_commands_are_separate_and_budget_bound(self):
         with tempfile.TemporaryDirectory() as temp:

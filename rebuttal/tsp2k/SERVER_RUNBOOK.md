@@ -1,15 +1,20 @@
 # Server runbook — TSP2K runtime/quality curves
 
-Commands are run manually by the user in cp311_base. Source changes must first
-be reviewed, committed and pushed by the user to both rebuttal branches.
-This checkout step pins their actual remote SHAs; it cannot be run before the
-branches are published. It never moves the original project checkout.
+Commands are run manually by the user in cp311_base. The remote repository is
+xihe-820/neural-routing-baselines: GLOP/UDC is on master (reviewed base
+efcc54188586d2a52f6f053cda781b3444258833); SIL is on feat/lehd (reviewed base
+5f536663e5c0b296c42fb6f9dc8e1259d7b4ec8e). Set TSP2K_GU_SHA and TSP2K_SIL_SHA
+to the exact corrected commits reported with this patch before running Step 1.
+The SHAs are supplied explicitly rather than derived from moving branch tips.
+No remote rebuttal branches are required. This checkout step leaves the
+original checkout and existing branches in place.
 The one-time use of /inspire below is a configurable deployment example; source
 code contains no server-specific paths.
 
 ## 1. Create two reviewed server worktrees
 
 ```bash
+set -e
 conda activate cp311_base
 export CUDA_VISIBLE_DEVICES=0
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
@@ -19,9 +24,15 @@ export TSP2K_GU_ROOT="$TSP2K_SERVER_ROOT/rebuttal_worktrees/tsp2k-glop-udc"
 export TSP2K_SIL_ROOT="$TSP2K_SERVER_ROOT/rebuttal_worktrees/tsp2k-sil"
 export TSP2K_OUTPUT="$TSP2K_SERVER_ROOT/rebuttal_evidence/tsp2k"
 mkdir -p "$TSP2K_SERVER_ROOT/rebuttal_worktrees" "$TSP2K_OUTPUT"
-git -C "$TSP2K_MAIN_REPO" fetch origin rebuttal/tsp2k-glop-udc rebuttal/tsp2k-sil
-export TSP2K_GU_SHA=$(git -C "$TSP2K_MAIN_REPO" rev-parse origin/rebuttal/tsp2k-glop-udc)
-export TSP2K_SIL_SHA=$(git -C "$TSP2K_MAIN_REPO" rev-parse origin/rebuttal/tsp2k-sil)
+: "${TSP2K_GU_SHA:?Set the exact corrected master commit from the patch delivery}"
+: "${TSP2K_SIL_SHA:?Set the exact corrected feat/lehd commit from the patch delivery}"
+[[ "$TSP2K_GU_SHA" =~ ^[0-9a-f]{40}$ ]]
+[[ "$TSP2K_SIL_SHA" =~ ^[0-9a-f]{40}$ ]]
+git -C "$TSP2K_MAIN_REPO" fetch https://github.com/xihe-820/neural-routing-baselines.git master feat/lehd
+git -C "$TSP2K_MAIN_REPO" cat-file -e "$TSP2K_GU_SHA^{commit}"
+git -C "$TSP2K_MAIN_REPO" cat-file -e "$TSP2K_SIL_SHA^{commit}"
+git -C "$TSP2K_MAIN_REPO" merge-base --is-ancestor efcc54188586d2a52f6f053cda781b3444258833 "$TSP2K_GU_SHA"
+git -C "$TSP2K_MAIN_REPO" merge-base --is-ancestor 5f536663e5c0b296c42fb6f9dc8e1259d7b4ec8e "$TSP2K_SIL_SHA"
 test ! -e "$TSP2K_GU_ROOT"
 test ! -e "$TSP2K_SIL_ROOT"
 git -C "$TSP2K_MAIN_REPO" worktree add --detach "$TSP2K_GU_ROOT" "$TSP2K_GU_SHA"
@@ -135,6 +146,8 @@ python -B -m rebuttal.tsp2k.run_calibration \
 GLOP/UDC each process indices 0..63 at BS1 with continuous seeded RNG.
 SIL processes all 64 in one true author batch for quality and separately
 reinitializes its tester for BS1 timing at indices [0,1,2] for every PRC.
+Quality has no warmup, including during calibration. Only timing performs one
+RNG-preserving BS1 solve_one warmup before its measured BS1 calls.
 All points retain actual runtime; batch-quality wall time is never a timing
 column. No GPU command in this runbook has been executed by local development.
 
